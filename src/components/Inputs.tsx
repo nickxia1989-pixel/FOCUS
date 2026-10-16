@@ -47,6 +47,7 @@ export function AddBar({ list }: { list: ListId }) {
 export function ChildAdder({ parent }: { parent: Todo }) {
   const [text, setText] = useState('');
   const ref = useRef<HTMLInputElement>(null);
+  const cancelled = useRef(false);
 
   useEffect(() => {
     ref.current?.focus();
@@ -70,10 +71,14 @@ export function ChildAdder({ parent }: { parent: Todo }) {
           onKeyDown={(e) => {
             if (isComposing(e)) return;
             if (e.key === 'Enter') submit();
-            if (e.key === 'Escape') close();
+            if (e.key === 'Escape') {
+              cancelled.current = true;
+              close();
+            }
           }}
           onBlur={() => {
-            if (text.trim()) useData.getState().add(text, parent.list, parent.id);
+            // 点到别处时保留已输入的内容；按 Esc 则放弃
+            if (!cancelled.current && text.trim()) useData.getState().add(text, parent.list, parent.id);
             close();
           }}
           autoComplete="off"

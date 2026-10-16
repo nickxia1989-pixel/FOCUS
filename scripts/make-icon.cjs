@@ -1,4 +1,5 @@
-// 用 Electron 离屏渲染把 SVG 图标导出为 build/icon.png（1024×1024，打包时自动转 ico / icns）
+// 用 Electron 离屏渲染把 SVG 图标导出为 build/icon.png / icon.ico / icon.icns
+// 直接生成 ico / icns（内嵌 PNG），打包时就不用再转换
 // 用法：npm run icon
 const { app, BrowserWindow } = require('electron');
 const fs = require('node:fs');
@@ -23,6 +24,59 @@ const svg = `
         stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
+/** ICO：Vista 起支持直接内嵌 PNG */
+function buildIco(pngs) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(pngs.length, 4);
+  const entries = [];
+  let offset = 6 + 16 * pngs.length;
+  for (const { size, data } of pngs) {
+    const e = Buffer.alloc(16);
+    e.writeUInt8(size >= 256 ? 0 : size, 0);
+    e.writeUInt8(size >= 256 ? 0 : size, 1);
+    e.writeUInt8(0, 2);
+    e.writeUInt8(0, 3);
+    e.writeUInt16LE(1, 4);
+    e.writeUInt16LE(32, 6);
+    e.writeUInt32LE(data.length, 8);
+    e.writeUInt32LE(offset, 12);
+    offset += data.length;
+    entries.push(e);
+  }
+  return Buffer.concat([header, ...entries, ...pngs.map((p) => p.data)]);
+}
+
+/** ICNS：各尺寸以 PNG 块存放 */
+function buildIcns(pngBySize) {
+  const types = [
+    ['icp4', 16],
+    ['icp5', 32],
+    ['ic11', 32],
+    ['icp6', 64],
+    ['ic12', 64],
+    ['ic07', 128],
+    ['ic08', 256],
+    ['ic13', 256],
+    ['ic09', 512],
+    ['ic14', 512],
+    ['ic10', 1024],
+  ];
+  const chunks = types.map(([type, size]) => {
+    const data = pngBySize[size];
+    const head = Buffer.alloc(8);
+    head.write(type, 0, 'ascii');
+    head.writeUInt32BE(data.length + 8, 4);
+    return Buffer.concat([head, data]);
+  });
+  const body = Buffer.concat(chunks);
+  const head = Buffer.alloc(8);
+  head.write('icns', 0, 'ascii');
+  head.writeUInt32BE(body.length + 8, 4);
+  return Buffer.concat([head, body]);
+}
+
 app.disableHardwareAcceleration();
 
 app.whenReady().then(async () => {
@@ -43,9 +97,19 @@ app.whenReady().then(async () => {
   const img = await win.webContents.capturePage();
   const { width, height } = img.getSize();
   if (width !== height) throw new Error(`capture is not square: ${width}x${height}`);
-  const out = path.join(__dirname, '..', 'build', 'icon.png');
-  fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, img.resize({ width: SIZE, height: SIZE }).toPNG());
-  console.log(`icon written: ${out}`);
+  const dir = path.join(__dirname, '..', 'build');
+  fs.mkdirSync(dir, { recursive: true });
+
+  const png = {};
+  for (const s of [16, 24, 32, 48, 64, 128, 256, 512, 1024]) {
+    png[s] = s === SIZE ? img.toPNG() : img.resize({ width: s, height: s, quality: 'best' }).toPNG();
+  }
+  fs.writeFileSync(path.join(dir, 'icon.png'), png[1024]);
+  fs.writeFileSync(
+    path.join(dir, 'icon.ico'),
+    buildIco([16, 24, 32, 48, 64, 128, 256].map((size) => ({ size, data: png[size] }))),
+  );
+  fs.writeFileSync(path.join(dir, 'icon.icns'), buildIcns(png));
+  console.log(`icons written to ${dir}`);
   app.quit();
 });

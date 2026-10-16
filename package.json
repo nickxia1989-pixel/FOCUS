@@ -3,6 +3,7 @@
   "productName": "FOCUS",
   "version": "0.1.0",
   "description": "窄而高的桌面 TODO 小窗：FOCUS / INBOX / GOAL",
+  "author": "xianing",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
@@ -14,7 +15,7 @@
     "test": "vitest run",
     "icon": "electron scripts/make-icon.cjs",
     "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
+    "dist:win": "npm run build && electron-builder --win -c.electronDist=node_modules/electron/dist",
     "dist:mac": "npm run build && electron-builder --mac"
   },
   "build": {
@@ -34,7 +35,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -46,7 +47,7 @@
         "zip"
       ],
       "category": "public.app-category.productivity",
-      "icon": "build/icon.png"
+      "icon": "build/icon.icns"
     },
     "linux": {
       "target": [
