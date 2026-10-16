@@ -310,7 +310,37 @@ TinyBase 的 `MergeableStore` 给每个单元格打 HLC 时间戳、按"后写�
 | **A. Cloudflare Workers + Durable Objects** | 每个同步空间一个 Durable Object，内置 SQLite；用 WebSocket Hibernation，空闲时不计时长 | 免费档：每天 10 万次请求；收到的 WebSocket 消息按 20 条算 1 次请求，发出的消息免费；5 GB 存储。个人使用 ¥0。付费档 $5/月起 | 零运维；PWA 网页也能放在同一处 | 要绑**自己的域名**。官方不建议生产环境用 `workers.dev` 子域，这类平台子域在大陆的可达性也没有保证 |
 | **B. 香港 / 海外小 VPS** | Node + `ws` + SQLite，Caddy 自动签 HTTPS 证书 | 每月几美元；Fly.io 最小规格约 $2.19/月，另加存储卷 | 网络线路可以自己挑，可控 | 要自己维护系统更新和备份。大陆机房的服务器用域名对外提供服务需要 ICP 备案，香港 / 海外机房不需要 |
 
-**建议**：先用 A。在常用的网络环境（家里宽带、公司网络、手机流量）各测一下 WebSocket 连接的稳定性和延迟；如果不稳，同一份核心代码换成 B 的外壳。
+#### 选项 B 的具体例子：搬瓦工（BandwagonHost）
+
+搬瓦工是常见的海外 KVM VPS，可以直接当 B 用：装 Node 22+，跑同步服务（`ws` + SQLite），前面放 Caddy 自动签 HTTPS 证书。服务进程几十 MB 内存就够，最便宜的套餐也绰绰有余。
+
+**适合的理由**
+
+- 有到大陆的优化线路：洛杉矶 DC6 / DC9 等机房提供 CN2 GIA、CMIN2 等，晚高峰比普通海外 VPS 稳，WebSocket 不容易断线。
+- 机房在海外，不需要 ICP 备案，只要一个自己的域名。
+- 同步每次只传几 KB，洛杉矶到大陆约 150 ms 的延迟完全够用。没必要为此买贵很多的香港 / 日本 CN2 GIA 套餐。
+- 如果手上已经有一台搬瓦工，加一个站点就行，额外成本几乎为零。
+
+**价格（第三方资料，下单前以官网为准）**：没有查到官方的 2026 年完整价目表。
+
+- 电商套餐（CN2 GIA-E）：早先测评为 $49.99/季或 $169.99/年。
+- DC9 普通套餐：有网友整理约 $37/年，但联通方向没有优化。
+
+折合人民币：便宜的套餐每年两三百元，带全程优化线路的 CN2 GIA-E 每年一千多元，都比 Cloudflare 免费档贵。
+
+**风险与对策**
+
+1. **IP 被墙**：搬瓦工的 IP 段常被用来翻墙。如果同一台机器上跑着代理，一旦 IP 被墙，同步服务会一起断。被封期间可能不能迁移机房；换 IP 只能暂时缓解，过一阵可能再被封。
+   - 同步流量本身是普通的 HTTPS / WSS，不容易触发封锁。
+   - 稳妥做法：同步服务不要和代理放在同一个 IP 上。
+   - 或者接受偶尔断线：客户端离线照常用，恢复后自动补同步。
+2. **运维自理**：系统更新、用 systemd 开机自启、每天导出 `rows` 备份都要自己做；搬瓦工面板的快照可以作为额外一层保险。即使服务器数据丢失，任意一台设备都有完整副本，重新推上去即可。
+3. **上线前实测**：在家里宽带、公司网络、手机流量下分别测连接的稳定性和晚高峰延迟。买之前先用 traceroute 确认确实走的是 CN2 GIA（看到 AS4809 / 59.43.x.x 的跳点）。
+
+**建议**：
+
+- 已经有搬瓦工、又主要在大陆网络下使用：直接用它（B），比 Cloudflare 更可控。
+- 还没有：先用 A。在常用的网络环境（家里宽带、公司网络、手机流量）各测一下 WebSocket 连接的稳定性和延迟；如果不稳，再换成 B（例如买一台带优化线路的搬瓦工），同一份核心代码只换外壳。
 
 **备份**：每台设备本身都是完整副本，天然多份备份。服务器每天再把 `rows` 导出一份；客户端把现有的 `.bak` 扩展成保留最近 N 天的快照。
 
@@ -350,11 +380,11 @@ TinyBase 的 `MergeableStore` 给每个单元格打 HLC 时间戳、按"后写�
 
 | 项目 | 最省 | 常规 |
 | --- | --- | --- |
-| 同步服务器 | Cloudflare Workers 免费档：¥0 | Workers 付费 $5/月，或香港 / 海外 VPS 每月几美元 |
+| 同步服务器 | Cloudflare Workers 免费档：¥0 | Workers 付费 $5/月；或香港 / 海外 VPS 每月几美元，带大陆优化线路的（如搬瓦工 CN2 GIA-E）约 $170/年 |
 | 域名 | 每年几十元（视后缀而定） | 同左 |
 | iOS | PWA：¥0。免费 Apple 账号也能装 Capacitor 版，但每 7 天要重新签名 | Apple 开发者计划 $99/年（含 TestFlight；TestFlight 每个构建可用 90 天） |
 | Mac | 在自己的 Mac 上构建：¥0 | Developer ID 签名公证：包含在同一个 $99/年里 |
-| **合计** | **每年几十元** | **约 $99/年 + 域名**；如果用 VPS，每年再加几百元 |
+| **合计** | **每年几十元** | **约 $99/年 + 域名**；如果用 VPS，每年再加几百到一千多元（取决于线路） |
 
 相比之下，托管方案的付费档要贵得多：PowerSync Pro $49/月起，Supabase Pro $25/月起。个人自用阶段用不上。
 
@@ -456,6 +486,11 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 - Supabase 在其他国家被封锁的报道：https://techcrunch.com/2026/02/27/india-disrupts-access-to-popular-developer-platform-supabase-with-blocking-order/
 - PocketBase：https://github.com/pocketbase/pocketbase 、https://pocketbase.io/docs/api-realtime/
 - Fly.io 价格：https://docs.fly.io/about/pricing
+- 搬瓦工电商套餐（CN2 GIA-E）多机房测评：https://blog.wpjam.com/article/bwh-cn2gia-e/
+- 搬瓦工机房与线路列表（NodeSeek）：https://www.nodeseek.com/post-571619-1
+- 搬瓦工套餐价格讨论（NodeSeek，2026-10）：https://www.nodeseek.com/post-964865-1
+- 搬瓦工多机房测评：https://meowvps.com/blog/bwh/
+- 海外 VPS 的 IP 被墙与换 IP 讨论：https://www.v2ex.com/t/516025 、https://www.iozoom.com/client/knowledgebase/127/China-Great-Firewall-GFW-block.html
 - InstantDB 团队加入 OpenAI：https://www.instantdb.com/essays/instant_team_joins_openai
 - Convex 价格：https://www.convex.dev/pricing ；Swift 客户端：https://docs.convex.dev/client/swift
 
