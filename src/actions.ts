@@ -1,6 +1,5 @@
 // 带动画反馈的高层操作，供各组件调用
 import { burst, chime, flyTo } from './effects';
-import { sanitize } from './model';
 import { pulseTab, showToast, useData, useUi } from './store';
 import { LISTS, type ListId, type Todo } from './types';
 
@@ -77,20 +76,28 @@ export function toggleTest(todo: Todo, fromEl?: Element | null) {
   else markForTest(todo, fromEl);
 }
 
+/** 删除进回收站；提示条上可直接撤销 */
 export function deleteWithUndo(todo: Todo) {
-  const before = useData.getState().remove(todo.id);
-  const after = new Set(useData.getState().todos.map((t) => t.id));
-  const removed = before.filter((t) => !after.has(t.id));
-  const extra = removed.length > 1 ? `（含 ${removed.length - 1} 个子项）` : '';
-  showToast(`已删除「${truncate(todo.title, 14)}」${extra}`, removed);
+  const entryId = useData.getState().remove(todo.id);
+  if (!entryId) return;
+  const count = useData.getState().trash.find((e) => e.id === entryId)?.items.length ?? 1;
+  const extra = count > 1 ? `（含 ${count - 1} 个子项）` : '';
+  showToast(`已删除「${truncate(todo.title, 12)}」${extra}`, entryId);
 }
 
 export function undoDelete() {
   const { toast } = useUi.getState();
-  if (!toast?.undo) return;
-  const cur = useData.getState().todos;
-  useData.getState().restore(sanitize([...cur, ...toast.undo]));
+  if (!toast?.undoEntry) return;
+  useData.getState().restoreTrash(toast.undoEntry);
   useUi.getState().set({ toast: null });
+}
+
+/** 从回收站恢复，并提示回到了哪个列表 */
+export function restoreFromTrash(entryId: string) {
+  const list = useData.getState().restoreTrash(entryId);
+  if (!list) return;
+  pulseTab(list);
+  showToast(`已恢复到 ${listLabel(list)}`);
 }
 
 export function startAddChild(todo: Todo) {

@@ -62,6 +62,17 @@ export interface Todo {
   testing?: boolean;
 }
 
+/** 回收站里的一次删除：根条目连同它的子孙 */
+export interface TrashEntry {
+  id: string;
+  deletedAt: number;
+  rootId: string;
+  /** 删除时根条目的父项与列表，用于恢复到原处 */
+  parentId: string | null;
+  list: ListId;
+  items: Todo[];
+}
+
 export interface Prefs {
   activeList: ListId;
   sound: boolean;
@@ -73,4 +84,5 @@ export interface AppData {
   version: 1;
   todos: Todo[];
   prefs: Prefs;
+  trash: TrashEntry[];
 }

@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import * as M from './model';
 import { loadData, saveData, saveDataSync } from './platform';
-import { LIST_IDS, type AppData, type ListId, type Prefs, type Todo } from './types';
+import { purgeTrash, restoreEntry, sanitizeTrash, trashSubtree } from './trash';
+import { LIST_IDS, type AppData, type ListId, type Prefs, type Todo, type TrashEntry } from './types';
 
 const DEFAULT_PREFS: Prefs = { activeList: 'focus', sound: true, doneCollapsed: {} };
 
@@ -33,6 +34,7 @@ interface DataStore {
   dataPath: string;
   todos: Todo[];
   prefs: Prefs;
+  trash: TrashEntry[];
   init(): Promise<void>;
   setPrefs(p: Partial<Prefs>): void;
   add(title: string, list: ListId, parentId?: string | null): string | null;
@@ -42,8 +44,12 @@ interface DataStore {
   markForTest(id: string): void;
   unmarkTest(id: string): void;
   reorder(id: string, toIndex: number): void;
-  remove(id: string): Todo[];
-  restore(todos: Todo[]): void;
+  /** 删除到回收站，返回回收站条目 id */
+  remove(id: string): string | null;
+  /** 从回收站恢复，返回恢复到的列表 */
+  restoreTrash(entryId: string): ListId | null;
+  purgeTrashEntry(entryId: string): void;
+  emptyTrash(): void;
   rename(id: string, title: string): void;
   setCollapsed(id: string, collapsed: boolean): void;
 }
@@ -53,13 +59,15 @@ export const useData = create<DataStore>((set, get) => ({
   dataPath: '',
   todos: [],
   prefs: DEFAULT_PREFS,
+  trash: [],
 
   async init() {
     const raw = (await loadData()) as Partial<AppData> | null;
     if (raw && typeof raw === 'object') {
       const prefs = { ...DEFAULT_PREFS, ...(raw.prefs ?? {}) };
       if (!LIST_IDS.includes(prefs.activeList)) prefs.activeList = 'focus';
-      set({ loaded: true, todos: M.sanitize(raw.todos), prefs });
+      const trash = purgeTrash(sanitizeTrash(raw.trash), Date.now());
+      set({ loaded: true, todos: M.sanitize(raw.todos), prefs, trash });
     } else {
       set({ loaded: true, todos: seedTodos(Date.now()), prefs: DEFAULT_PREFS });
       void saveData(snapshot());
@@ -104,13 +112,27 @@ export const useData = create<DataStore>((set, get) => ({
   },
 
   remove(id) {
-    const before = get().todos;
-    set({ todos: M.deleteTodo(before, id) });
-    return before;
+    const now = Date.now();
+    const { todos, entry } = trashSubtree(get().todos, id, now, newId());
+    if (!entry) return null;
+    set({ todos, trash: purgeTrash([entry, ...get().trash], now) });
+    return entry.id;
   },
 
-  restore(todos) {
-    set({ todos });
+  restoreTrash(entryId) {
+    const entry = get().trash.find((e) => e.id === entryId);
+    if (!entry) return null;
+    const todos = restoreEntry(get().todos, entry);
+    set({ todos, trash: get().trash.filter((e) => e.id !== entryId) });
+    return todos.find((t) => t.id === entry.rootId)?.list ?? null;
+  },
+
+  purgeTrashEntry(entryId) {
+    set({ trash: get().trash.filter((e) => e.id !== entryId) });
+  },
+
+  emptyTrash() {
+    set({ trash: [] });
   },
 
   rename(id, title) {
@@ -127,13 +149,13 @@ export const useData = create<DataStore>((set, get) => ({
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 const snapshot = (): AppData => {
-  const { todos, prefs } = useData.getState();
-  return { version: 1, todos, prefs };
+  const { todos, prefs, trash } = useData.getState();
+  return { version: 1, todos, prefs, trash };
 };
 
 useData.subscribe((s, prev) => {
   if (!s.loaded || !prev.loaded) return;
-  if (s.todos === prev.todos && s.prefs === prev.prefs) return;
+  if (s.todos === prev.todos && s.prefs === prev.prefs && s.trash === prev.trash) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
@@ -159,7 +181,8 @@ export interface MenuState {
 export interface ToastState {
   key: number;
   text: string;
-  undo?: Todo[];
+  /** 可撤销的删除：对应的回收站条目 */
+  undoEntry?: string;
 }
 
 interface UiStore {
@@ -169,6 +192,8 @@ interface UiStore {
   completing: Record<string, true>;
   menu: MenuState | null;
   toast: ToastState | null;
+  /** 回收站面板是否打开 */
+  trashOpen: boolean;
   /** 页签"收到东西"的脉冲计数，变化即触发动画 */
   tabPulse: Record<ListId, number>;
   dragOverTab: ListId | null;
@@ -181,6 +206,7 @@ export const useUi = create<UiStore>((set) => ({
   completing: {},
   menu: null,
   toast: null,
+  trashOpen: false,
   tabPulse: { focus: 0, verify: 0, inbox: 0, goal: 0 },
   dragOverTab: null,
   set: (p) => set(p),
@@ -192,6 +218,6 @@ export function pulseTab(list: ListId) {
 }
 
 let toastKey = 0;
-export function showToast(text: string, undo?: Todo[]) {
-  useUi.getState().set({ toast: { key: ++toastKey, text, undo } });
+export function showToast(text: string, undoEntry?: string) {
+  useUi.getState().set({ toast: { key: ++toastKey, text, undoEntry } });
 }

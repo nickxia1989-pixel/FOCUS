@@ -4,6 +4,7 @@ import { ListView } from './components/ListView';
 import { ContextMenu, Footer, Toast } from './components/Overlays';
 import { Tabs } from './components/Tabs';
 import { TitleBar } from './components/TitleBar';
+import { TrashPanel } from './components/TrashPanel';
 import { isMac, platform } from './platform';
 import { useData, useUi } from './store';
 import { LIST_IDS } from './types';
@@ -20,14 +21,17 @@ function useShortcuts() {
       if (mod && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key) && Number(e.key) <= LIST_IDS.length) {
         e.preventDefault();
         useData.getState().setPrefs({ activeList: LIST_IDS[Number(e.key) - 1] });
+        useUi.getState().set({ trashOpen: false });
         return;
       }
       if (mod && e.key.toLowerCase() === 'n') {
         e.preventDefault();
-        document.getElementById('add-input')?.focus();
+        useUi.getState().set({ trashOpen: false });
+        // 回收站收起后输入框才可见
+        requestAnimationFrame(() => document.getElementById('add-input')?.focus());
         return;
       }
-      if (mod && e.key.toLowerCase() === 'z' && !isTyping(e) && useUi.getState().toast?.undo) {
+      if (mod && e.key.toLowerCase() === 'z' && !isTyping(e) && useUi.getState().toast?.undoEntry) {
         e.preventDefault();
         undoDelete();
       }
@@ -63,6 +67,7 @@ export default function App() {
       <Tabs />
       <ListView key={active} list={active} dir={dir} />
       <Footer />
+      <TrashPanel />
       <ContextMenu />
       <Toast />
     </div>

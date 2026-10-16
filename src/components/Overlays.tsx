@@ -133,7 +133,7 @@ export function Toast() {
           exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
         >
           <span className="toast-text">{toast.text}</span>
-          {toast.undo && (
+          {toast.undoEntry && (
             <button className="toast-undo" onClick={undoDelete}>
               <UndoIcon width={13} height={13} />
               撤销

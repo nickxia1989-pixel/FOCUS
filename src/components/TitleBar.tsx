@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, isElectron, isMac } from '../platform';
-import { useData } from '../store';
-import { CheckIcon, CloseIcon, MinimizeIcon, MoreIcon, PinIcon } from './icons';
+import { useData, useUi } from '../store';
+import { CheckIcon, CloseIcon, MinimizeIcon, MoreIcon, PinIcon, TrashIcon } from './icons';
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -20,6 +20,7 @@ export function TitleBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [version, setVersion] = useState('');
   const sound = useData((s) => s.prefs.sound);
+  const trashCount = useData((s) => s.trash.reduce((n, e) => n + e.items.length, 0));
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,6 +75,20 @@ export function TitleBar() {
           </button>
           {menuOpen && (
             <div className="menu tb-menu" role="menu">
+              <button
+                className="menu-item"
+                onClick={() => {
+                  useUi.getState().set({ trashOpen: true, menu: null, editingId: null, addingChildOf: null });
+                  setMenuOpen(false);
+                }}
+              >
+                <span className="menu-check">
+                  <TrashIcon />
+                </span>
+                回收站
+                {trashCount > 0 && <span className="menu-badge">{trashCount}</span>}
+              </button>
+              <div className="menu-sep" />
               <button
                 className="menu-item"
                 role="menuitemcheckbox"

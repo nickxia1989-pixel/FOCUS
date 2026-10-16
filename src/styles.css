@@ -111,9 +111,11 @@ textarea {
 }
 
 .app {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* ============ 标题栏 ============ */
@@ -1073,6 +1075,239 @@ body.dragging * {
   padding: 4px 10px 3px;
   font-size: 11px;
   color: var(--muted);
+}
+
+.menu-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--hover-2);
+  color: var(--text-2);
+}
+
+/* ============ 回收站（平时隐藏，从标题栏菜单进入） ============ */
+
+.trash {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  box-shadow: -16px 0 24px -14px rgba(0, 0, 0, 0.18);
+}
+
+.trash-head {
+  flex: none;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px 0 6px;
+}
+
+.trash-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.trash-count {
+  min-width: 19px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  background: var(--hover-2);
+  color: var(--text-2);
+}
+
+.trash-empty {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.trash-empty:hover {
+  background: var(--hover);
+  color: var(--danger);
+}
+
+.trash-empty.is-armed,
+.trash-purge.is-armed {
+  background: var(--danger);
+  color: #fff;
+}
+
+.trash-note {
+  flex: none;
+  margin: 0 16px 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.trash-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 8px 24px;
+}
+
+.trash-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 8px 9px 10px;
+  border-radius: 10px;
+  overflow: clip;
+  transition: background 0.15s;
+}
+
+.trash-row:hover {
+  background: var(--row-hover);
+}
+
+.trash-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.trash-item-title {
+  overflow-wrap: anywhere;
+}
+
+.trash-item-title.is-done,
+.trash-kids .is-done {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.trash-kids {
+  margin: 3px 0 0;
+  padding: 0 0 0 10px;
+  list-style: none;
+  border-left: 1.5px solid var(--tree);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.trash-kids li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-more {
+  color: var(--muted);
+}
+
+.trash-meta {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.trash-list {
+  --tab-accent: var(--c-focus);
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 16px;
+  color: var(--tab-accent);
+  background: color-mix(in srgb, var(--tab-accent) 12%, transparent);
+}
+
+.trash-list-verify {
+  --tab-accent: var(--c-verify);
+}
+.trash-list-inbox {
+  --tab-accent: var(--c-inbox);
+}
+.trash-list-goal {
+  --tab-accent: var(--c-goal);
+}
+
+.trash-parent {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trash-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.trash-restore {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 9px;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-inbox);
+  background: color-mix(in srgb, var(--c-inbox) 12%, var(--bg));
+  transition: background 0.15s, color 0.15s, transform 0.12s;
+}
+
+.trash-restore:hover {
+  background: var(--c-inbox);
+  color: #fff;
+}
+
+.trash-restore:active {
+  transform: scale(0.94);
+}
+
+.trash-purge {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.trash-purge:hover:not(.is-armed) {
+  background: var(--hover-2);
+  color: var(--danger);
 }
 
 /* ============ 提示条 ============ */
