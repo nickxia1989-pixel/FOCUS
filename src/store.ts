@@ -23,7 +23,8 @@ function seedTodos(now: number): Todo[] {
   add('点右边的 ◎ 按钮，把这条一键送进 FOCUS', 'inbox', null, 3);
   const g = add('写下一个长期目标', 'goal', null, 4);
   add('点 + 把它拆成小步骤', 'goal', g, 5);
-  add('勾选完成，体验一下完成动画 ✦', 'focus', null, 6);
+  add('做完但还要测试？点右边的烧瓶，把它送进 VERIFY 待测', 'focus', null, 6);
+  add('勾选完成，体验一下完成动画 ✦', 'focus', null, 7);
   return s;
 }
 
@@ -170,7 +171,7 @@ export const useUi = create<UiStore>((set) => ({
   completing: {},
   menu: null,
   toast: null,
-  tabPulse: { focus: 0, inbox: 0, goal: 0 },
+  tabPulse: { focus: 0, verify: 0, inbox: 0, goal: 0 },
   dragOverTab: null,
   set: (p) => set(p),
 }));

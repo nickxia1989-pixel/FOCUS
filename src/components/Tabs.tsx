@@ -1,10 +1,20 @@
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useRef } from 'react';
 import { openCount } from '../model';
+import { isMac } from '../platform';
 import { useData, useUi } from '../store';
 import { LISTS, type ListId } from '../types';
 
-function Tab({ id, label, active, count }: { id: ListId; label: string; active: boolean; count: number }) {
+interface TabProps {
+  id: ListId;
+  label: string;
+  hint: string;
+  shortcut: string;
+  active: boolean;
+  count: number;
+}
+
+function Tab({ id, label, hint, shortcut, active, count }: TabProps) {
   const pulse = useUi((s) => s.tabPulse[id]);
   const dropTarget = useUi((s) => s.dragOverTab === id);
   const ref = useRef<HTMLButtonElement>(null);
@@ -29,6 +39,7 @@ function Tab({ id, label, active, count }: { id: ListId; label: string; active: 
       data-tab-id={id}
       className={`tab ${active ? 'is-active' : ''} ${dropTarget ? 'is-drop' : ''}`}
       onClick={() => useData.getState().setPrefs({ activeList: id })}
+      title={`${label} · ${hint}（${shortcut}）`}
       role="tab"
       aria-selected={active}
     >
@@ -56,8 +67,16 @@ export function Tabs() {
   );
   return (
     <nav className="tabs" role="tablist">
-      {LISTS.map((l) => (
-        <Tab key={l.id} id={l.id} label={l.label} active={l.id === active} count={counts[l.id]} />
+      {LISTS.map((l, i) => (
+        <Tab
+          key={l.id}
+          id={l.id}
+          label={l.label}
+          hint={l.hint}
+          shortcut={`${isMac ? '⌘' : 'Ctrl+'}${i + 1}`}
+          active={l.id === active}
+          count={counts[l.id]}
+        />
       ))}
     </nav>
   );

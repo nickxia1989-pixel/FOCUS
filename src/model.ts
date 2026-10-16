@@ -1,5 +1,5 @@
 // 纯数据操作：全部返回新数组，不修改入参，方便测试与撤销
-import type { ListId, Todo } from './types';
+import { COMPLETE_TO_INBOX, LIST_IDS, type ListId, type Todo } from './types';
 
 /** 未完成在前；同状态按 order 降序（默认即创建时间新的在前） */
 export function compareTodos(a: Todo, b: Todo): number {
@@ -89,16 +89,16 @@ export function createTodo(
 
 export interface CompleteResult {
   todos: Todo[];
-  /** FOCUS 顶层项完成后会被移到 INBOX */
+  /** FOCUS / VERIFY 的顶层项完成后会被移到 INBOX */
   movedTo: ListId | null;
 }
 
-/** 标记完成：子孙一并完成；FOCUS 的顶层项完成后整棵移到 INBOX */
+/** 标记完成：子孙一并完成；FOCUS / VERIFY 的顶层项完成后整棵移到 INBOX */
 export function completeTodo(todos: Todo[], id: string, now: number): CompleteResult {
   const target = todos.find((t) => t.id === id);
   if (!target || target.done) return { todos, movedTo: null };
   const subtree = descendantIds(todos, id);
-  const moveToInbox = target.list === 'focus' && target.parentId === null;
+  const moveToInbox = COMPLETE_TO_INBOX.has(target.list) && target.parentId === null;
   const next = todos.map((t) => {
     if (t.id !== id && !subtree.has(t.id)) return t;
     const done = t.done ? t : { ...t, done: true, completedAt: now };
@@ -112,14 +112,21 @@ export function uncompleteTodo(todos: Todo[], id: string): Todo[] {
   return todos.map((t) => (t.id === id && t.done ? { ...t, done: false, completedAt: null } : t));
 }
 
-/** 移到另一个列表：子孙跟着走；子项会脱离原父项，成为目标列表的顶层项 */
+/**
+ * 移到另一个列表：子孙跟着走；子项会脱离原父项，成为目标列表的顶层项。
+ * 移进 VERIFY 即"标为待测"：该项本身回到未完成，等测完再勾。
+ */
 export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
   const target = todos.find((t) => t.id === id);
   if (!target) return todos;
   if (target.list === list && target.parentId === null) return todos;
   const subtree = descendantIds(todos, id);
+  const reopen = list === 'verify';
   return todos.map((t) => {
-    if (t.id === id) return { ...t, list, parentId: null };
+    if (t.id === id) {
+      const moved = { ...t, list, parentId: null };
+      return reopen && moved.done ? { ...moved, done: false, completedAt: null } : moved;
+    }
     if (subtree.has(t.id)) return { ...t, list };
     return t;
   });
@@ -184,7 +191,7 @@ export function startOfToday(now: number): number {
 /** 读入外部数据时做一次清洗，丢掉孤儿、修正父子不同列表 */
 export function sanitize(raw: unknown): Todo[] {
   if (!Array.isArray(raw)) return [];
-  const valid = new Set<ListId>(['focus', 'inbox', 'goal']);
+  const valid = new Set<ListId>(LIST_IDS);
   const todos: Todo[] = [];
   for (const r of raw) {
     if (!r || typeof r !== 'object') continue;

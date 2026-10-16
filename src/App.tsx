@@ -17,7 +17,7 @@ function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = isMac ? e.metaKey : e.ctrlKey;
-      if (mod && !e.shiftKey && !e.altKey && ['1', '2', '3'].includes(e.key)) {
+      if (mod && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key) && Number(e.key) <= LIST_IDS.length) {
         e.preventDefault();
         useData.getState().setPrefs({ activeList: LIST_IDS[Number(e.key) - 1] });
         return;

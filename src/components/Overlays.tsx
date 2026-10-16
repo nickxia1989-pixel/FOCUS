@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { deleteWithUndo, describeMove, moveTodoTo, startAddChild, toggleTodo, undoDelete } from '../actions';
+import { deleteWithUndo, describeMove, markForTest, moveTodoTo, startAddChild, toggleTodo, undoDelete } from '../actions';
 import { completedSince, startOfToday } from '../model';
 import { useData, useUi } from '../store';
 import { LISTS } from '../types';
@@ -77,7 +77,11 @@ export function ContextMenu() {
         const Icon = ListIcons[l.id];
         const label = l.id === todo.list ? '提升为顶层项' : describeMove(l.id);
         return (
-          <button key={l.id} className={`menu-item menu-move menu-move-${l.id}`} onClick={run(() => moveTodoTo(todo, l.id))}>
+          <button
+            key={l.id}
+            className={`menu-item menu-move menu-move-${l.id}`}
+            onClick={run(() => (l.id === 'verify' && l.id !== todo.list ? markForTest(todo) : moveTodoTo(todo, l.id)))}
+          >
             <span className="menu-check">
               <Icon />
             </span>

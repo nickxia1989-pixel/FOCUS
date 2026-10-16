@@ -1,13 +1,16 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { MouseEvent, PointerEvent } from 'react';
-import { moveTodoTo, startAddChild, toggleTodo } from '../actions';
+import { markForTest, moveTodoTo, startAddChild, toggleTodo } from '../actions';
 import { beginPointerDrag } from '../dnd';
 import { childrenOf, descendantIds, type TreeIndex } from '../model';
 import { useData, useUi } from '../store';
-import type { Todo } from '../types';
+import type { ListId, Todo } from '../types';
 import { ChildAdder, TitleEditor } from './Inputs';
-import { ChevronIcon, MoreIcon, PlusIcon, TargetIcon } from './icons';
+import { ChevronIcon, FlaskIcon, MoreIcon, PlusIcon, TargetIcon } from './icons';
 import { nodeMotion } from './motionPresets';
+
+/** 常驻的流转按钮（只给未完成的顶层项）：INBOX → FOCUS，FOCUS → 待测 */
+const FLOW_NEXT: Partial<Record<ListId, 'focus' | 'verify'>> = { inbox: 'focus', focus: 'verify' };
 
 interface Props {
   todo: Todo;
@@ -26,8 +29,10 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
 
   const checked = todo.done || completing;
   const doneKids = children.filter((c) => c.done).length;
-  const showFocusBtn = todo.list === 'inbox' && depth === 0 && !checked;
   const showChildren = (children.length > 0 && !todo.collapsed) || addingChild;
+  const flow = depth === 0 && !checked ? (FLOW_NEXT[todo.list] ?? null) : null;
+  const runFlow = (target: 'focus' | 'verify', el: Element) =>
+    target === 'verify' ? markForTest(todo, el) : moveTodoTo(todo, 'focus', el);
 
   const onPointerDown = (e: PointerEvent) => {
     if (editing || completing) return;
@@ -40,7 +45,9 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
       onReorder: (id, to) => useData.getState().reorder(id, to),
       onMoveToList: (id, list) => {
         const t = useData.getState().todos.find((x) => x.id === id);
-        if (t) moveTodoTo(t, list);
+        if (!t) return;
+        if (list === 'verify') markForTest(t);
+        else moveTodoTo(t, list);
       },
       onHoverTab: (list) => useUi.getState().set({ dragOverTab: list }),
     });
@@ -62,7 +69,7 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
     checked && 'done',
     completing && 'completing',
     menuOpen && 'menu-open',
-    showFocusBtn && 'has-focus-btn',
+    flow && 'has-flow-btn',
     editing && 'editing',
   ]
     .filter(Boolean)
@@ -99,6 +106,25 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
         {!editing && (
           <div className="row-actions-anchor">
             <div className="row-actions">
+              {todo.list === 'verify' ? (
+                <button
+                  className="icon-btn icon-btn-focus"
+                  title="没测过，退回 FOCUS"
+                  onClick={(e) => moveTodoTo(todo, 'focus', e.currentTarget)}
+                >
+                  <TargetIcon />
+                </button>
+              ) : (
+                flow !== 'verify' && (
+                  <button
+                    className="icon-btn icon-btn-verify"
+                    title="做完了，标为待测"
+                    onClick={(e) => markForTest(todo, e.currentTarget)}
+                  >
+                    <FlaskIcon />
+                  </button>
+                )
+              )}
               <button className="icon-btn" title="添加子任务" onClick={() => startAddChild(todo)}>
                 <PlusIcon />
               </button>
@@ -120,10 +146,14 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
           </button>
         )}
 
-        {showFocusBtn && (
-          <button className="to-focus" title="移到 FOCUS" onClick={(e) => moveTodoTo(todo, 'focus', e.currentTarget)}>
-            <TargetIcon width={14} height={14} />
-            <span className="to-focus-label">FOCUS</span>
+        {flow && (
+          <button
+            className={`flow-btn flow-${flow}`}
+            title={flow === 'focus' ? '移到 FOCUS' : '做完了，标为待测'}
+            onClick={(e) => runFlow(flow, e.currentTarget)}
+          >
+            {flow === 'focus' ? <TargetIcon width={14} height={14} /> : <FlaskIcon width={14} height={14} />}
+            <span className="flow-label">{flow === 'focus' ? 'FOCUS' : '待测'}</span>
           </button>
         )}
       </div>

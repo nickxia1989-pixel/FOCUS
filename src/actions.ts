@@ -61,6 +61,13 @@ export function moveTodoTo(todo: Todo, list: ListId, fromEl?: Element | null) {
   else pulseTab(list);
 }
 
+/** 做完但还要测：小小庆祝一下，然后飞进 VERIFY */
+export function markForTest(todo: Todo, fromEl?: Element | null) {
+  const at = centerOf(fromEl) ?? rowAnchor(todo.id);
+  if (at) burst(at.x, at.y, accentOf('verify'));
+  moveTodoTo(todo, 'verify', fromEl);
+}
+
 export function deleteWithUndo(todo: Todo) {
   const before = useData.getState().remove(todo.id);
   const after = new Set(useData.getState().todos.map((t) => t.id));
@@ -83,7 +90,7 @@ export function startAddChild(todo: Todo) {
 }
 
 export function describeMove(list: ListId) {
-  return `移到 ${listLabel(list)}`;
+  return list === 'verify' ? '标为待测' : `移到 ${listLabel(list)}`;
 }
 
 function truncate(s: string, n: number) {

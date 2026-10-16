@@ -147,6 +147,60 @@ describe('FOCUS 完成规则', () => {
   });
 });
 
+describe('VERIFY 待测规则', () => {
+  it('标为待测：整棵移到 VERIFY，该项回到未完成，子项状态不变', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'focus');
+    s = add(s, 'c1', 'focus', 'p');
+    s = completeTodo(s, 'c1', 5).todos;
+    s = moveTodo(s, 'p', 'verify');
+    expect(titles(s, 'verify')).toEqual(['p']);
+    expect(s.find((t) => t.id === 'c1')).toMatchObject({ list: 'verify', parentId: 'p', done: true });
+    expect(openCount(s, 'focus')).toBe(0);
+  });
+
+  it('已完成的项标为待测后变回未完成', () => {
+    let s: Todo[] = [];
+    s = add(s, 'a', 'inbox');
+    s = completeTodo(s, 'a', 5).todos;
+    s = moveTodo(s, 'a', 'verify');
+    expect(s[0]).toMatchObject({ list: 'verify', done: false, completedAt: null });
+  });
+
+  it('子项单独标为待测会脱离父项', () => {
+    let s: Todo[] = [];
+    s = add(s, 'g', 'goal');
+    s = add(s, 'step', 'goal', 'g');
+    s = moveTodo(s, 'step', 'verify');
+    expect(titles(s, 'verify')).toEqual(['step']);
+    expect(childrenOf(buildIndex(s), 'g')).toEqual([]);
+  });
+
+  it('VERIFY 顶层项测完勾掉后整棵进入 INBOX 已完成', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'verify');
+    s = add(s, 'c1', 'verify', 'p');
+    const r = completeTodo(s, 'p', 50);
+    expect(r.movedTo).toBe('inbox');
+    expect(r.todos.every((t) => t.list === 'inbox' && t.done)).toBe(true);
+    expect(titles(r.todos, 'inbox')).toEqual(['p']);
+  });
+
+  it('VERIFY 里的子项勾掉后留在父项下', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'verify');
+    s = add(s, 'c1', 'verify', 'p');
+    const r = completeTodo(s, 'c1', 50);
+    expect(r.movedTo).toBeNull();
+    expect(r.todos.find((t) => t.id === 'c1')).toMatchObject({ list: 'verify', done: true });
+  });
+
+  it('旧数据里的 verify 列表能被正常读入', () => {
+    const s = sanitize([{ id: 'v', title: 'v', list: 'verify', parentId: null, createdAt: 1 }]);
+    expect(s[0].list).toBe('verify');
+  });
+});
+
 describe('sanitize', () => {
   it('修复孤儿、环和父子列表不一致', () => {
     const raw = [

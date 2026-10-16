@@ -5,6 +5,7 @@
     'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
 
   --c-focus: #f2622e;
+  --c-verify: #0f9e8e;
   --c-inbox: #2f7bf5;
   --c-goal: #8657f0;
   --accent: var(--c-focus);
@@ -30,6 +31,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --c-focus: #ff7a4a;
+    --c-verify: #2fc4b0;
     --c-inbox: #5896ff;
     --c-goal: #a17dff;
 
@@ -53,6 +55,9 @@
 
 :root[data-list='focus'] {
   --accent: var(--c-focus);
+}
+:root[data-list='verify'] {
+  --accent: var(--c-verify);
 }
 :root[data-list='inbox'] {
   --accent: var(--c-inbox);
@@ -196,28 +201,49 @@ textarea {
 .tabs {
   flex: none;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 2px;
-  padding: 0 8px;
+  padding: 0 6px;
   border-bottom: 1px solid var(--line);
 }
 
 .tab {
   --tab-accent: var(--c-focus);
   position: relative;
+  min-width: 0;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   border-radius: 9px 9px 0 0;
   color: var(--muted);
   font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
   transition: color 0.15s, background 0.15s;
 }
 
+/* 窗口拉得很窄时收紧页签 */
+@media (max-width: 335px) {
+  .tabs {
+    padding: 0 4px;
+  }
+  .tab {
+    gap: 3px;
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+  }
+  .tab-count {
+    min-width: 16px !important;
+    padding: 0 4px !important;
+  }
+}
+
+.tab[data-tab-id='verify'] {
+  --tab-accent: var(--c-verify);
+}
 .tab[data-tab-id='inbox'] {
   --tab-accent: var(--c-inbox);
 }
@@ -424,7 +450,7 @@ body.dragging .tab.is-drop .tab-count {
   background: var(--row-hover);
 }
 
-.row.has-focus-btn {
+.row.has-flow-btn {
   padding-right: 42px;
 }
 
@@ -624,8 +650,30 @@ body.dragging .row-actions {
   color: var(--text);
 }
 
-/* INBOX → FOCUS 一键按钮：常驻，悬停时展开文字 */
-.to-focus {
+/* 悬停里的"标为待测"/"退回 FOCUS"按钮带上目标列表的颜色 */
+.icon-btn-verify {
+  --flow: var(--c-verify);
+}
+
+.icon-btn-focus {
+  --flow: var(--c-focus);
+}
+
+.icon-btn-verify,
+.icon-btn-focus,
+.icon-btn-verify:hover,
+.icon-btn-focus:hover {
+  color: var(--flow);
+}
+
+.icon-btn-verify:hover,
+.icon-btn-focus:hover {
+  background: color-mix(in srgb, var(--flow) 14%, transparent);
+}
+
+/* 常驻的流转按钮（INBOX → FOCUS、FOCUS → 待测），悬停时展开文字 */
+.flow-btn {
+  --flow: var(--c-focus);
   position: absolute;
   top: 4px;
   right: 6px;
@@ -637,33 +685,39 @@ body.dragging .row-actions {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: var(--c-focus);
-  background: color-mix(in srgb, var(--c-focus) 13%, var(--bg));
+  color: var(--flow);
+  background: color-mix(in srgb, var(--flow) 13%, var(--bg));
   font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
   transition: background 0.15s, color 0.15s, transform 0.12s, box-shadow 0.15s;
 }
 
-.to-focus-label {
+.flow-verify {
+  --flow: var(--c-verify);
+  letter-spacing: 0.02em;
+}
+
+.flow-label {
   max-width: 0;
   overflow: hidden;
   opacity: 0;
+  white-space: nowrap;
   transition: max-width 0.22s ease, opacity 0.18s;
 }
 
-.to-focus:hover {
-  background: var(--c-focus);
+.flow-btn:hover {
+  background: var(--flow);
   color: #fff;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--c-focus) 35%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--flow) 35%, transparent);
 }
 
-.to-focus:hover .to-focus-label {
+.flow-btn:hover .flow-label {
   max-width: 50px;
   opacity: 1;
 }
 
-.to-focus:active {
+.flow-btn:active {
   transform: scale(0.93);
 }
 
@@ -816,11 +870,11 @@ body.dragging * {
 
 .drag-ghost::before,
 .drag-ghost .row-actions,
-.drag-ghost .to-focus {
+.drag-ghost .flow-btn {
   display: none;
 }
 
-.drag-ghost.has-focus-btn {
+.drag-ghost.has-flow-btn {
   padding-right: 12px;
 }
 
@@ -955,6 +1009,9 @@ body.dragging * {
 
 .menu-move-focus .menu-check {
   color: var(--c-focus);
+}
+.menu-move-verify .menu-check {
+  color: var(--c-verify);
 }
 .menu-move-inbox .menu-check {
   color: var(--c-inbox);

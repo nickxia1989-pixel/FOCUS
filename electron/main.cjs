@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const isMac = process.platform === 'darwin';
 
-const DEFAULT_SIZE = { width: 340, height: 640 };
+const DEFAULT_SIZE = { width: 360, height: 660 };
 
 // 可用环境变量指定数据目录（测试或便携使用）；默认在系统的应用数据目录
 if (process.env.FOCUS_USER_DATA) app.setPath('userData', path.resolve(process.env.FOCUS_USER_DATA));
@@ -105,7 +105,7 @@ function createWindow() {
     height: b.height || DEFAULT_SIZE.height,
     x: b.x,
     y: b.y,
-    minWidth: 280,
+    minWidth: 300,
     minHeight: 420,
     title: 'FOCUS',
     show: false,

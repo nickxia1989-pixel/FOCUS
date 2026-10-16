@@ -50,7 +50,15 @@ export const FlagIcon = (p: P) => (
   </svg>
 );
 
-export const ListIcons = { focus: TargetIcon, inbox: InboxIcon, goal: FlagIcon };
+/** 烧瓶：代表待测 */
+export const FlaskIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5.8 2.5h4.4M6.6 2.6v3.7L3.2 12a1.1 1.1 0 0 0 .95 1.6h7.7a1.1 1.1 0 0 0 .95-1.6L9.4 6.3V2.6" />
+    <path d="M4.6 9.6h6.8" />
+  </svg>
+);
+
+export const ListIcons = { focus: TargetIcon, verify: FlaskIcon, inbox: InboxIcon, goal: FlagIcon };
 
 export const ChevronIcon = (p: P) => (
   <svg {...base(p)}>
