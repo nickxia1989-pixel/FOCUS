@@ -1,10 +1,10 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { deleteWithUndo, describeMove, markForTest, moveTodoTo, startAddChild, toggleTodo, undoDelete } from '../actions';
+import { deleteWithUndo, describeMove, moveTodoTo, startAddChild, toggleTest, toggleTodo, undoDelete } from '../actions';
 import { completedSince, startOfToday } from '../model';
 import { useData, useUi } from '../store';
 import { LISTS } from '../types';
-import { CheckIcon, EditIcon, ListIcons, SparkIcon, SubtaskIcon, TrashIcon, UndoIcon } from './icons';
+import { CheckIcon, EditIcon, FlaskIcon, ListIcons, SparkIcon, SubtaskIcon, TrashIcon, UndoIcon } from './icons';
 
 /** 条目的右键 / ⋯ 菜单 */
 export function ContextMenu() {
@@ -60,6 +60,15 @@ export function ContextMenu() {
         </span>
         {todo.done ? '标记为未完成' : '完成'}
       </button>
+      {/* VERIFY 的顶层项本身就是待测，不再提供 */}
+      {!(todo.parentId === null && todo.list === 'verify') && (
+        <button className="menu-item menu-move-verify" onClick={run(() => toggleTest(todo))}>
+          <span className="menu-check">
+            <FlaskIcon />
+          </span>
+          {todo.testing && !todo.done ? '取消待测' : todo.parentId ? '标为待测（留在原处）' : '标为待测'}
+        </button>
+      )}
       <button className="menu-item" onClick={run(() => useUi.getState().set({ editingId: todo.id }))}>
         <span className="menu-check">
           <EditIcon />
@@ -73,14 +82,15 @@ export function ContextMenu() {
         添加子任务
       </button>
       <div className="menu-sep" />
-      {LISTS.filter((l) => l.id !== todo.list || todo.parentId !== null).map((l) => {
+      {/* 移进 VERIFY 统一走上面的"标为待测"；同列表的子项可提升为顶层 */}
+      {LISTS.filter((l) => (l.id === todo.list ? todo.parentId !== null : l.id !== 'verify')).map((l) => {
         const Icon = ListIcons[l.id];
         const label = l.id === todo.list ? '提升为顶层项' : describeMove(l.id);
         return (
           <button
             key={l.id}
             className={`menu-item menu-move menu-move-${l.id}`}
-            onClick={run(() => (l.id === 'verify' && l.id !== todo.list ? markForTest(todo) : moveTodoTo(todo, l.id)))}
+            onClick={run(() => moveTodoTo(todo, l.id))}
           >
             <span className="menu-check">
               <Icon />

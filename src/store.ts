@@ -39,6 +39,8 @@ interface DataStore {
   complete(id: string): ListId | null;
   uncomplete(id: string): void;
   move(id: string, list: ListId): void;
+  markForTest(id: string): void;
+  unmarkTest(id: string): void;
   reorder(id: string, toIndex: number): void;
   remove(id: string): Todo[];
   restore(todos: Todo[]): void;
@@ -87,6 +89,14 @@ export const useData = create<DataStore>((set, get) => ({
 
   move(id, list) {
     set({ todos: M.moveTodo(get().todos, id, list) });
+  },
+
+  markForTest(id) {
+    set({ todos: M.markForTest(get().todos, id) });
+  },
+
+  unmarkTest(id) {
+    set({ todos: M.unmarkTest(get().todos, id) });
   },
 
   reorder(id, toIndex) {

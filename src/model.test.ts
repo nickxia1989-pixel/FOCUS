@@ -5,12 +5,14 @@ import {
   completeTodo,
   createTodo,
   deleteTodo,
+  markForTest,
   moveTodo,
   openCount,
   reorderTodo,
   rootsOf,
   sanitize,
   uncompleteTodo,
+  unmarkTest,
 } from './model';
 import type { ListId, Todo } from './types';
 
@@ -167,13 +169,48 @@ describe('VERIFY 待测规则', () => {
     expect(s[0]).toMatchObject({ list: 'verify', done: false, completedAt: null });
   });
 
-  it('子项单独标为待测会脱离父项', () => {
+  it('顶层项标为待测：移进 VERIFY', () => {
     let s: Todo[] = [];
-    s = add(s, 'g', 'goal');
-    s = add(s, 'step', 'goal', 'g');
-    s = moveTodo(s, 'step', 'verify');
-    expect(titles(s, 'verify')).toEqual(['step']);
-    expect(childrenOf(buildIndex(s), 'g')).toEqual([]);
+    s = add(s, 'p', 'focus');
+    s = markForTest(s, 'p');
+    expect(titles(s, 'verify')).toEqual(['p']);
+    expect(s[0].testing).toBeFalsy();
+  });
+
+  it('子项标为待测：留在父项下、不换页签，只打标记', () => {
+    let s: Todo[] = [];
+    s = add(s, 'g', 'focus');
+    s = add(s, 'step', 'focus', 'g');
+    s = completeTodo(s, 'step', 5).todos;
+    s = markForTest(s, 'step');
+    expect(s.find((t) => t.id === 'step')).toMatchObject({
+      list: 'focus',
+      parentId: 'g',
+      testing: true,
+      done: false,
+    });
+    expect(titles(s, 'verify')).toEqual([]);
+    s = unmarkTest(s, 'step');
+    expect(s.find((t) => t.id === 'step')!.testing).toBe(false);
+  });
+
+  it('待测子项测完勾掉：清除标记、仍留在原处', () => {
+    let s: Todo[] = [];
+    s = add(s, 'g', 'focus');
+    s = add(s, 'step', 'focus', 'g');
+    s = markForTest(s, 'step');
+    const r = completeTodo(s, 'step', 9);
+    expect(r.movedTo).toBeNull();
+    expect(r.todos.find((t) => t.id === 'step')).toMatchObject({ list: 'focus', parentId: 'g', done: true, testing: false });
+  });
+
+  it('父项带着待测子项进 VERIFY 时，子项的标记保留', () => {
+    let s: Todo[] = [];
+    s = add(s, 'g', 'focus');
+    s = add(s, 'step', 'focus', 'g');
+    s = markForTest(s, 'step');
+    s = markForTest(s, 'g');
+    expect(s.find((t) => t.id === 'step')).toMatchObject({ list: 'verify', parentId: 'g', testing: true });
   });
 
   it('VERIFY 顶层项测完勾掉后整棵进入 INBOX 已完成', () => {

@@ -667,8 +667,46 @@ body.dragging .row-actions {
 }
 
 .icon-btn-verify:hover,
-.icon-btn-focus:hover {
+.icon-btn-focus:hover,
+.icon-btn-verify.is-on {
   background: color-mix(in srgb, var(--flow) 14%, transparent);
+}
+
+/* 子项原地待测：勾选框变成青绿虚线圈，标题后挂一个"待测"标签 */
+.row.testing .check {
+  border-color: var(--c-verify);
+  border-style: dashed;
+}
+
+.test-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 6px 0 4px;
+  border-radius: 9px;
+  vertical-align: 1px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--c-verify);
+  background: color-mix(in srgb, var(--c-verify) 13%, var(--bg));
+  animation: tag-in 0.35s cubic-bezier(0.3, 1.5, 0.5, 1);
+  transition: background 0.15s, color 0.15s;
+}
+
+.test-tag:hover {
+  background: var(--c-verify);
+  color: #fff;
+}
+
+@keyframes tag-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
 }
 
 /* 常驻的流转按钮（INBOX → FOCUS、FOCUS → 待测），悬停时展开文字 */

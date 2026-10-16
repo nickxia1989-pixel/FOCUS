@@ -61,11 +61,20 @@ export function moveTodoTo(todo: Todo, list: ListId, fromEl?: Element | null) {
   else pulseTab(list);
 }
 
-/** 做完但还要测：小小庆祝一下，然后飞进 VERIFY */
+/**
+ * 做完但还要测：小小庆祝一下。
+ * 顶层项飞进 VERIFY；子项留在父项下原地打上待测标记，不换页签。
+ */
 export function markForTest(todo: Todo, fromEl?: Element | null) {
   const at = centerOf(fromEl) ?? rowAnchor(todo.id);
   if (at) burst(at.x, at.y, accentOf('verify'));
-  moveTodoTo(todo, 'verify', fromEl);
+  if (todo.parentId === null) moveTodoTo(todo, 'verify', fromEl);
+  else useData.getState().markForTest(todo.id);
+}
+
+export function toggleTest(todo: Todo, fromEl?: Element | null) {
+  if (todo.testing) useData.getState().unmarkTest(todo.id);
+  else markForTest(todo, fromEl);
 }
 
 export function deleteWithUndo(todo: Todo) {
@@ -90,7 +99,7 @@ export function startAddChild(todo: Todo) {
 }
 
 export function describeMove(list: ListId) {
-  return list === 'verify' ? '标为待测' : `移到 ${listLabel(list)}`;
+  return `移到 ${listLabel(list)}`;
 }
 
 function truncate(s: string, n: number) {

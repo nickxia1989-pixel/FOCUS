@@ -58,6 +58,8 @@ export interface Todo {
   order: number;
   /** 子 TODO 是否折叠 */
   collapsed?: boolean;
+  /** 原地标为待测（子项用：留在父项下，不换页签；顶层项标待测则直接进 VERIFY） */
+  testing?: boolean;
 }
 
 export interface Prefs {

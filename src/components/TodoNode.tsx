@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { MouseEvent, PointerEvent } from 'react';
-import { markForTest, moveTodoTo, startAddChild, toggleTodo } from '../actions';
+import { markForTest, moveTodoTo, startAddChild, toggleTest, toggleTodo } from '../actions';
 import { beginPointerDrag } from '../dnd';
 import { childrenOf, descendantIds, type TreeIndex } from '../model';
 import { useData, useUi } from '../store';
@@ -28,6 +28,8 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
   const menuOpen = useUi((s) => s.menu?.todoId === todo.id);
 
   const checked = todo.done || completing;
+  const testing = !!todo.testing && !checked;
+  const isVerifyRoot = depth === 0 && todo.list === 'verify';
   const doneKids = children.filter((c) => c.done).length;
   const showChildren = (children.length > 0 && !todo.collapsed) || addingChild;
   const flow = depth === 0 && !checked ? (FLOW_NEXT[todo.list] ?? null) : null;
@@ -46,7 +48,8 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
       onMoveToList: (id, list) => {
         const t = useData.getState().todos.find((x) => x.id === id);
         if (!t) return;
-        if (list === 'verify') markForTest(t);
+        // 拖到页签是明确的"换页签"：子项也照搬过去；顶层项进 VERIFY 走标待测的动效
+        if (list === 'verify' && t.parentId === null) markForTest(t);
         else moveTodoTo(t, list);
       },
       onHoverTab: (list) => useUi.getState().set({ dragOverTab: list }),
@@ -69,6 +72,7 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
     checked && 'done',
     completing && 'completing',
     menuOpen && 'menu-open',
+    testing && 'testing',
     flow && 'has-flow-btn',
     editing && 'editing',
   ]
@@ -100,13 +104,19 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
 
         <div className="title">
           {editing ? <TitleEditor todo={todo} /> : <span className="title-text">{todo.title}</span>}
+          {testing && !editing && (
+            <button className="test-tag" title="待测中，点击取消待测" onClick={() => toggleTest(todo)}>
+              <FlaskIcon width={11} height={11} />
+              待测
+            </button>
+          )}
         </div>
 
         {/* 零宽锚点：悬停按钮浮在标题末尾，不遮挡右侧的进度胶囊 */}
         {!editing && (
           <div className="row-actions-anchor">
             <div className="row-actions">
-              {todo.list === 'verify' ? (
+              {isVerifyRoot ? (
                 <button
                   className="icon-btn icon-btn-focus"
                   title="没测过，退回 FOCUS"
@@ -117,9 +127,9 @@ export function TodoNode({ todo, depth, index, siblings }: Props) {
               ) : (
                 flow !== 'verify' && (
                   <button
-                    className="icon-btn icon-btn-verify"
-                    title="做完了，标为待测"
-                    onClick={(e) => markForTest(todo, e.currentTarget)}
+                    className={`icon-btn icon-btn-verify ${testing ? 'is-on' : ''}`}
+                    title={testing ? '取消待测' : depth > 0 ? '标为待测（留在原处）' : '做完了，标为待测'}
+                    onClick={(e) => toggleTest(todo, e.currentTarget)}
                   >
                     <FlaskIcon />
                   </button>

@@ -93,7 +93,10 @@ export interface CompleteResult {
   movedTo: ListId | null;
 }
 
-/** 标记完成：子孙一并完成；FOCUS / VERIFY 的顶层项完成后整棵移到 INBOX */
+/**
+ * 标记完成：子孙一并完成，待测标记随之清除。
+ * 只有 FOCUS / VERIFY 的顶层项完成后会整棵移到 INBOX；子项完成永远留在原处。
+ */
 export function completeTodo(todos: Todo[], id: string, now: number): CompleteResult {
   const target = todos.find((t) => t.id === id);
   if (!target || target.done) return { todos, movedTo: null };
@@ -101,10 +104,27 @@ export function completeTodo(todos: Todo[], id: string, now: number): CompleteRe
   const moveToInbox = COMPLETE_TO_INBOX.has(target.list) && target.parentId === null;
   const next = todos.map((t) => {
     if (t.id !== id && !subtree.has(t.id)) return t;
-    const done = t.done ? t : { ...t, done: true, completedAt: now };
+    const done = t.done ? t : { ...t, done: true, completedAt: now, testing: false };
     return moveToInbox ? { ...done, list: 'inbox' as ListId } : done;
   });
   return { todos: next, movedTo: moveToInbox ? 'inbox' : null };
+}
+
+/**
+ * 标为待测：
+ * - 顶层项：整棵移进 VERIFY（见 moveTodo）
+ * - 子项：留在父项下、不换页签，只打上待测标记
+ * 两种情况下该项本身都回到未完成，测完再勾。
+ */
+export function markForTest(todos: Todo[], id: string): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target) return todos;
+  if (target.parentId === null) return moveTodo(todos, id, 'verify');
+  return todos.map((t) => (t.id === id ? { ...t, testing: true, done: false, completedAt: null } : t));
+}
+
+export function unmarkTest(todos: Todo[], id: string): Todo[] {
+  return todos.map((t) => (t.id === id && t.testing ? { ...t, testing: false } : t));
 }
 
 /** 取消完成：只影响自身 */
@@ -114,18 +134,18 @@ export function uncompleteTodo(todos: Todo[], id: string): Todo[] {
 
 /**
  * 移到另一个列表：子孙跟着走；子项会脱离原父项，成为目标列表的顶层项。
- * 移进 VERIFY 即"标为待测"：该项本身回到未完成，等测完再勾。
+ * 移进 VERIFY 的顶层项本身就是待测：回到未完成，原地待测标记不再需要。
  */
 export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
   const target = todos.find((t) => t.id === id);
   if (!target) return todos;
   if (target.list === list && target.parentId === null) return todos;
   const subtree = descendantIds(todos, id);
-  const reopen = list === 'verify';
+  const intoVerify = list === 'verify';
   return todos.map((t) => {
     if (t.id === id) {
       const moved = { ...t, list, parentId: null };
-      return reopen && moved.done ? { ...moved, done: false, completedAt: null } : moved;
+      return intoVerify ? { ...moved, done: false, completedAt: null, testing: false } : moved;
     }
     if (subtree.has(t.id)) return { ...t, list };
     return t;
@@ -208,6 +228,7 @@ export function sanitize(raw: unknown): Todo[] {
       completedAt: typeof t.completedAt === 'number' ? t.completedAt : null,
       order: typeof t.order === 'number' ? t.order : createdAt,
       collapsed: !!t.collapsed,
+      testing: !!t.testing && !t.done,
     });
   }
   const byId = new Map(todos.map((t) => [t.id, t]));
