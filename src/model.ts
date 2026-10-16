@@ -1,0 +1,226 @@
+// 纯数据操作：全部返回新数组，不修改入参，方便测试与撤销
+import type { ListId, Todo } from './types';
+
+/** 未完成在前；同状态按 order 降序（默认即创建时间新的在前） */
+export function compareTodos(a: Todo, b: Todo): number {
+  return (
+    Number(a.done) - Number(b.done) ||
+    b.order - a.order ||
+    b.createdAt - a.createdAt ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  );
+}
+
+const rootKey = (list: ListId) => `root:${list}`;
+
+/** 父 id（或列表根）→ 已排好序的子项 */
+export type TreeIndex = Map<string, Todo[]>;
+
+export function buildIndex(todos: Todo[]): TreeIndex {
+  const index: TreeIndex = new Map();
+  for (const t of todos) {
+    const key = t.parentId ?? rootKey(t.list);
+    const arr = index.get(key);
+    if (arr) arr.push(t);
+    else index.set(key, [t]);
+  }
+  for (const arr of index.values()) arr.sort(compareTodos);
+  return index;
+}
+
+export function rootsOf(index: TreeIndex, list: ListId): Todo[] {
+  return index.get(rootKey(list)) ?? [];
+}
+
+export function childrenOf(index: TreeIndex, id: string): Todo[] {
+  return index.get(id) ?? [];
+}
+
+/** 与 todo 处于同一层级（同父、同列表）的兄弟，含自身，已排序 */
+export function siblingsOf(todos: Todo[], todo: Todo): Todo[] {
+  return todos
+    .filter((t) => t.parentId === todo.parentId && (todo.parentId !== null || t.list === todo.list))
+    .sort(compareTodos);
+}
+
+export function descendantIds(todos: Todo[], id: string): Set<string> {
+  const byParent = new Map<string, string[]>();
+  for (const t of todos) {
+    if (!t.parentId) continue;
+    const arr = byParent.get(t.parentId);
+    if (arr) arr.push(t.id);
+    else byParent.set(t.parentId, [t.id]);
+  }
+  const out = new Set<string>();
+  const stack = [...(byParent.get(id) ?? [])];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    if (out.has(cur)) continue;
+    out.add(cur);
+    stack.push(...(byParent.get(cur) ?? []));
+  }
+  return out;
+}
+
+export function createTodo(
+  todos: Todo[],
+  input: { id: string; title: string; list: ListId; parentId?: string | null; now: number },
+): Todo[] {
+  const parent = input.parentId ? todos.find((t) => t.id === input.parentId) : undefined;
+  const list = parent ? parent.list : input.list;
+  // order 至少比同层现有项都大，保证新建项排在最前
+  const siblings = todos.filter((t) => t.parentId === (parent?.id ?? null) && (parent || t.list === list));
+  const maxOrder = siblings.reduce((m, t) => Math.max(m, t.order), -Infinity);
+  const todo: Todo = {
+    id: input.id,
+    title: input.title.trim(),
+    done: false,
+    list,
+    parentId: parent?.id ?? null,
+    createdAt: input.now,
+    completedAt: null,
+    order: Math.max(input.now, maxOrder + 1),
+  };
+  let next = [...todos, todo];
+  // 给折叠着的父项加子项时自动展开，免得新项"消失"
+  if (parent?.collapsed) next = next.map((t) => (t.id === parent.id ? { ...t, collapsed: false } : t));
+  return next;
+}
+
+export interface CompleteResult {
+  todos: Todo[];
+  /** FOCUS 顶层项完成后会被移到 INBOX */
+  movedTo: ListId | null;
+}
+
+/** 标记完成：子孙一并完成；FOCUS 的顶层项完成后整棵移到 INBOX */
+export function completeTodo(todos: Todo[], id: string, now: number): CompleteResult {
+  const target = todos.find((t) => t.id === id);
+  if (!target || target.done) return { todos, movedTo: null };
+  const subtree = descendantIds(todos, id);
+  const moveToInbox = target.list === 'focus' && target.parentId === null;
+  const next = todos.map((t) => {
+    if (t.id !== id && !subtree.has(t.id)) return t;
+    const done = t.done ? t : { ...t, done: true, completedAt: now };
+    return moveToInbox ? { ...done, list: 'inbox' as ListId } : done;
+  });
+  return { todos: next, movedTo: moveToInbox ? 'inbox' : null };
+}
+
+/** 取消完成：只影响自身 */
+export function uncompleteTodo(todos: Todo[], id: string): Todo[] {
+  return todos.map((t) => (t.id === id && t.done ? { ...t, done: false, completedAt: null } : t));
+}
+
+/** 移到另一个列表：子孙跟着走；子项会脱离原父项，成为目标列表的顶层项 */
+export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target) return todos;
+  if (target.list === list && target.parentId === null) return todos;
+  const subtree = descendantIds(todos, id);
+  return todos.map((t) => {
+    if (t.id === id) return { ...t, list, parentId: null };
+    if (subtree.has(t.id)) return { ...t, list };
+    return t;
+  });
+}
+
+/**
+ * 同层、同完成状态内的手动排序。
+ * toIndex 是把该项从组里拿掉之后的插入位置。
+ * 只在组内重新分配原有的 order 值，不影响其它分组。
+ */
+export function reorderTodo(todos: Todo[], id: string, toIndex: number): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target) return todos;
+  const group = siblingsOf(todos, target).filter((t) => t.done === target.done);
+  const from = group.findIndex((t) => t.id === id);
+  const rest = group.filter((t) => t.id !== id);
+  const to = Math.max(0, Math.min(toIndex, rest.length));
+  if (to === from) return todos;
+  const arranged = [...rest.slice(0, to), target, ...rest.slice(to)];
+  const orders = group.map((t) => t.order).sort((a, b) => b - a);
+  // 保证严格递减，否则相同 order 会让排序结果不稳定
+  for (let i = 1; i < orders.length; i++) {
+    if (orders[i] >= orders[i - 1]) orders[i] = orders[i - 1] - 0.001;
+  }
+  const newOrder = new Map(arranged.map((t, i) => [t.id, orders[i]]));
+  return todos.map((t) => (newOrder.has(t.id) && newOrder.get(t.id) !== t.order ? { ...t, order: newOrder.get(t.id)! } : t));
+}
+
+export function deleteTodo(todos: Todo[], id: string): Todo[] {
+  const subtree = descendantIds(todos, id);
+  return todos.filter((t) => t.id !== id && !subtree.has(t.id));
+}
+
+export function renameTodo(todos: Todo[], id: string, title: string): Todo[] {
+  const clean = title.trim();
+  if (!clean) return todos;
+  return todos.map((t) => (t.id === id && t.title !== clean ? { ...t, title: clean } : t));
+}
+
+export function setCollapsed(todos: Todo[], id: string, collapsed: boolean): Todo[] {
+  return todos.map((t) => (t.id === id ? { ...t, collapsed } : t));
+}
+
+export function openCount(todos: Todo[], list: ListId): number {
+  let n = 0;
+  for (const t of todos) if (t.list === list && !t.done) n++;
+  return n;
+}
+
+export function completedSince(todos: Todo[], since: number): number {
+  let n = 0;
+  for (const t of todos) if (t.done && t.completedAt !== null && t.completedAt >= since) n++;
+  return n;
+}
+
+export function startOfToday(now: number): number {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** 读入外部数据时做一次清洗，丢掉孤儿、修正父子不同列表 */
+export function sanitize(raw: unknown): Todo[] {
+  if (!Array.isArray(raw)) return [];
+  const valid = new Set<ListId>(['focus', 'inbox', 'goal']);
+  const todos: Todo[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== 'object') continue;
+    const t = r as Partial<Todo>;
+    if (typeof t.id !== 'string' || typeof t.title !== 'string') continue;
+    const createdAt = typeof t.createdAt === 'number' ? t.createdAt : Date.now();
+    todos.push({
+      id: t.id,
+      title: t.title,
+      done: !!t.done,
+      list: valid.has(t.list as ListId) ? (t.list as ListId) : 'inbox',
+      parentId: typeof t.parentId === 'string' ? t.parentId : null,
+      createdAt,
+      completedAt: typeof t.completedAt === 'number' ? t.completedAt : null,
+      order: typeof t.order === 'number' ? t.order : createdAt,
+      collapsed: !!t.collapsed,
+    });
+  }
+  const byId = new Map(todos.map((t) => [t.id, t]));
+  // 父项不存在或成环的，提升为顶层
+  for (const t of todos) {
+    const seen = new Set<string>([t.id]);
+    let p = t.parentId ? byId.get(t.parentId) : undefined;
+    while (p) {
+      if (seen.has(p.id)) break;
+      seen.add(p.id);
+      p = p.parentId ? byId.get(p.parentId) : undefined;
+    }
+    if (t.parentId && (!byId.has(t.parentId) || (p && seen.has(p.id)))) t.parentId = null;
+  }
+  // 子项跟随根的列表
+  const rootList = (t: Todo): ListId => {
+    let cur = t;
+    while (cur.parentId) cur = byId.get(cur.parentId)!;
+    return cur.list;
+  };
+  for (const t of todos) t.list = rootList(t);
+  return todos;
+}
