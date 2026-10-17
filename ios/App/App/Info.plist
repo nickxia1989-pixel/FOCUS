@@ -20,6 +20,9 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<!-- 和小组件共享的钥匙串组（放小组件快照），见 App/FocusWidgetPlugin.swift -->
+	<key>FocusSharedKeychainGroup</key>
+	<string>$(AppIdentifierPrefix)app.focus.todo.shared</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<!-- 点主屏小组件打开：focustodo://focus（src/mobile/widget.ts 处理） -->

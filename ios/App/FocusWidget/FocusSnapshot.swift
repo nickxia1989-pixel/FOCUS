@@ -1,13 +1,13 @@
 import Foundation
+import Security
 
 /// App 写给小组件的数据，对应 src/mobile/widgetData.ts 的 WidgetSnapshot（version 2）。
 ///
 /// 小组件不读同步文档：App 每次数据变化后把各空间的 NOW、NEXT、INBOX 前几件和今天 / 连续天数
-/// 写成一份 JSON 放进 App Group，小组件只读这份文件（写入方是 ios/App/App/FocusWidgetPlugin.swift）。
+/// 写成一份 JSON 放进两边共享的钥匙串组，小组件只读这一条（写入方是 ios/App/App/FocusWidgetPlugin.swift，
+/// 那里写了为什么不用 App Group）。
 /// 字段缺了就用默认值，两边版本对不上时也不至于整个读不出来。
 struct FocusSnapshot: Decodable {
-    static let appGroup = "group.com.nickxia.focus.todo"
-    static let fileName = "widget-snapshot.json"
     static let widgetKind = "FocusList"
 
     struct Item: Decodable, Hashable, Identifiable {
@@ -124,14 +124,26 @@ struct FocusSnapshot: Decodable {
 
     // MARK: 读取
 
-    static var sharedURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
-            .appendingPathComponent(fileName)
+    /// 和 FocusWidgetPlugin.swift 里的 `WidgetSnapshotStore` 必须一致。
+    /// 钥匙串组来自 Info.plist 的 FocusSharedKeychainGroup（= $(AppIdentifierPrefix)app.focus.todo.shared）
+    static var keychainQuery: [String: Any] {
+        var q: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "app.focus.todo.widget",
+            kSecAttrAccount as String: "snapshot",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        if let group = Bundle.main.object(forInfoDictionaryKey: "FocusSharedKeychainGroup") as? String {
+            q[kSecAttrAccessGroup as String] = group
+        }
+        return q
     }
 
-    /// App 还没写过（装好后没打开过）时为 nil
+    /// App 还没写过（装好后没打开过），或设备重启后还没解锁过时为 nil
     static func load() -> FocusSnapshot? {
-        guard let url = sharedURL, let data = try? Data(contentsOf: url) else { return nil }
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(keychainQuery as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
         return try? JSONDecoder().decode(FocusSnapshot.self, from: data)
     }
 

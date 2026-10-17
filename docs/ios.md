@@ -33,7 +33,7 @@ src/mobile/                 移动端界面（独立入口，不影响桌面构�
   ui.ts                     仅界面用的临时状态
   transient.ts              编辑草稿、新建卡片里的字、阅读位置的短时备份（页面万一重载时恢复）
   widgetData.ts             主屏小组件的快照（从各空间的 todos 派生，widgetData.test.ts 有单元测试）
-  widget.ts                 把快照交给原生插件写进 App Group；处理点小组件打开的 focustodo:// 链接
+  widget.ts                 把快照交给原生插件写进和小组件共享的钥匙串组；处理点小组件打开的 focustodo:// 链接
   components/               导航栏、页签栏、侧栏、FOCUS（NOW 卡 + 接下来）、列表行、滑动行、HISTORY、空状态、新建卡片、菜单、面板
   mobile.css                样式（设计 token、浅色 / 深色、提高对比度、降低透明度、减弱动态效果、安全区、动态字体）
 ios/                        Capacitor 生成的 Xcode 工程（App 图标、启动屏已改成 FOCUS 的）
@@ -238,8 +238,8 @@ npm run icon:ios     # 重新生成 iOS 图标
 ### 怎么刷新
 
 - 小组件不读同步文档。App 每次数据变化后（本地增删改、同步合并进来的改动、切换空间），`widgetData.ts` 从 store 派生一份精简快照（version 2：各空间的 NOW 及前三条子任务、NEXT 前 8 件、FOCUS 顶层未完成数、INBOX 前三件和总数、今天完成数、连续天数、头像序号），由 `widget.ts` 交给原生插件 `FocusWidget.update`。
-- 插件把 JSON 写进 App Group `group.com.nickxia.focus.todo` 的 `widget-snapshot.json`，然后调用 `WidgetCenter.reloadTimelines(ofKind: "FocusList")`。
-- 节流：连续改动时最多 0.8 秒写一次；内容和上次一样就不写、不刷新（插件里再比一次文件）。切到后台时还没写的那一下立即写掉。
+- 插件把 JSON 写进 App 和扩展共享的钥匙串组 `<团队前缀>.app.focus.todo.shared`（服务 `app.focus.todo.widget`、账号 `snapshot`），然后调用 `WidgetCenter.reloadTimelines(ofKind: "FocusList")`。不用 App Group 的原因见「签名」。
+- 节流：连续改动时最多 0.8 秒写一次；内容和上次一样就不写、不刷新（插件里再比一次钥匙串里的内容）。切到后台时还没写的那一下立即写掉。
 - 小组件的时间线在明天、后天 0 点各排一条：今天完成清零，连续天数按天推算（第二天还算上写入那天，再往后就断了）。
 - App 不在前台时不会同步，所以别的设备上的改动要等这台 iPhone 打开 FOCUS、同步合并之后才会出现在小组件上。
 
@@ -259,19 +259,22 @@ npm run icon:ios     # 重新生成 iOS 图标
   - `FocusSnapshot.swift`：快照的读取（字段缺了用默认值）
   - `FocusWidgetViews.swift`：各尺寸的界面、配色、Display 字、星芒；改视觉主要改这个文件
   - `Fonts/`：Bricolage Grotesque 700 / 800 的 woff2 和 OFL 许可证（从 `node_modules/@fontsource/bricolage-grotesque` 复制）
-- App 和扩展都有 App Group 权限（`App/App.entitlements`、`FocusWidget/FocusWidget.entitlements`）。`project.pbxproj` 只加了扩展 target、这几个文件和 App 的 `CODE_SIGN_ENTITLEMENTS`，没有写死开发团队。
-- 签名用自动签名，团队在命令行传入。模拟器构建不需要描述文件；真机构建见「已知问题」里的 App Group 一条：
+- 签名：自动签名，开发团队 `49G26925BS` 写在工程里（换成自己的团队时改 `DEVELOPMENT_TEAM`）。小组件数据走**共享钥匙串组**而不是 App Group：命令行的自动签名不会把新的 App Group 分配给 App ID，描述文件里的 App Group 列表一直是空的，真机构建签不上名；团队的描述文件本来就允许 `<团队前缀>.*` 的钥匙串组，不用去开发者网站或 Xcode 里另外登记。
+  - `App/App.entitlements`：`$(AppIdentifierPrefix)app.focus.todo`（排第一，是 App 自己的默认组，同步密码和设备 id 仍存在这里，小组件读不到）和 `$(AppIdentifierPrefix)app.focus.todo.shared`。
+  - `FocusWidget/FocusWidget.entitlements`：只有 `…app.focus.todo.shared`。
+  - 两边的 Info.plist 都有 `FocusSharedKeychainGroup`，代码从这里读组名。
+- 构建（模拟器和真机都不用再传团队；真机第一次构建或换了设备时加 `-allowProvisioningUpdates`）：
 
 ```bash
-xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 18 Pro' DEVELOPMENT_TEAM=49G26925BS -allowProvisioningUpdates build
+xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 18 Pro' build
 ```
 
 ### 联调方法
 
-- 看 App 写的快照：
+- 看 App 写的快照（模拟器的钥匙串是个 sqlite 库）：
 
 ```bash
-cat "$(xcrun simctl get_app_container <UDID> app.focus.todo group.com.nickxia.focus.todo)/widget-snapshot.json"
+sqlite3 "file:$HOME/Library/Developer/CoreSimulator/Devices/<UDID>/data/Library/Keychains/keychain-2-debug.db?mode=ro" "select agrp, length(data) from genp where agrp like '%focus%'"
 ```
 
 - 模拟器的输入法是拼音，`simctl io` 和 MCP 的 `text` 输不了中文。要准备带中文的测试数据，可以用 `src/sync/migrate.ts` 的 `migrateLegacy` 生成一份同步文档，App 退出后放进 `$(xcrun simctl get_app_container <UDID> app.focus.todo data)/Library/focus-doc.json` 再打开。
@@ -280,7 +283,6 @@ cat "$(xcrun simctl get_app_container <UDID> app.focus.todo group.com.nickxia.fo
 
 ## 已知问题
 
-- **真机签名还差一步（App Group 没进描述文件）**：App Group 已换成带个人标识的 `group.com.nickxia.focus.todo`（`App.entitlements`、`FocusWidget.entitlements`、`FocusWidgetPlugin.swift`、`FocusSnapshot.swift` 四处）。`xcodebuild -destination 'generic/platform=iOS' DEVELOPMENT_TEAM=49G26925BS -allowProvisioningUpdates` 能在开发者账号里登记 `app.focus.todo` 和 `app.focus.todo.FocusWidget`、打开 App Groups 能力并取回一年期描述文件，但两个描述文件里的 App Group 列表都是空的，构建报 “doesn't match the entitlements file's value for the com.apple.security.application-groups entitlement”。旧 id 和新 id 结果一样，加 `REGISTER_APP_GROUPS=YES`、删掉描述文件重取也一样，看起来不是 id 被别人占用，而是命令行的自动签名没有把新的 App Group 登记、分配给 App ID（Capy Pay 的 `group.com.nickxia.capypay` 是在描述文件里的，同一个团队）。另外 Mac 锁屏时 Xcode 读不到账号，命令行会报 “No Accounts”。解决：解锁 Mac，用 Xcode 打开 `ios/App/App.xcodeproj`，App 和 FocusWidgetExtension 两个 target 的 Signing & Capabilities 里 Team 选 Ning Xia，App Groups 里勾上（没有就点 + 新建）`group.com.nickxia.focus.todo`；之后命令行构建就能签名。模拟器不受影响。
 - **拖拽排序没做**：长按已用于上下文菜单；换 NOW 用左滑或菜单里的「设为现在」。设计 U4 里「拖到左页 = 换成现在」也没做。可考虑在长按菜单里加「排序」模式，或长按后拖动（类似「提醒事项」）。
 - **页签选中态不是荧光绿底**：系统玻璃页签栏的选中胶囊不能着色（见「原生外壳」），只有图标和文字上色。要完全照设计，只能自己画页签栏，就丢了系统的 Liquid Glass 和 Duo 竖排。
 - **Duo 竖排栏里「+」的位置**：设计 U1 / U4 把 `+` 放在页签胶囊下面单独一颗；现在是系统竖排栏里头像、云朵下面的 prominent 按钮（竖排时页签控制器由系统摆，没法在它下面再挂一颗）。

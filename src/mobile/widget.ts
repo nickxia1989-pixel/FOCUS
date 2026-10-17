@@ -1,6 +1,6 @@
 // 主屏小组件的接线（引入即生效，见 main.tsx）：
 // - 数据一变（本地改动、同步合并、切换空间）就把快照（widgetData.ts）交给原生插件 FocusWidget，
-//   由它写进 App Group 并刷新小组件。连续改动时节流，内容没变不写。
+//   由它写进和小组件共享的钥匙串组并刷新小组件。连续改动时节流，内容没变不写。
 // - 点小组件打开的 focustodo://focus 链接：回到 FOCUS 页（选了空间的小组件还会切到那个空间）；
 //   FOCUS 空了时小组件列的是 INBOX，链接是 focustodo://inbox，落在 INBOX 页。
 import { App } from '@capacitor/app';
