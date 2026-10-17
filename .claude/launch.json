@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:web"],
       "port": 5199
+    },
+    {
+      "name": "focus-ios-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "ios:dev"],
+      "port": 5299
     }
   ]
 }

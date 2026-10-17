@@ -16,7 +16,12 @@
     "icon": "electron scripts/make-icon.cjs",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win -c.electronDist=node_modules/electron/dist",
-    "dist:mac": "npm run build && electron-builder --mac"
+    "dist:mac": "npm run build && electron-builder --mac",
+    "ios:dev": "vite --config vite.ios.config.mts",
+    "ios:build": "tsc --noEmit && vite build --config vite.ios.config.mts && cap sync ios",
+    "ios:open": "cap open ios",
+    "ios:run": "npm run ios:build && cap run ios --no-sync",
+    "icon:ios": "electron scripts/make-ios-icon.cjs"
   },
   "build": {
     "appId": "app.focus.todo",
@@ -57,6 +62,12 @@
     }
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
+    "@capacitor/keyboard": "^8.0.6",
+    "@capacitor/preferences": "^8.0.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

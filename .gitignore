@@ -6,3 +6,4 @@ release/
 Thumbs.db
 .vscode/
 .idea/
+dist-ios/
