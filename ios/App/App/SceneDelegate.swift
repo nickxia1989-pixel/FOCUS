@@ -9,7 +9,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = MainViewController()
+        window?.rootViewController = FocusRoot.make()
         window?.makeKeyAndVisible()
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
@@ -26,9 +26,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 /// 注册 App 自带的原生插件
 class MainViewController: CAPBridgeViewController {
+    /// 外面套着原生外壳（FocusChrome.swift）：页签栏和导航栏按钮由原生画
+    var usesNativeChrome = false
+    let chrome = FocusChromePlugin()
+
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(FocusNativePlugin())
         bridge?.registerPluginInstance(FocusWidgetPlugin())
+        bridge?.registerPluginInstance(chrome)
+        if usesNativeChrome { FocusChromePlugin.markNative(webView) }
     }
 }
 

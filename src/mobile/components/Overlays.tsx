@@ -48,6 +48,18 @@ function safeInsets() {
   return r;
 }
 
+/** 浮层横向可用的范围 [左, 右]：双页布局时限制在 rect 所在的那一页 */
+function pageBounds(rect: Rect, pad: number): [number, number] {
+  const vw = window.innerWidth;
+  const app = document.querySelector<HTMLElement>('.app.is-spread');
+  if (!app) return [pad, vw - pad];
+  const cs = getComputedStyle(app);
+  const leftEnd = parseFloat(cs.getPropertyValue('--page-l-end'));
+  const rightStart = parseFloat(cs.getPropertyValue('--page-r-start'));
+  if (!leftEnd || !rightStart) return [pad, vw - pad];
+  return rect.left + rect.width / 2 < leftEnd ? [pad, leftEnd - pad] : [rightStart + pad, vw - pad];
+}
+
 // ---------- 长按菜单 ----------
 
 interface Item {
@@ -156,15 +168,16 @@ function MenuBody({
   });
 
   // 位置：预览卡片尽量留在原处，菜单放在下方，放不下就放上方，再不行把预览往上推
-  const vw = window.innerWidth;
   const vh = window.innerHeight;
   const safe = safeInsets();
   const pad = 12;
-  const previewW = Math.min(rect.width - 8, vw - pad * 2);
+  // 横向能用的范围：整屏；双页时只在长按的那一页里，不压折痕
+  const [lo, hi] = pageBounds(rect, pad);
+  const previewW = Math.min(rect.width - 8, hi - lo);
   const previewH = Math.min(rect.height, 132);
-  const previewLeft = Math.min(Math.max(rect.left + 4, pad), vw - previewW - pad);
-  const menuW = Math.min(268, vw - pad * 2);
-  const menuLeft = Math.min(Math.max(previewLeft, pad), vw - menuW - pad);
+  const previewLeft = Math.min(Math.max(rect.left + 4, lo), hi - previewW);
+  const menuW = Math.min(268, hi - lo);
+  const menuLeft = Math.min(Math.max(previewLeft, lo), hi - menuW);
   const h = menuH || 300;
   const top0 = safe.top + pad;
   const bottom0 = vh - safe.bottom - pad;

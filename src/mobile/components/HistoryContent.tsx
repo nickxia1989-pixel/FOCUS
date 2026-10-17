@@ -1,8 +1,8 @@
 // HISTORY：按日期回看哪天完成了哪些事
 import { useMemo, useRef } from 'react';
 import { startOfToday } from '../../model';
-import { LISTS } from '../../types';
-import { DAY, historyDays, recentCounts, streak, type HistoryItem } from '../data';
+import { LISTS, type Todo } from '../../types';
+import { DAY, historyDays, recentCounts, streak, type HistoryDay, type HistoryItem } from '../data';
 import { HistoryIcon, SectionIcons } from '../icons';
 import { useTodos } from '../store';
 import { rectOf, useUi } from '../ui';
@@ -24,12 +24,7 @@ export function HistoryContent() {
   // 跨过零点后重新渲染时会刷新
   const now = useMemo(() => Date.now(), [todos]);
   const days = useMemo(() => historyDays(todos), [todos]);
-  const recent = useMemo(() => recentCounts(todos, now, 7), [todos, now]);
-  const run = useMemo(() => streak(todos, now), [todos, now]);
   const sectionRefs = useRef(new Map<number, HTMLElement>());
-  const max = Math.max(1, ...recent.map((d) => d.count));
-  const today = recent[recent.length - 1]?.count ?? 0;
-  const week = recent.reduce((s, d) => s + d.count, 0);
 
   if (days.length === 0) {
     return (
@@ -48,58 +43,90 @@ export function HistoryContent() {
 
   return (
     <div className="history">
-      <div className="card stats" data-anchor="stats">
-        <div className="stats-nums">
-          <Stat value={today} label="今天" />
-          <Stat value={week} label="近 7 天" />
-          <Stat value={run} label="连续天数" />
-        </div>
-        <div className="bars" role="list" aria-label="近 7 天每天完成数">
-          {recent.map((d) => {
-            const isToday = d.day === startOfToday(now);
-            const has = days.some((x) => x.day === d.day);
-            return (
-              <button
-                key={d.day}
-                role="listitem"
-                className={`bar ${isToday ? 'is-today' : ''}`}
-                disabled={!has}
-                aria-label={`${dayTitle(d.day, now)} 完成 ${d.count} 项`}
-                onClick={() => jump(d.day)}
-              >
-                <span className="bar-count">{d.count || ''}</span>
-                <span className="bar-track">
-                  <span className="bar-fill" style={{ height: `${(d.count / max) * 100}%` }} />
-                </span>
-                <span className="bar-label">{isToday ? '今' : WEEK[new Date(d.day).getDay()]}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
+      {/* 双页布局时统计挪到右页（Companion），这里藏起来 */}
+      <StatsCard todos={todos} now={now} days={days} onJump={jump} className="history-stats" />
       {days.map((d) => (
-        <section
+        <DaySection
           key={d.day}
-          className="history-day"
+          day={d}
+          now={now}
           ref={(el) => {
             if (el) sectionRefs.current.set(d.day, el);
             else sectionRefs.current.delete(d.day);
           }}
-        >
-          <h2 className="day-head" data-anchor={`day-${d.day}`}>
-            <span className="day-title">{dayTitle(d.day, now)}</span>
-            <span className="day-week">周{WEEK[new Date(d.day).getDay()]}</span>
-            <span className="day-count">{d.total} 项</span>
-          </h2>
-          <div className="card">
-            {d.items.map((it) => (
-              <HistoryRow key={it.todo.id} item={it} />
-            ))}
-          </div>
-        </section>
+        />
       ))}
     </div>
+  );
+}
+
+/** 今天 / 近 7 天 / 连续天数，加 7 天柱状图（点柱子跳到那天） */
+export function StatsCard({
+  todos,
+  now,
+  days,
+  onJump,
+  className = '',
+}: {
+  todos: Todo[];
+  now: number;
+  days: HistoryDay[];
+  onJump(day: number): void;
+  className?: string;
+}) {
+  const recent = useMemo(() => recentCounts(todos, now, 7), [todos, now]);
+  const run = useMemo(() => streak(todos, now), [todos, now]);
+  const max = Math.max(1, ...recent.map((d) => d.count));
+  const today = recent[recent.length - 1]?.count ?? 0;
+  const week = recent.reduce((s, d) => s + d.count, 0);
+  return (
+    <div className={`card stats ${className}`} data-anchor="stats">
+      <div className="stats-nums">
+        <Stat value={today} label="今天" />
+        <Stat value={week} label="近 7 天" />
+        <Stat value={run} label="连续天数" />
+      </div>
+      <div className="bars" role="list" aria-label="近 7 天每天完成数">
+        {recent.map((d) => {
+          const isToday = d.day === startOfToday(now);
+          const has = days.some((x) => x.day === d.day);
+          return (
+            <button
+              key={d.day}
+              role="listitem"
+              className={`bar ${isToday ? 'is-today' : ''}`}
+              disabled={!has}
+              aria-label={`${dayTitle(d.day, now)} 完成 ${d.count} 项`}
+              onClick={() => onJump(d.day)}
+            >
+              <span className="bar-count">{d.count || ''}</span>
+              <span className="bar-track">
+                <span className="bar-fill" style={{ height: `${(d.count / max) * 100}%` }} />
+              </span>
+              <span className="bar-label">{isToday ? '今' : WEEK[new Date(d.day).getDay()]}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** 一天的完成记录：日期标题 + 卡片 */
+export function DaySection({ day: d, now, ref }: { day: HistoryDay; now: number; ref?: React.Ref<HTMLElement> }) {
+  return (
+    <section className="history-day" ref={ref}>
+      <h2 className="day-head" data-anchor={`day-${d.day}`}>
+        <span className="day-title">{dayTitle(d.day, now)}</span>
+        <span className="day-week">周{WEEK[new Date(d.day).getDay()]}</span>
+        <span className="day-count">{d.total} 项</span>
+      </h2>
+      <div className="card">
+        {d.items.map((it) => (
+          <HistoryRow key={it.todo.id} item={it} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -112,7 +139,7 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-function HistoryRow({ item }: { item: HistoryItem }) {
+export function HistoryRow({ item }: { item: HistoryItem }) {
   const { todo, path, folded } = item;
   const ref = useRef<HTMLButtonElement>(null);
   const meta = LISTS.find((l) => l.id === todo.list)!;

@@ -48,6 +48,8 @@ interface UiState {
   toast: ToastState | null;
   /** 分区"收到东西"的脉冲计数，变化即触发动画 */
   pulse: Record<Section, number>;
+  /** 页面滚过了大标题（原生导航栏据此显示小标题） */
+  scrolled: boolean;
   set(p: Partial<Omit<UiState, 'set'>>): void;
 }
 
@@ -61,6 +63,7 @@ export const useUi = create<UiState>((set) => ({
   more: null,
   toast: null,
   pulse: { focus: 0, verify: 0, inbox: 0, goal: 0, history: 0 },
+  scrolled: false,
   set: (p) => set(p),
 }));
 

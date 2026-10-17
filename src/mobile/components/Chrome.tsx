@@ -9,6 +9,8 @@ import { MoreIcon, PlusIcon, SectionIcons, SwapIcon, TrashIcon } from '../icons'
 import { activeOf, useData, useTodos } from '../store';
 import { restored, saveTransient } from '../transient';
 import { rectOf, useUi } from '../ui';
+import { nativeChrome } from '../chrome';
+import { Companion } from './Companion';
 import { SyncButton } from './SyncSheets';
 
 export const SECTION_META: Record<Section, { label: string; hint: string }> = {
@@ -121,13 +123,27 @@ function useScrollAnchor(ref: React.RefObject<HTMLDivElement | null>, section: S
   }, [ref, section]);
 }
 
-export function Screen({ section, wide, children }: { section: Section; wide: boolean; children: ReactNode }) {
+export function Screen({
+  section,
+  wide,
+  spread,
+  children,
+}: {
+  section: Section;
+  wide: boolean;
+  spread: boolean;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll({ container: ref });
   const barOpacity = useTransform(scrollY, [8, 40], [0, 1]);
   const titleOpacity = useTransform(scrollY, [30, 56], [0, 1]);
   const [scrolled, setScrolled] = useState(false);
   useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 30));
+  // 原生导航栏据此显示小标题
+  useEffect(() => {
+    if (useUi.getState().scrolled !== scrolled) useUi.getState().set({ scrolled });
+  }, [scrolled]);
   const profile = useData((s) => activeOf(s));
   const counts = useCounts();
   const meta = SECTION_META[section];
@@ -170,35 +186,41 @@ export function Screen({ section, wide, children }: { section: Section; wide: bo
         <div className="screen-bottom" />
       </div>
 
+      {/* 双页的右页：比外屏多出来的一层（见 Companion） */}
+      {spread && <Companion section={section} />}
+
       <div className="navbar">
         <motion.div className="navbar-bg" style={{ opacity: barOpacity }} />
-        <div className="navbar-row">
-          <div className="navbar-side">
-            {!wide && (
-              <button
-                className="glass-btn avatar-btn"
-                aria-label={`当前空间：${profile.name}，点按切换`}
-                onClick={() => useUi.getState().set({ sheet: 'profiles' })}
-              >
-                <Avatar profile={profile} size={30} />
+        {/* 原生外壳在时按钮和小标题都在原生导航栏上，这里只留滚动后的毛玻璃底 */}
+        {!nativeChrome && (
+          <div className="navbar-row">
+            <div className="navbar-side">
+              {!wide && (
+                <button
+                  className="glass-btn avatar-btn"
+                  aria-label={`当前空间：${profile.name}，点按切换`}
+                  onClick={() => useUi.getState().set({ sheet: 'profiles' })}
+                >
+                  <Avatar profile={profile} size={30} />
+                </button>
+              )}
+            </div>
+            <motion.div className="navbar-title" style={{ opacity: titleOpacity }}>
+              {meta.label}
+            </motion.div>
+            <div className="navbar-side navbar-right">
+              {wide && (
+                <button className="glass-btn" aria-label="新建" onClick={() => openComposer(composeTarget(section))}>
+                  <PlusIcon />
+                </button>
+              )}
+              <SyncButton />
+              <button className="glass-btn" aria-label="更多" onClick={openMore}>
+                <MoreIcon />
               </button>
-            )}
+            </div>
           </div>
-          <motion.div className="navbar-title" style={{ opacity: titleOpacity }}>
-            {meta.label}
-          </motion.div>
-          <div className="navbar-side navbar-right">
-            {wide && (
-              <button className="glass-btn" aria-label="新建" onClick={() => openComposer(composeTarget(section))}>
-                <PlusIcon />
-              </button>
-            )}
-            <SyncButton />
-            <button className="glass-btn" aria-label="更多" onClick={openMore}>
-              <MoreIcon />
-            </button>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

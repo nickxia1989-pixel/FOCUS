@@ -22,6 +22,7 @@
 		FC1D6E70A00000000000000A /* FocusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1D6E70A000000000000009 /* FocusIntent.swift */; };
 		FC1D6E70A00000000000000C /* FocusWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1D6E70A00000000000000B /* FocusWidgetViews.swift */; };
 		FC1D6E70A000000000000010 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FC1D6E70A00000000000000F /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F0C5A1E22FF0000100A1B2C3 /* FocusChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C5A1E12FF0000100A1B2C3 /* FocusChrome.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +60,7 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		F0C5A1E12FF0000100A1B2C3 /* FocusChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusChrome.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		FC1D6E70A000000000000001 /* FocusWidgetPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusWidgetPlugin.swift; sourceTree = "<group>"; };
 		FC1D6E70A000000000000003 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
@@ -115,6 +117,7 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				FC1D6E70A000000000000001 /* FocusWidgetPlugin.swift */,
 				FC1D6E70A000000000000003 /* App.entitlements */,
+				F0C5A1E12FF0000100A1B2C3 /* FocusChrome.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -254,6 +257,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				FC1D6E70A000000000000002 /* FocusWidgetPlugin.swift in Sources */,
+				F0C5A1E22FF0000100A1B2C3 /* FocusChrome.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

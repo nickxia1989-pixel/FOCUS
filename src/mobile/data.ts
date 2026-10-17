@@ -144,6 +144,31 @@ export function historyDays(todos: Todo[]): HistoryDay[] {
   return out;
 }
 
+/**
+ * 条目原本属于哪个列表：顶层项看自己（FOCUS / VERIFY 完成后挪进 INBOX 的看 completedFrom），子项跟着顶层祖先。
+ */
+export function originList(t: Todo, byId: Map<string, Todo>): ListId {
+  let root = t;
+  const seen = new Set([t.id]);
+  for (let p = t.parentId ? byId.get(t.parentId) : undefined; p && !seen.has(p.id); ) {
+    seen.add(p.id);
+    root = p;
+    p = p.parentId ? byId.get(p.parentId) : undefined;
+  }
+  return root.completedFrom ?? root.list;
+}
+
+/** 某个列表的完成记录（双页布局的右页）：HISTORY 里原本属于这个列表的条目，按天分组 */
+export function listHistoryDays(todos: Todo[], list: ListId): HistoryDay[] {
+  const byId = new Map(todos.map((t) => [t.id, t]));
+  const out: HistoryDay[] = [];
+  for (const d of historyDays(todos)) {
+    const items = d.items.filter((i) => originList(i.todo, byId) === list);
+    if (items.length) out.push({ day: d.day, items, total: items.reduce((n, i) => n + 1 + i.folded, 0) });
+  }
+  return out;
+}
+
 /** 截至今天的最近 n 天每天完成数，旧的在前 */
 export function recentCounts(todos: Todo[], now: number, n = 7): { day: number; count: number }[] {
   const today = M.startOfToday(now);
