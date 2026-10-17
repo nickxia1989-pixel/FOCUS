@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { MobileApp } from './MobileApp';
 import { isNative, trackKeyboard } from './native';
+import './widget';
 import './mobile.css';
 
 if (isNative) document.documentElement.classList.add('is-native');
