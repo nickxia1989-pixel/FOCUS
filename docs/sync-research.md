@@ -1,6 +1,6 @@
 # FOCUS 多端实时同步调研（Windows / Mac / iOS）
 
-> 调研日期：2026-10-16。价格、免费额度、版本号均为当日公开资料，落地前请再到官网核对；出处见文末「参考链接」。
+> 调研日期：2026-10-16；5.5 节（坚果云路线的 iOS 端细节）为 2026-10-17 补充。价格、免费额度、版本号均为当日公开资料，落地前请再到官网核对；出处见文末「参考链接」。
 > 本文只做调研与方案设计，没有改动任何应用代码。
 
 ## 0. 结论
@@ -21,8 +21,13 @@
 
 - 桌面端把数据文件放在坚果云同步盘里；iPhone 用 WebDAV 直接读写同一个目录。
 - 每台设备只写自己的文件，读取时把所有设备的文件按第 3 节的规则合并。
+- **iPhone 不用装、也不用开着坚果云 App**；桌面端要开着坚果云客户端。没有哪台设备需要一直开着当中转（见 5.5）。
 - 优点：国内网络很稳，免费版应该够用，不用维护服务器。
-- 代价：不是即时推送，桌面之间秒级到几十秒；iPhone 只在前台时轮询；iOS 必须做成 Capacitor App，PWA 不行。
+- 代价：
+  - 不是即时推送，桌面之间秒级到几十秒。
+  - iPhone 基本只在打开 FOCUS 时同步：打开时立即拉取，后台不可靠；手机上改完马上划掉 App，桌面要等下次打开手机上的 FOCUS 才看得到。
+  - iOS 必须做成 Capacitor App，PWA 不行。
+  - 受坚果云的请求次数限制，超限会被封几个小时。
 - 数据层改造（P0）和自建路线完全一样，可以先做 P0，再决定走哪条。
 
 **为什么不选其它路线**
@@ -89,7 +94,7 @@
 | **CloudKit**（Apple 原生 + CloudKit JS） | ⚠️ 只能用 CloudKit JS 2.6.4；Apple ID 网页登录要在 Electron 里实测；令牌 30 分钟 / 最长 2 周 | ✅ 原生最佳 | ⚠️ JS 端只有未文档化的长轮询，可靠做法是轮询变更令牌 | ⚠️ 记录级，需自己写合并 | ⚠️ 大陆账号由云上贵州运营，有开发者报告私有库异常 | 免费（占用户 iCloud 空间），但必须 $99/年开发者账号 | JS 端多年少有更新 | 不推荐：Windows 端是短板 |
 | **iCloud Drive 同步 JSON 文件** | ⚠️ iCloud for Windows 仍在更新，但有重复文件、延迟 10 分钟以上的报告 | ⚠️ 需用户选文件夹或 iCloud 容器 | ❌ | ❌ 整文件覆盖 + 冲突副本 | ✅ | 免费 | — | 不推荐 |
 | **坚果云 + Mac 中转 + iCloud**（Win —坚果云— Mac —iCloud— iOS） | ✅ 坚果云同步盘 | ⚠️ 只能经 Mac 转写到 iCloud；要原生 / Capacitor 插件读 iCloud 文件夹，PWA 不行 | ❌ Mac 合盖、关机或 FOCUS 没开时，Windows 和 iPhone 互相看不到 | ⚠️ 要先做 P0 改造并改成每设备一个文件 | ✅ | 免费 | — | 不推荐，见 5.1 |
-| **全走坚果云**（桌面同步盘 + iOS WebDAV） | ✅ 同步盘 + 监听文件变化 | ⚠️ Capacitor 用原生 HTTP 走 WebDAV；PWA 会被跨域挡住 | ⚠️ 桌面之间秒级到几十秒（待实测）；iPhone 前台轮询 | ✅ 每台设备只写自己的文件，按本文规则合并，不产生冲突副本 | ✅ 国内服务 | 免费版应该够：WebDAV 每 30 分钟 600 次请求；每月上传 1 GB、下载 3 GB（第三方资料） | 坚果云持续运营；合并代码自己维护 | **可行的备选**：不想维护服务器时用，见 5.3 |
+| **全走坚果云**（桌面同步盘 + iOS WebDAV） | ✅ 同步盘 + 监听文件变化；要开着坚果云客户端 | ⚠️ Capacitor 用原生 HTTP 走 WebDAV（按源码看能发 `PROPFIND`，待真机验证）；不用装坚果云 App；PWA 会被跨域挡住 | ⚠️ 桌面之间秒级到几十秒（待实测）；iPhone 只在打开时同步（前台轮询 + 回前台立即拉取），后台基本不同步 | ✅ 每台设备只写自己的文件，按本文规则合并，不产生冲突副本 | ✅ 国内服务 | 免费版应该够：WebDAV 每 30 分钟 600 次请求，超限会被封几个小时；每月上传 1 GB、下载 3 GB（官网） | 坚果云持续运营；合并代码自己维护 | **可行的备选**：不想维护服务器时用，见 5.3、5.5 |
 | **Firebase Firestore** | ⚠️ JS SDK 能用，但 Electron 非官方支持，弹窗登录有坑 | ✅ Swift SDK，默认离线缓存 | ✅ `onSnapshot` | ⚠️ 离线写入排队，恢复联网后按到达服务器的先后覆盖（不是按编辑时间） | ❌ 基本不可用 | 免费档：每天 5 万读、2 万写，个人绰绰有余 | 活跃 | 若不在大陆、又想最省事，可作为备选 |
 | **Supabase**（Postgres + Realtime） | ✅ JS SDK | ✅ 官方 supabase-swift | ✅ Broadcast / Postgres Changes | ❌ 无内置离线，需另配 PowerSync 等 | ⚠️ 未查到可靠资料，需实测 | 免费档够用；闲置 7 天暂停；Pro $25/月 | 活跃 | 不推荐单独使用 |
 | **PocketBase**（单文件后端） | ✅ 官方 JS SDK | ⚠️ 只有极小的社区 Swift 包 | ✅ SSE | ❌ 无离线；断线期间的事件不补发 | 取决于部署位置 | 自托管：小 VPS / Fly.io 每月几美元 | 活跃，仍是 0.x | 不如直接自建 |
@@ -482,24 +487,25 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 **iPhone（Capacitor）**
 
 - 用 Capacitor 自带的原生 HTTP（`CapacitorHttp`）访问坚果云 WebDAV。原生请求不受浏览器跨域限制。
-  - 官方文档没有明确说支持 `PROPFIND` 这类 WebDAV 方法，需要实测。
+  - 官方文档没有明确说支持 `PROPFIND` 这类 WebDAV 方法。按源码看，iOS 上方法名会原样交给 `URLSession`，应该能用，仍需真机验证（见 5.5.4）。
   - 不支持的话，写一个几十行的 Swift 小插件，用 `URLSession` 发请求即可。
+  - iPhone 上不需要装坚果云 App（见 5.5.1）。
 - PWA 走浏览器 `fetch` 会被跨域挡住，所以这条路线下 iOS 必须做成 App。
 - 同步流程：
-  1. 用 `PROPFIND`（Depth 1）列出目录，比较每个文件的 ETag 或修改时间；
+  1. 用 `PROPFIND`（Depth 1）列出目录，比较每个文件的修改时间和大小（坚果云的 `PROPFIND` 可能不返回 ETag，见 5.5.4）；
   2. 只 `GET` 变了的文件，合并；
   3. 本机有改动时 `PUT` 自己的文件。
-- 只在前台、以及从后台回到前台时轮询，间隔 15～30 秒。
+- 只在前台、以及从后台回到前台时轮询，间隔 15～30 秒；切到后台时用系统给的约 30 秒把还没上传的改动传完（见 5.5.2）。
 - 账号用坚果云的"应用密码"，不用主密码，存在钥匙串里。也可以在桌面端生成一个二维码让手机扫码填入。
 
 **配额估算**
 
 - **请求次数**：坚果云 WebDAV 免费版每 30 分钟最多 600 次请求，付费版 1500 次。按 20 秒轮询一次算，30 分钟约 90 次 `PROPFIND`，加上少量 `GET` / `PUT`，远低于上限。桌面端走同步客户端，按理不占 WebDAV 次数（推断，需实测）。
-- **流量**：第三方资料称免费版每月上传 1 GB、下载 3 GB。每个文件只有几十 KB。按"每次写入的大小 × 写入次数 × 设备数"估算，把同步盘那份的写入间隔拉到 5～10 秒并合并连续改动后，日常使用远低于上限；不够再升级付费版。
+- **流量**：官网价格页写明免费版每月上传 1 GB、下载 3 GB，专业版"正常使用无限制"。每个文件只有几十 KB。按"每次写入的大小 × 写入次数 × 设备数"估算，把同步盘那份的写入间隔拉到 5～10 秒并合并连续改动后，日常使用应在上限之内，但余量不算大（粗算见 5.5.4）；不够再升级付费版。
 
 **其它**
 
-- **实时性**：桌面之间取决于坚果云客户端的同步速度，估计秒级到几十秒（没找到官方数据，需要实测）。iPhone 在前台时按轮询间隔更新，后台不同步。
+- **实时性**：桌面之间取决于坚果云客户端的同步速度，估计秒级到几十秒（没找到官方数据，需要实测）。iPhone 在前台时按轮询间隔更新，后台基本不同步（详见 5.5）。
 - **墓碑回收**：规则同 3.4。如果某台设备长期离线、超过了墓碑保留期，回来时要以其它设备的文件为准、丢弃自己的旧文件，否则已彻底删除的条目会"复活"。
 - **账号**：不需要自建账号系统。桌面端选文件夹，iPhone 填坚果云账号和应用密码。
 - **隐私（可选）**：数据以 JSON 明文存在坚果云。介意的话可以在客户端用 AES-GCM 加密每个文件，密钥由口令派生。合并全在客户端完成，所以加密不影响同步。
@@ -520,6 +526,8 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 | 运维 | 不用维护服务器 | 要部署和维护 |
 | 国内网络 | 很稳，国内服务 | 取决于服务器放在哪里 |
 | 实时性 | 秒级到几十秒；iPhone 靠轮询 | 秒级推送 |
+| 要开着什么 | 桌面端开着坚果云客户端；iPhone 只在打开 FOCUS 时同步 | 只要联网；iPhone 同样只在前台时连着（4.3） |
+| iPhone 后台 | 基本没有：没有服务器，发不了推送 | 默认也没有；需要时服务器可以发静默推送（每小时 3 次以上会被限流） |
 | 费用 | 免费版应该够；已有付费版则为零 | 免费（Cloudflare）到每年一千多元（带优化线路的 VPS） |
 | iOS | 必须 Capacitor 或原生；PWA 不行 | Capacitor 或 PWA 都行 |
 | 依赖 | 受坚果云的请求次数、流量配额和接口变化约束 | 自己完全可控 |
@@ -527,10 +535,284 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 
 **怎么选**
 
-- 已经在用坚果云、不想维护服务器、能接受十几秒的延迟：选坚果云。
+- 已经在用坚果云、不想维护服务器、能接受十几秒的延迟，以及 iPhone 只在打开 FOCUS 时同步：选坚果云。
 - 想要即时推送、想用 PWA 版 iOS、以后可能给别人用：选自建服务器。
 
 两条路线的数据层和合并逻辑是同一份代码，传输层可以后换，甚至可以两种同时开着。
+
+### 5.5 iOS 端细节：要不要开着坚果云
+
+> 2026-10-17 补充调研。标"第三方"的结论来自其它开源项目的记录或论坛，不是坚果云官方说明；落地前按 5.5.5 的清单自己验证。
+
+**一句话回答**：iPhone 上**不需要装、也不需要开着坚果云 App**，FOCUS 自己通过 WebDAV 直接和坚果云服务器通信。真正需要"开着"的是两样：
+
+- 桌面上的**坚果云客户端**：桌面端的上传下载全靠它。
+- iPhone 上的 **FOCUS 本身**：iOS 不允许它在后台常驻，基本只在打开时同步。
+
+没有哪台设备需要一直开着当中转。
+
+#### 5.5.1 iPhone 上的坚果云 App：不需要
+
+- **FOCUS 直连，不经过坚果云 App。** 按 5.3 的设计，FOCUS 用应用密码直接请求 `https://dav.jianguoyun.com/dav/`，和坚果云 App 装没装、开没开无关。唯一用得到坚果云的地方是生成应用密码，这一步在网页版就能做（账户信息 → 安全选项 → 第三方应用管理），所以手机上可以完全不装。
+- **必须走原生 HTTP。** 坚果云 WebDAV 不支持跨域：不带凭证的预检请求直接回 `401`，没有任何 `Access-Control-*` 响应头（2026-10-17 用 curl 实测，与第三方调研结论一致）。所以 WKWebView 里的 `fetch` 一定会被挡，必须走原生 HTTP（见 5.5.4），PWA 也就走不通。
+- **坚果云 iOS App 自己不能指望后台同步。** iOS 对所有第三方 App 一视同仁：进后台后很快被挂起，没有"常驻后台持续同步"的通用机制，Apple DTS 对这类需求的回答是 "You can't"。坚果云 App 的情况：
+  - 更新日志里和后台有关的只有"后台自动备份照片"（4.5.8）和"修复后台上传中断"（5.6.10）。
+  - App Store 描述里的"离线收藏：WiFi 下自动同步感兴趣的文件夹"，也没说能在后台进行。
+
+  所以它和 FOCUS 一样，主要在打开时干活。
+- **接入了「文件」App。** 5.0.0（2017-11）起支持 iOS「文件」App，"可以在 Files 编辑并同步"。没查到它是否迁移到了 iOS 16 起的新版 File Provider（`NSFileProviderReplicatedExtension`）。
+
+**替代路线：坚果云 App +「文件」App**
+
+做法：
+
+1. FOCUS 用系统的文件夹选择器，选中「文件」→ 坚果云 → `FOCUS-sync`；
+2. 保存安全作用域书签；
+3. 以后用文件协调（`NSFileCoordinator`）读写里面的 JSON。
+
+上传下载交给坚果云 App 的 File Provider 扩展。
+
+| | 直连 WebDAV（5.3 的做法） | 坚果云 App +「文件」App |
+| --- | --- | --- |
+| 坚果云 App | 不用装 | 必须装并登录，还要在「文件」里启用 |
+| 凭证 | FOCUS 在钥匙串里存一个应用密码 | FOCUS 不碰密码 |
+| WebDAV 请求次数 | 占用（每 30 分钟 600 / 1500 次） | 不占（走坚果云自己的接口，推断） |
+| 读到的是不是最新 | 每次 `PROPFIND` 查的都是服务器当前状态 | 取决于扩展读取时会不会去服务器核对；File Provider 不会通知第三方 App "有更新"，可能读到缓存的旧文件（需实测） |
+| 写完什么时候上传 | FOCUS 自己 `PUT`，成功失败都知道 | 由扩展和系统调度。FOCUS 被挂起后扩展理论上还能继续上传（推断），但失败了 FOCUS 不知道 |
+| 原生代码 | 不用写，最多几十行（5.5.4） | 要自写插件：选文件夹、书签失效后续期、文件协调、处理还没下载的占位文件 |
+| 出问题时 | 每个请求都看得见 | 黑盒，多半只能归给坚果云 |
+
+**结论：直连 WebDAV 更好**——依赖少、行为透明、原生代码少。「文件」App 路线只在 WebDAV 次数真的不够用时再考虑；考虑之前，先实测坚果云的 File Provider 能不能选文件夹、能不能原地写入。
+
+#### 5.5.2 FOCUS iOS App 自己什么时候能同步
+
+| 时机 | 能做什么 | 做法 |
+| --- | --- | --- |
+| 打开 / 切回前台 | ✅ 立即拉取 | 监听 `@capacitor/app` 的 `resume` 事件（对应 iOS 的 `willEnterForeground`）：先显示本地数据，再 `PROPFIND`，只 `GET` 变了的文件，合并后刷新。网络正常时估计 1 秒内完成 |
+| 停在前台 | ✅ 轮询 | 15～30 秒一次 `PROPFIND`（5.3）；本机有改动时防抖几秒后 `PUT` |
+| 刚切到后台 / 锁屏 | ✅ 约 30 秒收尾 | 在 `pause` 事件里申请一段后台时间（`UIApplication.beginBackgroundTask`，现成插件 `@capawesome/capacitor-background-task`，iOS 上要在 30 秒内结束），把还没上传的改动 `PUT` 出去 |
+| 挂起在后台 | ⚠️ 基本做不了 | 见下表 |
+| 被用户在多任务界面划掉 | ❌ | 系统不会再在后台启动它，直到用户手动打开 |
+
+`CapacitorHttp` 用的是普通 `URLSession`，App 被挂起时，进行中的请求会失败或中断，下次回到前台重试即可。
+
+**进后台以后还有哪些手段**
+
+| 手段 | 能不能用 | 限制 |
+| --- | --- | --- |
+| `BGAppRefreshTask`（后台 App 刷新） | ⚠️ 能注册，但别指望 | 每次最多约 30 秒，何时运行、运行几次全由系统决定。DTS 的原话大意是：指望每 15 分钟一次会失望，常见情况下可能一次都不给；系统只倾向于给用户经常使用的 App。用户关了「后台 App 刷新」、开了低电量模式、或者把 App 划掉，都不会运行。被系统回收（不是用户划掉）的 App 仍可能被唤醒 |
+| `BGProcessingTask` | ❌ 不适合 | 为耗时的维护任务设计，通常在夜里充电时才执行，做不了及时同步 |
+| `BGContinuedProcessingTask`（iOS 26 新增） | ❌ 不适合 | 必须由用户在前台的操作发起，系统会显示一个可取消的实时活动进度；适合导出视频这类任务，不是给周期同步用的 |
+| 后台 `URLSession` | ⚠️ 只适合"补传" | 传输由系统进程完成，App 挂起甚至被系统回收都能继续。但只支持"从文件上传"和"下载"两种任务：`PUT` 自己的文件可以用；`PROPFIND` 能不能做成后台下载任务没查到资料（需实测）。在后台新建的任务一律由系统择机执行，App 每被唤醒一次，下次启动的延迟就更长。用户把 App 划掉时，系统会取消全部后台传输 |
+| 静默推送 | ❌ 用不了 | 需要一台持有 APNs 密钥的服务器来发；坚果云不提供"文件变了"的回调，也就没人能发。即使自建服务器，后台推送超过每小时 3 次也会被限流 |
+| Capacitor Background Runner | ⚠️ 不划算 | 底层同样是后台刷新：约 30 秒，时间不保证。脚本跑在单独的 JS 环境里，没有 DOM，不能用 `DOMParser` 解析 `PROPFIND` 返回的 XML；也读不到 App 的数据文件，只能用它自带的键值存储 |
+
+**结论**：第一版只做"前台轮询 + 回前台立即拉取 + 进后台 30 秒内补传"。后台刷新收益很小，打开 App 本来就会在 1 秒内拉到最新。以后做桌面小组件时再考虑：用 Swift 写一个 `BGAppRefreshTask`，只做"`PROPFIND` → 拉取 → 合并 → 写本地文件"，能不能运行听系统安排。
+
+**App 被杀掉或划掉时，离线改动会不会丢？**
+
+- **不会丢，只是晚一点上传。** 前提是改动先落了盘：
+  - 本地数据存在 Filesystem（App 的 Documents / Library 目录）或 SQLite，**不要用 WebView 的 localStorage / IndexedDB**：Capacitor 官方指南说明 iOS 在空间不足时可能回收它们。
+  - 桌面端是 250 ms 防抖写盘。iOS 端在 `pause` 时要立即把还在防抖中的写入刷到磁盘，否则最后这段时间内的改动会随进程一起消失。
+- **不需要精确的待上传队列。** 每台设备上传的都是合并后的完整状态（5.3），只要记住"最后一次成功上传的内容哈希"：下次打开时发现本地内容和它不一样，就重新 `PUT`。中间漏传几次没关系，下一次上传会把所有改动一起带上去。
+- **被划掉后，手机上的改动要等下次打开 FOCUS 才会传给桌面。** 在手机上改完立刻划掉 App，之后又很久不打开，桌面就一直看不到。这是这条路线在 iOS 上最主要的体验代价。可以在 `⋯` 菜单里提示"上次上传：x 分钟前 / 有未上传的改动"。
+- **换机 / 从备份恢复：`deviceId` 会被复制。** `deviceId` 如果只存在普通文件里，会随 iCloud 备份恢复到新手机，新旧两台手机就会写同一个 `focus-<ios>.json`。建议：
+  - 把 `deviceId` 同时存进钥匙串，并设为 `ThisDeviceOnly`。这类条目不会迁移到别的设备。
+  - 启动时如果数据文件里有 `deviceId`、钥匙串里却没有，就判定为"恢复到了新设备"，生成新的 `deviceId`。
+
+#### 5.5.3 桌面端：坚果云客户端必须在运行
+
+- **上传下载的是坚果云客户端，不是 FOCUS。** 桌面端 FOCUS 只读写本机同步盘里的文件夹。以下任一情况，这台电脑都既发不出、也收不到：
+  - 客户端没开、没登录或暂停了同步；
+  - 电脑睡眠或关机。
+- **同步文件夹要放在普通同步文件夹里**（例如默认的「我的坚果云」），不要放在"云桥"这类按需下载的虚拟盘里，否则文件可能只是占位符，目录监听也不一定可靠（需实测）。
+- **各种情况下 iPhone 能看到什么**：
+
+| 情况 | iPhone 能看到 | iPhone 看不到 |
+| --- | --- | --- |
+| Mac 合盖 / 睡眠 | Mac 睡前**已经上传完**的改动；Windows 和 iPhone 之间照常互通 | Mac 睡前最后几秒还没传上去的改动（FOCUS 写同步盘的 5～10 秒防抖，加上坚果云客户端的上传时间），要等 Mac 醒来联网后才上传 |
+| Windows 关机 | 同上：关机前已上传的都在 | 关机前最后几秒的改动；关机时坚果云客户端可能来不及上传，下次开机后补传 |
+| 某台电脑的坚果云客户端没开 | 那台电脑在客户端停止之前已上传的内容 | 那台电脑之后的所有改动。它自己也收不到别人的改动，而 FOCUS 察觉不到，界面上看起来一切正常 |
+| 两台电脑都关着 | 云上已有的全部内容；iPhone 照常增删改，改动先存到坚果云 | — |
+
+- **和 5.1（Mac 中转）比**：5.1 里 Windows 和 iPhone 之间的每个改动都要经过 Mac 上的 FOCUS 转写，Mac 一合盖，两边就断开。这条路线的中心是坚果云服务器，**每台设备只对自己的改动负责**：改完之后只要它还在线几秒、把文件传上去，其它设备什么时候来拉都能拿到，不管当时别的设备开没开。
+- **建议的兜底**（P1 里顺手做）：
+  - 睡眠、锁屏、退出前立即写一次同步盘里的文件，不等防抖。Electron 的 `powerMonitor` 有 `suspend` 事件，还有 `lock-screen` 事件（macOS、Windows）；`app` 有 `before-quit` 事件。这只能缩短"没传上去"的窗口，坚果云客户端能不能在睡眠前传完仍然不受控。
+  - 在 `⋯` 菜单显示每台设备的"最后更新时间"（读各设备文件里记录的写入时间），例如"Windows：3 分钟前；Mac：2 天前"，一眼就能看出哪台掉线了。
+
+#### 5.5.4 坚果云 WebDAV 的技术细节
+
+**`CapacitorHttp` 能不能发 `PROPFIND`**
+
+按 Capacitor 8.5.3 的源码看，**iOS 上能，没有方法白名单**：
+
+- `CapacitorHttp.request({ method })` 把 `method` 原样赋给 `URLRequest.httpMethod`，用 `URLSession.shared` 发出（`HttpRequestHandler.swift`、`CapacitorUrlRequest.swift`）。`URLSession` 本身接受任意方法名。
+- **请求体只有设置了 `Content-Type` 头才会写进去**；字符串类型的 `data` 按 UTF-8 原样发送。所以 `PROPFIND` 要带 `Content-Type: application/xml; charset=utf-8`，否则 XML 请求体会被悄悄丢掉。不带请求体的 `PROPFIND` 也合法，等于请求全部属性。
+- `207 Multi-Status` 不会被当成错误；非 JSON 的响应以 UTF-8 字符串返回，在 WebView 里用 `DOMParser` 解析即可。
+- URL 没有编码时，`CapacitorHttp` 会自动编码；已经编码过的不会再编一次。
+- 没查到任何关于 `CapacitorHttp` 发 `PROPFIND` 的 issue，成功或失败的都没有，所以仍要真机验证。
+- 建议直接调用 `CapacitorHttp.request`，不要开全局替换 `fetch` 的配置，行为更可控。
+- Android 版用的是 `HttpURLConnection.setRequestMethod`，它只认标准方法，`PROPFIND` 会被拒。只影响将来做 Android 版。
+- **备选**：真机不通时写一个几十行的 Swift 小插件，用 `URLSession` 发请求；5.5.2 的后台补传（后台 `URLSession` 上传任务）也可以一起放进去。
+
+**坚果云 WebDAV 的能力**
+
+| 项目 | 情况 | 来源 |
+| --- | --- | --- |
+| 地址与鉴权 | `https://dav.jianguoyun.com/dav/`，HTTP Basic；用户名是坚果云账号，密码是应用密码 | 官方帮助；curl 实测 `WWW-Authenticate: Basic realm="nutstore"` |
+| 跨域（CORS） | 不支持 | curl 实测；第三方调研结论相同 |
+| `Depth: 1` | 支持；`Depth: infinity` 不要用 | 第三方：Remotely Save 对坚果云强制用 `Depth: 1` 逐层列目录 |
+| 单次列目录 | 最多返回 750 个条目，超出要分页 | 官方帮助 |
+| 修改时间、大小 | `PROPFIND` 返回 `getlastmodified`、`getcontentlength` | 第三方：Remotely Save 用这两项判断文件变化 |
+| ETag | **说法不一**。一份 2026-10-14 的第三方实测记录：`GET` 带 `ETag`，`PUT` 的响应不带；对 `PROPFIND` 的描述前后矛盾（先说不给 `getetag`，后面又说能从 `PROPFIND` 拿到）。另一个项目的代码注释说坚果云 ETag 不稳定，内容没变也可能回 `412` | 第三方，需自己验证 |
+| 条件请求 | 同一份实测：`If-Match` 生效（ETag 对回 `204`，过期回 `412`）；`If-None-Match`、`If-Unmodified-Since` 被忽略 | 第三方 |
+| 父文件夹不存在 | `PUT` / `GET` 回 `409`，不是 `404`。另有项目说不能用 WebDAV 在根目录新建顶层文件夹 | 第三方代码注释，需实测 |
+| 请求频率 | 免费版每 30 分钟最多 600 次，付费版 1500 次；官方没说按账号计还是按应用密码计 | 官方帮助 |
+| 超限后 | 回 `503`，提示 "Too many requests have been received recently"（BlockedTemporarily）；有 Joplin 用户等了约 6 小时再试，仍然被拒 | Zotero、Joplin 论坛 |
+| 单文件大小 | 默认上限 500 MB | 官方帮助 |
+| 流量 | 免费版每月上传 1 GB、下载 3 GB；专业版"正常使用无限制" | 官网价格页 |
+| 历史版本 | 免费版保留 1 个月，付费版 3 个月。每台设备的文件都自带一个月的历史，可以当额外备份 | 官网价格页 |
+
+**对 5.3 同步流程的修正**
+
+- **判断文件有没有变，用 `getlastmodified` + `getcontentlength`，不依赖 ETag**（`PROPFIND` 可能不给 ETag）。为了防止"同一秒内写了两次、大小又相同"被漏掉，每隔几分钟无条件 `GET` 一次全部文件兜底，每个文件几十 KB，流量可以忽略。
+- **不需要 `If-Match` 乐观锁。** 每个文件只有一个写入方（5.3），ETag 即使不稳定也不影响正确性。
+- **读到半截或解析失败的 JSON，本轮跳过、下轮再试**，绝不能当成"对方没有数据"。
+- **同步文件夹由桌面端先建好**，放在已有的同步文件夹（如「我的坚果云」）下面。iPhone 端遇到 `409` 时提示"同步文件夹不存在"，不要自己去根目录建。
+- **收到 `503` 时按指数退避重试**（例如 1 分钟 → 5 分钟 → 30 分钟），界面上提示"坚果云限流，稍后自动重试"，不要立刻重试。
+
+**配额再算一遍**
+
+- **请求次数**：20 秒轮询一次，前台每 30 分钟约 90 次 `PROPFIND`，加上回前台的拉取和少量 `GET` / `PUT`，正常使用远低于 600 次。真正的风险是**同一账号上还有别的 WebDAV 应用**（Zotero、Obsidian 的 Remotely Save、各种笔记 App）：如果额度按账号共享，就会一起被限流（需确认）。
+- **流量**：免费版的 1 GB 上传、3 GB 下载是整个账号共用的，桌面坚果云客户端的上传下载应该也算在内（推断）。每台设备写一次，其它每台设备都要下载一次。粗算：单文件 50 KB，三台设备每台每天写 100 次——
+  - 每月上传约 3 × 100 × 50 KB × 30 ≈ 450 MB；
+  - 下载约为上传的两倍，≈ 900 MB。
+
+  都在免费额度内，但余量不大。如果这个账号还同步别的东西，建议直接用付费版。
+
+**应用密码**
+
+- 在网页版「账户信息 → 安全选项 → 第三方应用管理」生成，一个应用一个，可以单独删除。
+- 官方没说能把应用密码限制在某个文件夹，应按"能读写整个坚果云账号"对待：
+  - 只存在 iPhone 的钥匙串里，不写进同步文件，也不进日志。
+  - 如果用桌面端的二维码给手机填，二维码里是明文密码，扫完就关。
+- 手机丢了：在网页上删掉这个应用密码即可，不影响主密码和其它应用。
+
+**国内网络**
+
+- 坚果云是国内服务，WebDAV 走普通 HTTPS（HTTP/2）。这条路线里没有任何境外服务器，基本不存在"连不上"的问题。
+- 社区里的故障报告主要是限流 `503`，不是网络不通（Zotero、Joplin 论坛）。
+- 没找到官方的可用性数据，也没查到 2026 年的大面积故障公告。
+
+#### 5.5.5 汇总：硬伤、可接受的代价和实测清单
+
+**硬伤：这条路线做不到，只能接受或换路线**
+
+1. **iPhone 基本只在打开 FOCUS 时同步。** 没有服务器就发不了推送，后台刷新又不可靠：
+   - 桌面的改动，要等打开手机上的 FOCUS 才看得到（通常 1 秒内拉到）；
+   - 手机上改完立刻划掉 App，桌面要等下次打开手机上的 FOCUS 才看得到。
+2. **桌面端的同步完全依赖坚果云客户端。** 客户端没开或卡住时，FOCUS 察觉不到，只能靠"各设备最后更新时间"让人自己发现。
+3. **受坚果云的配额和接口约束。** 请求次数、流量、750 条、ETag 的行为都是坚果云说了算，可能悄悄调整；被限流时可能好几个小时不能同步。
+
+**可以接受的**
+
+- 打开手机 App 时，先显示旧数据，约 1 秒后刷新。
+- 桌面之间秒级到几十秒的延迟。
+- 电脑睡眠或关机前最后几秒的改动，晚一点才到。
+- 要自己维护一份 WebDAV 客户端代码（一两百行以内），可能再加一个小 Swift 插件。
+
+**落地前要实测的**
+
+涉及账号和应用密码的测试，都由旅行者自己运行。下面的脚本只在自己电脑上运行：
+
+- 账号从环境变量读，应用密码运行时输入，只写进一个用完即删的临时文件；
+- 建议专门为测试新建一个应用密码，测完在网页上删掉；
+- 能力测试约 16 个请求，`watch` 模式 120 个，都远低于限额。**不要做压力测试**，触发限流可能要等好几个小时才能恢复。
+
+```bash
+#!/usr/bin/env bash
+# 坚果云 WebDAV 能力实测：只在自己的电脑上运行；应用密码运行时输入，只写进一个用完即删的临时文件。
+# 用法：
+#   export JGY_USER='坚果云账号'
+#   bash jgy-webdav-test.sh          # 能力测试，约 16 个请求
+#   bash jgy-webdav-test.sh watch    # 每 5 秒查一次 probe.json 的修改时间，共 10 分钟（120 个请求）
+#   bash jgy-webdav-test.sh cleanup  # 删除测试文件夹
+# 可选：export JGY_DIR='我的坚果云/FOCUS-sync-test'（必须放在一个已有的同步文件夹下面）
+set -u
+: "${JGY_USER:?请先 export JGY_USER=坚果云账号}"
+read -r -s -p '应用密码（输入时不显示）: ' JGY_PASS; echo
+BASE='https://dav.jianguoyun.com/dav'
+DIR="${JGY_DIR:-我的坚果云/FOCUS-sync-test}"
+enc() { python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$1"; }
+D="$BASE/$(enc "$DIR")"
+NETRC=$(mktemp); chmod 600 "$NETRC"; trap 'rm -f "$NETRC"' EXIT
+printf 'machine dav.jianguoyun.com login %s password %s\n' "$JGY_USER" "$JGY_PASS" > "$NETRC"
+unset JGY_PASS
+c() { curl -sS --netrc-file "$NETRC" --max-time 20 "$@"; }
+code() { c -o /dev/null -w '%{http_code}' "$@"; }
+etag() { c -D - -o /dev/null "$D/probe.json" | grep -i '^etag:' | cut -d' ' -f2- | tr -d '\r'; }
+PROPS='<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:getlastmodified/><d:getcontentlength/><d:getetag/></d:prop></d:propfind>'
+XML='Content-Type: application/xml; charset=utf-8'
+JSON='Content-Type: application/json'
+say() { printf '\n== %s\n' "$*"; }
+
+case "${1:-test}" in
+watch)
+  for _ in $(seq 120); do
+    printf '%s  ' "$(date +%T)"
+    c -X PROPFIND -H 'Depth: 0' -H "$XML" --data-binary "$PROPS" "$D/probe.json" \
+      | grep -io 'getlastmodified>[^<]*' | head -1 | cut -d'>' -f2
+    sleep 5
+  done ;;
+cleanup)
+  say "删除测试文件夹：$(code -X DELETE "$D/")" ;;
+test)
+  say "1. MKCOL 测试文件夹：$(code -X MKCOL "$D/")（201 = 新建，405 = 已存在）"
+  say "2. PUT probe.json，响应头里有没有 ETag"
+  c -X PUT -H "$JSON" --data-binary "{\"t\":$(date +%s)}" -D - -o /dev/null "$D/probe.json" | grep -iE '^HTTP|^etag|^last-modified'
+  say "3. PROPFIND Depth: 1（指定属性）"
+  c -X PROPFIND -H 'Depth: 1' -H "$XML" --data-binary "$PROPS" -w '\nHTTP %{http_code}\n' "$D/"
+  say "4. PROPFIND Depth: 1（不带请求体 = allprop）里的 getetag"
+  G=$(c -X PROPFIND -H 'Depth: 1' "$D/" | grep -io 'getetag>[^<]*' | head -3)
+  echo "${G:-（没有 getetag）}"
+  say "5. GET 两次，ETag 是否稳定"
+  E1=$(etag); E2=$(etag)
+  echo "第一次：${E1:-无}  第二次：${E2:-无}"
+  if [ -n "$E1" ]; then
+    say "6. 条件请求"
+    echo "GET + If-None-Match 当前 ETag：$(code -H "If-None-Match: $E1" "$D/probe.json")（304 = 支持）"
+    echo "PUT + If-Match 错误 ETag：$(code -X PUT -H 'If-Match: "wrong"' -H "$JSON" --data-binary '{}' "$D/probe.json")（412 = 支持）"
+  fi
+  say "7. 父文件夹不存在时 PUT：$(code -X PUT -H "$JSON" --data-binary '{}' "$D/no-such-dir/x.json")（预期 409）"
+  R=$(code -X MKCOL "$BASE/FOCUS-root-test/")
+  say "8. 在根目录新建顶层文件夹 MKCOL：$R"
+  [ "$R" = 201 ] && echo "删除刚建的顶层文件夹：$(code -X DELETE "$BASE/FOCUS-root-test/")"
+  say "9. 连续 5 次 PROPFIND 的状态码和耗时（秒）"
+  for _ in 1 2 3 4 5; do
+    c -X PROPFIND -H 'Depth: 1' -H "$XML" --data-binary "$PROPS" -o /dev/null -w '%{http_code} %{time_total}\n' "$D/"
+  done
+  say "完成。测试文件夹 $DIR 先留着，测完同步延迟后运行 cleanup 删除。" ;;
+esac
+```
+
+把上面的内容存成 `jgy-webdav-test.sh`（放在项目目录之外，不要提交），需要 `curl` 和 `python3`（macOS 自带）。
+
+| # | 实测项 | 怎么测 | 看什么 |
+| --- | --- | --- | --- |
+| 1 | `PROPFIND` 返回哪些属性 | 脚本第 3、4 步 | 返回 `207`；每个文件都有 `getlastmodified`、`getcontentlength`；记下有没有 `getetag` |
+| 2 | ETag 与条件请求 | 脚本第 2、5、6 步 | `PUT` 响应带不带 ETag；两次 `GET` 的 ETag 是否相同；`If-None-Match` 回不回 `304`（回的话可以省流量） |
+| 3 | 父文件夹不存在、根目录建文件夹 | 脚本第 7、8 步 | 是否 `409`；根目录 `MKCOL` 是否被拒 |
+| 4 | 不同网络下的延迟 | 在家里宽带、公司网络、手机热点下各跑一次脚本第 9 步 | 耗时是否稳定在 1 秒以内，有没有失败 |
+| 5 | 桌面 → 云的同步延迟 | 先跑一次能力测试生成 `probe.json`；一台电脑运行 `watch`，另一台电脑改同步盘里的 `FOCUS-sync-test/probe.json` 并记下时间 | 修改时间多久后变化（Windows、Mac 各测一次） |
+| 6 | 云 → 桌面的同步延迟 | 再跑一次能力测试（第 2 步会 `PUT` 新的 `probe.json`），同时盯着桌面同步盘里这个文件 | 多久出现新内容 |
+| 7 | 睡眠前的最后改动 | Mac 上改完立刻合盖，过几分钟在另一台设备查看；再开盖 | 合盖期间能不能看到；开盖后多久补传上去 |
+| 8 | 问坚果云客服 | 不用测，直接问 | 请求次数按账号还是按应用密码计；桌面客户端算不算 WebDAV 次数；WebDAV 流量算不算月流量；`503` 封禁一般多久解除 |
+| 9 | `CapacitorHttp` 发 `PROPFIND`（要先有 Capacitor 原型） | 真机上调用 `CapacitorHttp.request({ method: 'PROPFIND', … })`，带 `Content-Type: application/xml` | 拿到 `207` 和 XML 字符串；中文路径正常 |
+| 10 | 回前台拉取耗时 | 真机分别在 Wi-Fi 和 4G / 5G 下切回 App | 从切回到界面刷新的时间 |
+| 11 | 进后台补传 | 改完立刻按 Home 键或锁屏；另一次改完立刻在多任务界面划掉 | 前者应在 30 秒内传上去；后者改动不丢，下次打开后自动上传 |
+| 12 | 后台刷新实际频率（可选） | 注册 `BGAppRefreshTask`，每次运行记一行日志，正常用一周 | 一天实际运行几次（只用来决定值不值得做小组件） |
+| 13 | 「文件」App 路线（只在考虑它时测） | 用系统文件夹选择器选「坚果云」里的文件夹，读写其中的文件 | 能否选中文件夹；桌面改动后多久能读到；写入后多久出现在网页版 |
+| 14 | 流量 | 正常使用一周后，在网页版账户信息里查看本月已用流量 | 与上面的估算对比，判断免费版够不够 |
 
 ## 6. 风险与待定问题
 
@@ -548,14 +830,22 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 2. **自写同步代码的正确性**：合并逻辑出错可能导致数据丢失或"复活"。对策有三：P4 的随机化收敛测试；每台设备保留本地多日快照；在 `⋯` 菜单提供"导出 JSON"。
 3. **时钟偏差**：HLC 能避免"时钟快的设备永远赢"。服务器再拒收超前太多的时间戳，客户端在偏差过大时提示。
 4. **长期离线的设备与墓碑回收**：设备离线超过墓碑保留期（例如 180 天）后，必须整份重拉，不能增量合并，否则已彻底删除的条目会"复活"。协议里的 `reset` 消息就是为此设计的。
-5. **iOS 存储与后台**：PWA 的本地存储在空间紧张时可能被系统清理，尚未推送的离线改动会随之丢失，Capacitor 版更稳。iOS 进入后台后 WebSocket 会断开，回到前台再同步即可。
+5. **iOS 存储与后台**：PWA 的本地存储在空间紧张时可能被系统清理，尚未推送的离线改动会随之丢失，Capacitor 版更稳。Capacitor 版也要把数据存在 Filesystem 或 SQLite 里，不要用 WebView 的 localStorage / IndexedDB，它们同样可能被回收（5.5.2）。iOS 进入后台后 WebSocket 会断开，回到前台再同步即可。
 6. **Apple 相关的持续成本**：$99/年；TestFlight 每个构建 90 天后过期，需要定期重新上传。免费账号每 7 天要重新签名。
 7. **安全**：同步密钥泄露就等于数据泄露。全程走 TLS；设备令牌可以吊销；如有需要，再加端到端加密（4.3）。
 8. **将来的功能可能改变选型**：
    - "拖进另一项成为子项"（任意改父）：要认真处理环，可考虑 Loro 的可移动树。
    - 多人共享列表：需要正式的账号和权限体系，考虑 PowerSync + Supabase。
    - 桌面小组件 / Siri：需要 SwiftUI 或 Capacitor 加 Swift 扩展。
-9. **坚果云路线的外部依赖**（只影响第 5 节）：请求次数、流量配额、WebDAV 接口和应用密码规则都可能调整；流量配额、"桌面客户端不占 WebDAV 次数"、`CapacitorHttp` 能否发 `PROPFIND` 目前来自第三方资料或推断，落地前要实测。
+9. **坚果云路线的外部依赖**（只影响第 5 节）：请求次数、流量配额、WebDAV 接口和应用密码规则都可能调整。目前的把握程度：
+   - 流量配额已在官网价格页核实。
+   - "桌面客户端不占 WebDAV 次数"、请求次数按账号还是按应用密码计，仍是推断。
+   - `CapacitorHttp` 发 `PROPFIND`：按源码看可行，但没在真机上验证。
+   - ETag 的行为：第三方实测说法不一。
+   - 超限会回 `503`，可能好几个小时不能同步。
+
+   详见 5.5.4，落地前按 5.5.5 的清单实测。
+10. **坚果云路线在 iOS 上的同步时机**（只影响第 5 节）：iPhone 基本只在打开 FOCUS 时同步，被用户划掉后系统不会再在后台启动它；桌面端依赖坚果云客户端在运行，客户端没开时 FOCUS 察觉不到。对策见 5.5.2、5.5.3。
 
 ### 6.2 待定问题（需要旅行者决定）
 
@@ -567,6 +857,8 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 6. **将来会加"拖进另一项变成子项"吗？**
 7. **将来会给别人用或共享列表吗？**
 8. **Mac 包在哪里构建？** 自己的 Mac，还是 GitHub Actions？
+9. **同一个坚果云账号上还有别的 WebDAV 应用吗？**（例如 Zotero、Obsidian 的 Remotely Save。）如果请求次数按账号共享，大家会一起被限流；有的话建议用付费版，或把 iPhone 的轮询间隔调长（5.5.4）。
+10. **能接受 iPhone 只在打开 FOCUS 时同步吗？** 不能接受的话，只能走自建服务器，再加静默推送（第 4 节）。
 
 ## 7. 参考链接
 
@@ -627,14 +919,22 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 
 **坚果云 / 同步盘**
 
-- 坚果云 WebDAV 第三方应用说明（含请求频率限制）：https://help.jianguoyun.com/?p=2064
+- 坚果云 WebDAV 第三方应用说明（含请求频率限制、单次 750 条、500 MB）：https://help.jianguoyun.com/?p=2064
+- 坚果云价格与免费版流量（官网，含历史版本保留期）：https://www.jianguoyun.com/s/pricing
 - 坚果云免费版流量（第三方整理，2026-03）：https://www.bilibili.com/read/cv44140398
 - 坚果云免费版限制（少数派）：https://sspai.com/post/61072
+- 坚果云 iOS 更新日志（5.0.0 起支持「文件」App）：https://help.jianguoyun.com/?p=2397 ；App Store 页面：https://apps.apple.com/cn/app/id444442371
+- Remotely Save 的坚果云说明（只支持 Depth 1）：https://github.com/remotely-save/remotely-save/blob/master/docs/remote_services/webdav_jianguoyun/README.zh-cn.md ；750 条检查与逐层列目录：https://github.com/remotely-save/remotely-save/blob/master/src/fsWebdav.ts
+- 坚果云 ETag / `If-Match` 第三方实测（2026-10-14）：https://github.com/hibernate-pano/chrome-plugin-one-tab/commit/14dc472919202e2f5a4e89cfe960d3e221848efd ；同项目的坚果云 CORS 调研：https://github.com/hibernate-pano/chrome-plugin-one-tab/blob/a31cb5fa0d4a58db94a232e70a97f04ac9d5cc10/.ai-logs/research-webdav-backends.md
+- 坚果云返回 `409`、ETag 不稳定的代码注释（第三方）：https://github.com/muzi-xiaoren/PassPro/blob/9c82db39e32229384983c1a13efc130cbb7933fd/lib/sync/webdav_backend.dart
+- 坚果云 WebDAV 限流 `503`：Zotero 论坛 https://forums.zotero.org/discussion/comment/493466/ ；Joplin 论坛 https://discourse.joplinapp.org/t/unable-to-sync-via-jianguoyun-due-to-too-many-requests/26222
 - 同步工具的数据放进 iCloud Drive 后无法正常同步（DEVONthink 论坛）：https://discourse.devontechnologies.com/t/icloud-drive-shared-folders-and-the-syncstore/54628
 - Cryptomator 保险库放在 iCloud Drive 的问题：https://community.cryptomator.org/t/problem-with-icloud-drive/300
 - iOS 访问用户选择的目录（安全作用域书签）：https://developer.apple.com/documentation/uikit/providing-access-to-directories.md
 - Capacitor 原生 HTTP：https://capacitorjs.com/docs/apis/http
+- Capacitor 8.5.3 iOS 端 HTTP 源码（方法名原样传给 `URLRequest`、无 `Content-Type` 时不写请求体）：https://github.com/ionic-team/capacitor/blob/8.5.3/ios/Capacitor/Capacitor/Plugins/HttpRequestHandler.swift 、https://github.com/ionic-team/capacitor/blob/8.5.3/ios/Capacitor/Capacitor/Plugins/CapacitorUrlRequest.swift ；Android 端：https://github.com/ionic-team/capacitor/blob/8.5.3/android/capacitor/src/main/java/com/getcapacitor/plugin/util/HttpRequestHandler.java
 - Electron 的 `userData` / `sessionData` 路径：https://www.electronjs.org/docs/latest/api/app#appgetpathname
+- Electron `powerMonitor`（`suspend`、`lock-screen` 等事件）：https://www.electronjs.org/docs/latest/api/power-monitor
 
 **自建相关**
 
@@ -669,3 +969,15 @@ P0 不依赖任何网络功能，可以先做、先发布，也能让现有本�
 - Capacitor 环境要求：https://capacitorjs.com/docs/getting-started/environment-setup ；SQLite 插件：https://github.com/capacitor-community/sqlite
 - Tauri 2.12：https://v2.tauri.app/blog/tauri-2.12/
 - iOS PWA 限制：https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide 、https://developer.apple.com/forums/thread/710157
+
+**iOS 后台执行（5.5）**
+
+- iOS Background Execution Limits（Apple DTS，含强制退出的说明）：https://developer.apple.com/forums/thread/685525
+- 后台策略总览（后台刷新最多 30 秒；后台推送超过每小时 3 次会被限流）：https://developer.apple.com/documentation/backgroundtasks/choosing-background-strategies-for-your-app
+- `BGAppRefreshTask`：https://developer.apple.com/documentation/backgroundtasks/bgapprefreshtask ；只倾向于给常用的 App、被系统回收后仍可能唤醒（DTS）：https://developer.apple.com/forums/thread/721584 ；强制退出后的行为（Apple 工程师，2025-11）：https://developer.apple.com/forums/thread/808088
+- `BGProcessingTaskRequest`：https://developer.apple.com/documentation/backgroundtasks/bgprocessingtaskrequest
+- `BGContinuedProcessingTask`（iOS 26，必须由用户操作发起）：https://developer.apple.com/documentation/backgroundtasks/performing-long-running-tasks-on-ios-and-ipados
+- 后台 `URLSession` 的限制：https://developer.apple.com/documentation/foundation/downloading-files-in-the-background ；用户划掉 App 会取消后台传输：https://developer.apple.com/documentation/foundation/urlsessionconfiguration/background(withidentifier:)
+- 钥匙串 `ThisDeviceOnly` 条目不迁移到新设备：https://developer.apple.com/documentation/security/ksecattraccessibleafterfirstunlockthisdeviceonly
+- Capacitor App 事件（`pause` / `resume`）：https://capacitorjs.com/docs/apis/app ；Background Runner：https://capacitorjs.com/docs/apis/background-runner ；存储指南（localStorage 可能被回收）：https://capacitorjs.com/docs/guides/storage
+- Capawesome Background Task 插件（iOS 上 30 秒内结束）：https://capawesome.io/plugins/background-task/
