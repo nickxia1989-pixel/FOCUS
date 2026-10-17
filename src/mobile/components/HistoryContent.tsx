@@ -48,7 +48,7 @@ export function HistoryContent() {
 
   return (
     <div className="history">
-      <div className="card stats">
+      <div className="card stats" data-anchor="stats">
         <div className="stats-nums">
           <Stat value={today} label="今天" />
           <Stat value={week} label="近 7 天" />
@@ -87,7 +87,7 @@ export function HistoryContent() {
             else sectionRefs.current.delete(d.day);
           }}
         >
-          <h2 className="day-head">
+          <h2 className="day-head" data-anchor={`day-${d.day}`}>
             <span className="day-title">{dayTitle(d.day, now)}</span>
             <span className="day-week">周{WEEK[new Date(d.day).getDay()]}</span>
             <span className="day-count">{d.total} 项</span>
@@ -122,7 +122,7 @@ function HistoryRow({ item }: { item: HistoryItem }) {
     if (ref.current) useUi.getState().set({ menu: { todoId: todo.id, rect: rectOf(ref.current), from: 'history' } });
   };
   return (
-    <button ref={ref} className="h-row" data-node-id={todo.id} onClick={open}>
+    <button ref={ref} className="h-row" data-node-id={todo.id} data-anchor={todo.id} onClick={open}>
       <span className="h-check">
         <svg viewBox="0 0 24 24" aria-hidden>
           <path d="m6.5 12.5 3.7 3.7 7.4-8" />

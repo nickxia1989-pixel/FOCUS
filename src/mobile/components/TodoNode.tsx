@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useLayoutEffect, useRef, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { childrenOf, type TreeIndex } from '../../model';
 import type { ListId, Todo } from '../../types';
 import { deleteWithUndo, markForTest, moveTodoTo, startEdit, toggleTest, toggleTodo } from '../actions';
 import { CheckIcon, ChevronDownIcon, FlaskIcon, MoveIcon, TargetIcon, TrashIcon, UncheckIcon } from '../icons';
 import { useData } from '../store';
-import { rectOf, useUi } from '../ui';
+import { restored, saveTransient } from '../transient';
+import { rectOf, useRefitOnWidth, useUi } from '../ui';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 
 /** 常驻的流转按钮（只给未完成的顶层项）：INBOX → FOCUS，FOCUS → 待测 */
@@ -97,6 +98,7 @@ export function TodoNode({ todo, depth, index }: Props) {
       <SwipeRow id={todo.id} leading={leading} trailing={trailing} onLongPress={() => openMenu()} disabled={editing}>
         <div
           ref={rowRef}
+          data-anchor={todo.id}
           className={rowClass}
           style={{ '--depth': depth, '--c': `var(--c-${todo.list})` } as CSSProperties}
         >
@@ -172,28 +174,52 @@ function TitleEditor({ todo }: { todo: Todo }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const cancelled = useRef(false);
 
-  const fit = () => {
+  const fit = useCallback(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = '0px';
     el.style.height = `${el.scrollHeight}px`;
-  };
-  useLayoutEffect(fit, []);
+  }, []);
+  useLayoutEffect(fit, [fit]);
+  useRefitOnWidth(ref, fit);
+
+  // 折叠 / 展开导致页面重载时恢复出来的草稿（只用一次）
+  const [initial] = useState(() => {
+    const draft = restored.editing?.id === todo.id ? restored.editing.text : null;
+    restored.editing = undefined;
+    return draft ?? todo.title;
+  });
 
   const commit = () => {
+    saveTransient({ editing: undefined });
     if (!cancelled.current && ref.current) useData.getState().rename(todo.id, ref.current.value);
     if (useUi.getState().editingId === todo.id) useUi.getState().set({ editingId: null });
   };
+
+  // iOS 上点空白处不会让输入框失焦：点到编辑框以外的任何地方都结束编辑
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const el = ref.current;
+      if (!el || el.contains(e.target as Node)) return;
+      if (document.activeElement === el) el.blur();
+      else commit();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, []);
 
   return (
     <textarea
       ref={ref}
       className="row-edit"
       data-edit-input={todo.id}
-      defaultValue={todo.title}
+      defaultValue={initial}
       rows={1}
       enterKeyHint="done"
-      onInput={fit}
+      onInput={(e) => {
+        fit();
+        saveTransient({ editing: { id: todo.id, text: e.currentTarget.value } });
+      }}
       onFocus={() => {
         // 键盘弹出后把正在编辑的行滚到可见处（WebView 不随键盘缩小）
         setTimeout(() => ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);

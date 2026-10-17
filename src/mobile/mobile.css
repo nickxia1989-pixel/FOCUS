@@ -160,9 +160,10 @@ textarea {
   overflow: hidden;
 }
 
-.app.is-wide {
-  /* 横屏时灵动岛在左侧，侧栏要把安全区让出来 */
+.app {
+  /* 侧栏宽度把左侧安全区算进去 */
   --sidebar-w: calc(clamp(228px, 28vw, 288px) + env(safe-area-inset-left));
+  --morph: 0.38s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .main {
@@ -186,6 +187,8 @@ textarea {
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  /* 形态切换时由 useScrollAnchor 自己保持阅读位置，别和浏览器的滚动锚定叠加 */
+  overflow-anchor: none;
   padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
 }
 
@@ -345,6 +348,21 @@ textarea {
   gap: 10px;
   max-width: 560px;
   margin: 0 auto;
+  transition:
+    transform var(--morph),
+    opacity 0.24s,
+    visibility 0s;
+}
+
+/* 展开成侧栏时页签沉下去 */
+.is-wide .tabbar-wrap {
+  transform: translateY(calc(100% + 40px));
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform var(--morph),
+    opacity 0.2s,
+    visibility 0s linear 0.38s;
 }
 
 .glass {
@@ -461,6 +479,35 @@ textarea {
 }
 
 /* ============ 宽屏：侧栏 ============ */
+
+/*
+ * 侧栏常驻，切换形态时只做位移：
+ * 收起时立刻脱离布局（内容栏一步到位变宽），侧栏盖在上面滑出去；
+ * 展开时一步让出位置，侧栏从左边滑进来。内容栏只重排一次，过渡中不会被挤窄。
+ */
+.sidebar-shell {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 25;
+  width: var(--sidebar-w);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--morph),
+    visibility 0s linear 0.38s;
+}
+
+.is-wide .sidebar-shell {
+  position: relative;
+  flex: none;
+  transform: none;
+  visibility: visible;
+  transition:
+    transform var(--morph),
+    visibility 0s;
+}
 
 .sidebar {
   flex: none;
@@ -1226,12 +1273,49 @@ textarea {
   transition:
     opacity 0.2s,
     transform 0.34s cubic-bezier(0.2, 0.9, 0.3, 1),
-    bottom 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+    bottom 0.3s cubic-bezier(0.2, 0.9, 0.3, 1),
+    left var(--morph);
 }
 
 .is-open .composer {
   opacity: 1;
   transform: none;
+}
+
+/* 横屏手机：页签变矮、图标和文字并排，大标题收小，给列表留出高度 */
+@media (max-height: 500px) {
+  .app {
+    --tabbar-h: 48px;
+  }
+
+  .tab {
+    flex-direction: row;
+    gap: 6px;
+    border-radius: 22px;
+  }
+
+  .tab-pill {
+    border-radius: 22px;
+  }
+
+  .tab-label {
+    font-size: 10.5px;
+  }
+
+  /* 文字在图标右边，角标挪到图标正上方，免得压住文字 */
+  .tab-badge {
+    top: -9px;
+    left: 9px;
+  }
+
+  .large-title {
+    padding-top: calc(env(safe-area-inset-top) + 46px);
+    padding-bottom: 8px;
+  }
+
+  .large-title h1 {
+    font-size: min(1.6rem, 34px);
+  }
 }
 
 /* 宽屏：卡片只占右侧内容栏 */

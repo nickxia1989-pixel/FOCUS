@@ -7,6 +7,7 @@ import { goSection, openComposer } from '../actions';
 import { PROFILE_TINTS, SECTIONS, type Profile, type Section } from '../data';
 import { MoreIcon, PlusIcon, SectionIcons, SwapIcon, TrashIcon } from '../icons';
 import { activeOf, useData, useTodos } from '../store';
+import { restored, saveTransient } from '../transient';
 import { rectOf, useUi } from '../ui';
 
 export const SECTION_META: Record<Section, { label: string; hint: string }> = {
@@ -60,6 +61,65 @@ function openMore(e: React.MouseEvent) {
 
 // ---------- 滚动页 ----------
 
+/**
+ * 记住视口顶部（导航栏下方）的第一行；滚动区宽度变化（侧栏展开 / 收起、旋转、折叠）导致文字重排时，
+ * 把这一行放回原来的位置，而不是停在原来的 scrollTop。
+ */
+function useScrollAnchor(ref: React.RefObject<HTMLDivElement | null>, section: Section) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let anchor: { key: string; offset: number } | null = null;
+    let lastWidth = el.clientWidth;
+    /** 宽度过渡（侧栏展开 / 收起）期间只复位、不重新取锚点，免得中途换成下一行 */
+    let settleUntil = 0;
+    const line = () =>
+      el.getBoundingClientRect().top + (el.parentElement?.querySelector<HTMLElement>('.navbar')?.offsetHeight ?? 0);
+    const capture = () => {
+      // 宽度刚变、还在过渡：这时的位置是重排后的，别记
+      if (el.clientWidth !== lastWidth || performance.now() < settleUntil) return;
+      anchor = null;
+      if (el.scrollTop <= 0) return;
+      const limit = line();
+      for (const n of el.querySelectorAll<HTMLElement>('[data-anchor]')) {
+        const r = n.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > limit) {
+          anchor = { key: n.dataset.anchor!, offset: r.top - limit };
+          saveTransient({ anchor: { section, ...anchor } });
+          return;
+        }
+      }
+      saveTransient({ anchor: undefined });
+    };
+    // 页面重载后回到原来那一行
+    const saved = restored.anchor;
+    restored.anchor = undefined;
+    if (saved?.section === section) {
+      requestAnimationFrame(() => {
+        const n = el.querySelector<HTMLElement>(`[data-anchor="${CSS.escape(saved.key)}"]`);
+        if (n) el.scrollTop += n.getBoundingClientRect().top - line() - saved.offset;
+      });
+    }
+    const onScroll = capture;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth === lastWidth) return;
+      lastWidth = el.clientWidth;
+      settleUntil = performance.now() + 450;
+      if (!anchor) return;
+      const n = el.querySelector<HTMLElement>(`[data-anchor="${CSS.escape(anchor.key)}"]`);
+      if (!n) return;
+      const delta = n.getBoundingClientRect().top - line() - anchor.offset;
+      if (Math.abs(delta) > 0.5) el.scrollTop += delta;
+    });
+    el.addEventListener('scroll', onScroll, { passive: true });
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      ro.disconnect();
+    };
+  }, [ref, section]);
+}
+
 export function Screen({ section, wide, children }: { section: Section; wide: boolean; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollY } = useScroll({ container: ref });
@@ -74,6 +134,7 @@ export function Screen({ section, wide, children }: { section: Section; wide: bo
   useEffect(() => {
     ref.current?.scrollTo({ top: 0 });
   }, [section, profile.id]);
+  useScrollAnchor(ref, section);
   const now = new Date();
   const date = `${now.getMonth() + 1}月${now.getDate()}日 ${WEEK[now.getDay()]}`;
   const hasAny = useTodos().some((t) => t.list === section);
@@ -143,10 +204,10 @@ export function Screen({ section, wide, children }: { section: Section; wide: bo
 
 // ---------- 窄屏：底部标签栏 ----------
 
-export function TabBar({ section }: { section: Section }) {
+export function TabBar({ section, hidden }: { section: Section; hidden: boolean }) {
   const counts = useCounts();
   return (
-    <div className="tabbar-wrap">
+    <div className="tabbar-wrap" inert={hidden} aria-hidden={hidden}>
       <nav className="tabbar glass" aria-label="分区">
         {SECTIONS.map((s) => (
           <TabButton key={s} section={s} active={s === section} count={counts[s]} />

@@ -1,4 +1,5 @@
 // 仅界面使用的临时状态（不落盘）
+import { useEffect, type RefObject } from 'react';
 import { create } from 'zustand';
 import type { ListId } from '../types';
 import type { Section } from './data';
@@ -77,3 +78,19 @@ export const rectOf = (el: Element): Rect => {
   const r = el.getBoundingClientRect();
   return { top: r.top, left: r.left, width: r.width, height: r.height };
 };
+
+/** 输入框所在容器变宽 / 变窄时（切换形态、旋转）重新算自适应高度 */
+export function useRefitOnWidth(ref: RefObject<HTMLElement | null>, fit: () => void) {
+  useEffect(() => {
+    const box = ref.current?.parentElement;
+    if (!box) return;
+    let width = box.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (box.clientWidth === width) return;
+      width = box.clientWidth;
+      fit();
+    });
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [ref, fit]);
+}

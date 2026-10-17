@@ -25,6 +25,7 @@ function centerOf(el: Element | null | undefined) {
 /** 底部标签栏或侧栏里，该分区的图标位置（取当前可见的那个） */
 function sectionTarget(s: Section) {
   for (const el of document.querySelectorAll(`[data-target="${s}"]`)) {
+    if (el.closest('[inert]')) continue; // 收起的侧栏 / 页签
     const c = centerOf(el);
     if (c && c.y > 0 && c.y < window.innerHeight) return c;
   }

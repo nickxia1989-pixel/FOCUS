@@ -48,7 +48,11 @@ export function ListContent({ list }: { list: ListId }) {
 
       {done.length > 0 && (
         <>
-          <button className={`group-head ${doneCollapsed ? 'is-collapsed' : ''}`} onClick={toggleDone}>
+          <button
+            className={`group-head ${doneCollapsed ? 'is-collapsed' : ''}`}
+            data-anchor="done-head"
+            onClick={toggleDone}
+          >
             <span>已完成</span>
             <span className="group-count">{done.length}</span>
             <ChevronDownIcon width={16} height={16} />

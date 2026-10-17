@@ -1,11 +1,12 @@
 // 底部的新建卡片：贴着键盘，回车添加后保持打开，可以连续输入
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LISTS, type ListId } from '../../types';
 import { closeComposer, registerComposerInput } from '../actions';
 import { ArrowUpIcon, SectionIcons, SubtaskIcon } from '../icons';
 import { haptic } from '../native';
 import { useData, useTodos } from '../store';
-import { pulse, useUi } from '../ui';
+import { restored, saveTransient } from '../transient';
+import { pulse, useRefitOnWidth, useUi } from '../ui';
 
 export function Composer() {
   const { open, list, parentId } = useUi((s) => s.composer);
@@ -13,24 +14,32 @@ export function Composer() {
   const parent = parentId ? todos.find((t) => t.id === parentId) : undefined;
   const ref = useRef<HTMLTextAreaElement>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const [text, setText] = useState('');
+  // 页面重载前没发出去的字（见 transient.ts）
+  const [text, setText] = useState(() => restored.composer?.text ?? '');
 
   useEffect(() => {
     registerComposerInput(ref.current);
     return () => registerComposerInput(null);
   }, []);
 
+  // 收起时清空；首次挂载时不清，保留恢复出来的草稿
+  const wasOpen = useRef(open);
   useEffect(() => {
-    if (!open) setText('');
+    if (wasOpen.current && !open) {
+      setText('');
+      saveTransient({ composer: undefined });
+    }
+    wasOpen.current = open;
   }, [open]);
 
-  const fit = () => {
+  const fit = useCallback(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = '0px';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  };
-  useEffect(fit, [text]);
+  }, []);
+  useEffect(fit, [text, fit]);
+  useRefitOnWidth(ref, fit);
 
   const submit = () => {
     const title = (ref.current?.value ?? text).trim();
@@ -39,6 +48,7 @@ export function Composer() {
     if (!id) return;
     haptic.light();
     setText('');
+    saveTransient({ composer: undefined });
     // 加到了别的列表（不在当前页）时，让那个分区的图标弹一下
     if (!parent && useData.getState().prefs.section !== list) pulse(list);
   };
@@ -74,7 +84,10 @@ export function Composer() {
             rows={1}
             placeholder={parent ? '子任务…' : meta.placeholder}
             enterKeyHint="send"
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              saveTransient({ composer: { list, parentId, text: e.target.value } });
+            }}
             onFocus={() => {
               clearTimeout(blurTimer.current);
               if (!useUi.getState().composer.open)
