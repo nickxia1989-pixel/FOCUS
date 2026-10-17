@@ -7,7 +7,23 @@ const { startAgentServer } = require('./agent.cjs');
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const isMac = process.platform === 'darwin';
 
+// 界面按哪个系统画（标题栏、窗口边框）。开发时可用 FOCUS_FORCE_PLATFORM=win 在 Mac 上画 Windows 版来截图验证；
+// 菜单、退出行为等仍按真实系统
+const FORCED = (process.env.FOCUS_FORCE_PLATFORM || '').toLowerCase();
+const uiPlatform = FORCED === 'win' || FORCED === 'win32' ? 'win32' : FORCED === 'mac' || FORCED === 'darwin' ? 'darwin' : process.platform;
+const macChrome = uiPlatform === 'darwin';
+
+// 开发截图用：FOCUS_FORCE_THEME=dark|light 固定浅色 / 深色，不传就跟随系统
+if (['dark', 'light'].includes(process.env.FOCUS_FORCE_THEME)) nativeTheme.themeSource = process.env.FOCUS_FORCE_THEME;
+
 const DEFAULT_SIZE = { width: 384, height: 680 };
+
+/** 窗口底色（加载前、拖动时露出来的那一下）：Mac #F6F6F2 / #0B0B0C，Windows 冷一点 #F3F3EF / #121213 */
+function windowBackground() {
+  const dark = nativeTheme.shouldUseDarkColors;
+  if (macChrome) return dark ? '#0B0B0C' : '#F6F6F2';
+  return dark ? '#121213' : '#F3F3EF';
+}
 
 // 可用环境变量指定数据目录（测试或便携使用）；默认在系统的应用数据目录
 if (process.env.FOCUS_USER_DATA) app.setPath('userData', path.resolve(process.env.FOCUS_USER_DATA));
@@ -256,6 +272,12 @@ function createWindow() {
   const st = loadWindowState();
   const b = st.bounds || {};
 
+  // macOS：hiddenInset 红绿灯在 (12, 14)，标题栏 40 高，窗口圆角由系统画
+  // Windows：无边框，自绘 36 高标题栏（最小化 / 关闭走 IPC），Win11 由系统画 8px 圆角和阴影
+  const chrome = macChrome
+    ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 14 } }
+    : { frame: false, thickFrame: true, roundedCorners: true };
+
   win = new BrowserWindow({
     width: b.width || DEFAULT_SIZE.width,
     height: b.height || DEFAULT_SIZE.height,
@@ -265,11 +287,8 @@ function createWindow() {
     minHeight: 420,
     title: 'FOCUS',
     show: false,
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#17181b' : '#f6f5f2',
-    // macOS 保留红绿灯，Windows / Linux 用自绘标题栏
-    frame: isMac,
-    titleBarStyle: isMac ? 'hiddenInset' : undefined,
-    trafficLightPosition: isMac ? { x: 12, y: 14 } : undefined,
+    backgroundColor: windowBackground(),
+    ...chrome,
     maximizable: false,
     fullscreenable: false,
     alwaysOnTop: !!st.alwaysOnTop,
@@ -283,6 +302,7 @@ function createWindow() {
   });
 
   if (isMac) preventMacMaximize(win);
+  nativeTheme.on('updated', () => win && !win.isDestroyed() && win.setBackgroundColor(windowBackground()));
 
   win.once('ready-to-show', () => win && win.show());
   win.on('move', scheduleSaveWindowState);
@@ -300,7 +320,10 @@ function createWindow() {
     if (/^https?:/.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (e) => e.preventDefault());
+  // 只放行刷新当前页（出错页上的「重新加载」）
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url !== win.webContents.getURL()) e.preventDefault();
+  });
 
   // 菜单被移除后，开发时仍保留 F12 / 刷新
   win.webContents.on('before-input-event', (_e, input) => {
@@ -440,6 +463,10 @@ ipcMain.handle('sync:setSimOffline', (_e, flag) => {
   return simOffline;
 });
 ipcMain.handle('app:platform', () => ({ platform: process.platform, deviceName: defaultDeviceName() }));
+// 预加载脚本同步取界面平台（FOCUS_FORCE_PLATFORM 生效后的值）
+ipcMain.on('app:uiPlatform', (e) => {
+  e.returnValue = uiPlatform;
+});
 ipcMain.handle('sync:identity', () => deviceIdentity());
 ipcMain.handle('sync:resetIdentity', () => {
   fs.rmSync(identityFile(), { force: true });

@@ -14,7 +14,10 @@ import {
   setSimulatedOffline,
   syncNow,
 } from '../syncDesktop';
-import { BackIcon, CloudIcon, CloudOffIcon, SyncIcon } from './icons';
+import { BackIcon, CloudStateIcon, LaptopIcon, PhoneIcon } from './icons';
+import { cloudState } from './TitleBar';
+
+const EASE = [0.2, 0.8, 0.2, 1] as const;
 
 export function relTime(t: number | null | undefined, now: number) {
   if (!t) return '从未';
@@ -22,8 +25,11 @@ export function relTime(t: number | null | undefined, now: number) {
   if (d < 10_000) return '刚刚';
   if (d < 60_000) return `${Math.floor(d / 1000)} 秒前`;
   if (d < 3_600_000) return `${Math.floor(d / 60_000)} 分钟前`;
-  if (d < 86_400_000) return `${Math.floor(d / 3_600_000)} 小时前`;
-  return `${Math.floor(d / 86_400_000)} 天前`;
+  const date = new Date(t);
+  const hm = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  if (d < 86_400_000 && date.getDate() === new Date(now).getDate()) return `今天 ${hm}`;
+  if (d < 2 * 86_400_000) return `昨天 ${hm}`;
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${hm}`;
 }
 
 export function statusText(s: SyncStatus | null, enabled: boolean): { text: string; tone: 'ok' | 'busy' | 'warn' | 'bad' | 'off' } {
@@ -32,7 +38,7 @@ export function statusText(s: SyncStatus | null, enabled: boolean): { text: stri
     case 'syncing':
       return { text: '正在同步…', tone: 'busy' };
     case 'offline':
-      return { text: '离线：改动已保存在本机，联网后自动上传', tone: 'warn' };
+      return { text: '离线：改动已保存在本机', tone: 'warn' };
     case 'ratelimit':
       return { text: '坚果云限流，稍后自动重试', tone: 'warn' };
     case 'auth':
@@ -44,19 +50,13 @@ export function statusText(s: SyncStatus | null, enabled: boolean): { text: stri
   }
 }
 
-function Field(props: {
-  label: string;
-  value: string;
-  onChange(v: string): void;
-  placeholder?: string;
-  type?: string;
-  hint?: string;
-}) {
+const TONE_COLOR = { ok: 'var(--ok)', busy: 'var(--tx)', warn: 'var(--fa)', bad: 'var(--bad)', off: 'var(--mu)' };
+
+function Field(props: { label: string; value: string; onChange(v: string): void; placeholder?: string; type?: string }) {
   return (
-    <label className="sync-field">
-      <span className="sync-label">{props.label}</span>
+    <label className="fr">
+      <span>{props.label}</span>
       <input
-        className="sync-input"
         type={props.type ?? 'text'}
         value={props.value}
         placeholder={props.placeholder}
@@ -64,21 +64,24 @@ function Field(props: {
         autoComplete="off"
         spellCheck={false}
       />
-      {props.hint && <span className="sync-hint">{props.hint}</span>}
     </label>
   );
 }
 
+const isPhone = (platform: string) => /ios|iphone|ipad|android/i.test(platform);
+
+/** 同步设置：状态卡、坚果云账号、各设备最后更新时间、关闭同步 */
 function SyncSheet() {
   const status = useData((s) => s.syncStatus);
   const enabled = useData((s) => s.local.sync.enabled);
   const meta = useData((s) => s.local.sync.meta);
   const myId = useData((s) => s.clock.deviceId);
+  const conflicts = useData((s) => s.conflicts.length);
   const [cfg, setCfg] = useState<SyncConfigView | null>(null);
   const [form, setForm] = useState({ baseUrl: '', user: '', password: '', folder: '', deviceName: '' });
+  const [saved, setSaved] = useState(form);
   const [note, setNote] = useState<{ text: string; tone: 'ok' | 'bad' } | null>(null);
   const [busy, setBusy] = useState(false);
-  const [join, setJoin] = useState<number | null>(null);
   const [simOffline, setSimOffline] = useState(isSimulatedOffline);
   const [now, setNow] = useState(() => Date.now());
   const close = () => useUi.getState().set({ syncOpen: false });
@@ -87,10 +90,12 @@ function SyncSheet() {
     void loadSyncConfig().then((c) => {
       if (!c) return;
       setCfg(c);
-      setForm({ baseUrl: c.baseUrl, user: c.user, password: '', folder: c.folder, deviceName: c.deviceName });
+      const f = { baseUrl: c.baseUrl, user: c.user, password: '', folder: c.folder, deviceName: c.deviceName };
+      setForm(f);
+      setSaved(f);
     });
     const t = setInterval(() => setNow(Date.now()), 5000);
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !useUi.getState().join && close();
     window.addEventListener('keydown', onKey);
     return () => {
       clearInterval(t);
@@ -99,6 +104,7 @@ function SyncSheet() {
   }, []);
 
   const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const dirty = (Object.keys(form) as (keyof typeof form)[]).some((k) => form[k] !== saved[k]);
 
   /** 保存表单；密码留空表示不修改 */
   const save = async () => {
@@ -113,8 +119,11 @@ function SyncSheet() {
       setNote({ text: r.message ?? '保存失败', tone: 'bad' });
       return false;
     }
-    setForm((f) => ({ ...f, password: '' }));
-    setCfg(await loadSyncConfig());
+    const c = await loadSyncConfig();
+    setCfg(c);
+    const f = c ? { baseUrl: c.baseUrl, user: c.user, password: '', folder: c.folder, deviceName: c.deviceName } : { ...form, password: '' };
+    setForm(f);
+    setSaved(f);
     return true;
   };
 
@@ -146,136 +155,116 @@ function SyncSheet() {
         return;
       }
       // 云端已有别的设备：本机还只是上手示例就直接以云端为准，否则问一下
-      if (probe.devices.length && !useData.getState().local.pristine) setJoin(probe.devices.length);
-      else await enableSync(probe.devices.length ? 'cloud' : 'merge');
+      const s = useData.getState();
+      if (probe.devices.length && !s.local.pristine) {
+        const local = s.todos.length;
+        useUi.getState().set({ join: { devices: probe.devices.length, local } });
+      } else await enableSync(probe.devices.length ? 'cloud' : 'merge');
     } finally {
       setBusy(false);
     }
   };
 
   const st = statusText(status, enabled);
-  const devices = useMemo(
-    () => Object.values(meta.devices).sort((a, b) => b.writtenAt - a.writtenAt),
-    [meta.devices],
-  );
+  const state = cloudState(status, enabled, conflicts);
+  const devices = useMemo(() => Object.values(meta.devices).filter((d) => d.id !== myId).sort((a, b) => b.writtenAt - a.writtenAt), [meta.devices, myId]);
+  const lastSync = status?.lastSyncAt ?? meta.lastSyncAt;
+  const sub = !enabled
+    ? cfg?.hasPassword
+      ? '账号已填好，开启后每 15 秒检查一次'
+      : '填好下面的坚果云账号和应用密码后开启'
+    : st.tone === 'ok'
+      ? `${relTime(lastSync, now)} · 每 15 秒检查一次`
+      : `上次同步 ${relTime(lastSync, now)}`;
 
   return (
     <motion.section
-      className="trash sync-panel"
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', stiffness: 420, damping: 42 }}
+      className="sheet"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 6, transition: { duration: 0.12 } }}
+      transition={{ duration: 0.22, ease: EASE }}
     >
-      <header className="trash-head">
-        <button className="tb-btn" title="返回（Esc）" onClick={close}>
+      <header className="shh">
+        <button className="bk" title="返回（Esc）" aria-label="返回" onClick={close}>
           <BackIcon />
         </button>
-        <div className="trash-title">同步</div>
+        <b>同步</b>
+        <span>坚果云 WebDAV</span>
       </header>
-      <div className="trash-scroll sync-scroll">
-        <div className={`sync-status tone-${st.tone}`}>
-          <span className="sync-status-icon">{st.tone === 'off' || st.tone === 'warn' ? <CloudOffIcon /> : <CloudIcon />}</span>
-          <div className="sync-status-main">
-            <div className="sync-status-text">{st.text}</div>
-            {enabled && (
-              <div className="sync-status-sub">
-                上次同步 {relTime(status?.lastSyncAt ?? meta.lastSyncAt, now)} · 上次上传 {relTime(status?.lastUploadAt ?? meta.lastUploadAt, now)}
-              </div>
-            )}
+      <div className="shb">
+        <div className="card ss">
+          <span className="ic" style={{ color: TONE_COLOR[st.tone] }}>
+            <CloudStateIcon state={state === 'conflict' ? 'ok' : state} className={state === 'syncing' ? 'spin' : ''} />
+          </span>
+          <div className="tx">
+            <b>{st.text}</b>
+            <span>{sub}</span>
           </div>
-          {enabled && (
-            <button className="sync-icon-btn" title="立即同步" onClick={syncNow}>
-              <SyncIcon className={status?.state === 'syncing' ? 'spin' : ''} />
+          {enabled ? (
+            <button className="btn pri" onClick={syncNow}>
+              立即同步
+            </button>
+          ) : (
+            <button className="btn pri" disabled={busy} onClick={turnOn}>
+              开启同步
             </button>
           )}
         </div>
 
-        {join !== null ? (
-          <div className="sync-join">
-            <p>云端已经有 {join} 台设备的数据。这台电脑上的数据怎么办？</p>
-            <button
-              className="sync-btn primary"
-              onClick={async () => {
-                setJoin(null);
-                await enableSync('merge');
-              }}
-            >
-              合并本机数据
-            </button>
-            <button
-              className="sync-btn"
-              onClick={async () => {
-                setJoin(null);
-                await enableSync('cloud');
-              }}
-            >
-              以云端为准（本机数据先备份）
-            </button>
-            <button className="sync-btn ghost" onClick={() => setJoin(null)}>
-              取消
-            </button>
-          </div>
-        ) : (
-          <div className="sync-actions">
-            {enabled ? (
-              <button className="sync-btn" onClick={disableSync}>
-                停止同步
-              </button>
-            ) : (
-              <button className="sync-btn primary" disabled={busy} onClick={turnOn}>
-                开启同步
+        <div className="card fl">
+          <Field label="服务器" value={form.baseUrl} onChange={set('baseUrl')} placeholder="https://dav.jianguoyun.com/dav/" />
+          <Field label="账号" value={form.user} onChange={set('user')} placeholder="坚果云账号（邮箱）" />
+          <Field
+            label="应用密码"
+            type="password"
+            value={form.password}
+            onChange={set('password')}
+            placeholder={cfg?.hasPassword ? '••••••••••（已保存，留空不修改）' : '坚果云网页生成的应用密码'}
+          />
+          <Field label="同步文件夹" value={form.folder} onChange={set('folder')} placeholder="FOCUS" />
+          <Field label="本机名称" value={form.deviceName} onChange={set('deviceName')} placeholder="例如：MacBook Pro" />
+        </div>
+        {(dirty || note) && (
+          <div className="row-btns">
+            {dirty && (
+              <button className="btn pri" disabled={busy} onClick={() => void save().then((ok) => ok && setNote({ text: '已保存', tone: 'ok' }))}>
+                保存
               </button>
             )}
+            <button className="btn" disabled={busy} onClick={test}>
+              测试连接
+            </button>
+            {note && <p className={`note ${note.tone}`}>{note.text}</p>}
+          </div>
+        )}
+        <p className="cap2">应用密码在坚果云网页「账户信息 → 安全选项 → 第三方应用管理」生成，只加密存在本机钥匙串里。同步文件夹不存在会自动创建。</p>
+        {cfg && !cfg.encryptionAvailable && <p className="note bad">系统钥匙串不可用，无法安全保存密码。</p>}
+
+        {enabled && (
+          <div className="card" style={{ padding: '4px 12px' }}>
+            <div className="dv">
+              <LaptopIcon />
+              <span>{saved.deviceName || '本机'}（本机）</span>
+              <em>{relTime(status?.lastUploadAt ?? meta.lastUploadAt, now)}</em>
+            </div>
+            {devices.map((d) => (
+              <div key={d.id} className="dv">
+                {isPhone(d.platform) ? <PhoneIcon /> : <LaptopIcon />}
+                <span>{d.name}</span>
+                <em>{relTime(d.writtenAt, now)}</em>
+              </div>
+            ))}
           </div>
         )}
 
-        <div className="sync-section">坚果云 WebDAV</div>
-        <Field label="服务器地址" value={form.baseUrl} onChange={set('baseUrl')} placeholder="https://dav.jianguoyun.com/dav/" />
-        <Field label="账号" value={form.user} onChange={set('user')} placeholder="坚果云账号（邮箱）" />
-        <Field
-          label="应用密码"
-          type="password"
-          value={form.password}
-          onChange={set('password')}
-          placeholder={cfg?.hasPassword ? '已保存（留空则不修改）' : '在坚果云网页生成的应用密码'}
-          hint="坚果云网页「账户信息 → 安全选项 → 第三方应用管理」生成。只加密保存在本机钥匙串里。"
-        />
-        <Field label="同步文件夹" value={form.folder} onChange={set('folder')} placeholder="FOCUS" hint="不存在会自动创建" />
-        <Field label="本机名称" value={form.deviceName} onChange={set('deviceName')} placeholder="例如：MacBook" />
-        <div className="sync-actions">
-          <button className="sync-btn" disabled={busy} onClick={() => void save().then((ok) => ok && setNote({ text: '已保存', tone: 'ok' }))}>
-            保存
-          </button>
-          <button className="sync-btn" disabled={busy} onClick={test}>
-            测试连接
-          </button>
-        </div>
-        {note && <p className={`sync-note tone-${note.tone}`}>{note.text}</p>}
-        {cfg && !cfg.encryptionAvailable && <p className="sync-note tone-bad">系统钥匙串不可用，无法安全保存密码。</p>}
-
         {enabled && (
-          <>
-            <div className="sync-section">设备</div>
-            <ul className="sync-devices">
-              <li>
-                <span>{form.deviceName || '本机'}（本机）</span>
-                <span className="sync-device-time">{relTime(status?.lastUploadAt ?? meta.lastUploadAt, now)}</span>
-              </li>
-              {devices
-                .filter((d) => d.id !== myId)
-                .map((d) => (
-                  <li key={d.id}>
-                    <span>{d.name}</span>
-                    <span className="sync-device-time">{relTime(d.writtenAt, now)}</span>
-                  </li>
-                ))}
-            </ul>
-          </>
+          <button className="btn bad" style={{ alignSelf: 'flex-start' }} onClick={disableSync}>
+            关闭同步
+          </button>
         )}
 
-        <div className="sync-section">调试</div>
-        <label className="sync-toggle">
+        <label className="dbg">
           <input
             type="checkbox"
             checked={simOffline}
@@ -284,14 +273,14 @@ function SyncSheet() {
               void setSimulatedOffline(e.target.checked);
             }}
           />
-          模拟离线（所有同步请求直接失败，用来测试断网）
+          调试：模拟离线（所有同步请求直接失败）
         </label>
       </div>
     </motion.section>
   );
 }
 
-/** 同步设置，从标题栏 ⋯ 菜单或云朵图标进入 */
+/** 同步设置，从标题栏的云朵或 ⋯ 菜单进入 */
 export function SyncPanel() {
   const open = useUi((s) => s.syncOpen);
   return <AnimatePresence>{open && <SyncSheet />}</AnimatePresence>;

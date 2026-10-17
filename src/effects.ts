@@ -115,16 +115,17 @@ function tone(ac: AudioContext, out: AudioNode, freq: number, start: number, dur
   }
 }
 
-export function chime() {
+/** pitch：音高倍数（0.5 = 低一个八度，桌面"送去验证"用）；volume：音量倍数 */
+export function chime(pitch = 1, volume = 1) {
   try {
     ctx ??= new AudioContext();
     if (ctx.state === 'suspended') void ctx.resume();
     const t = ctx.currentTime + 0.01;
     const master = ctx.createGain();
-    master.gain.value = 0.55;
+    master.gain.value = 0.55 * volume;
     master.connect(ctx.destination);
-    tone(ctx, master, 880, t, 0.45, 0.12);
-    tone(ctx, master, 1318.5, t + 0.085, 0.7, 0.1);
+    tone(ctx, master, 880 * pitch, t, 0.45, 0.12);
+    tone(ctx, master, 1318.5 * pitch, t + 0.085, 0.7, 0.1);
   } catch {
     // 没有音频设备时静默
   }

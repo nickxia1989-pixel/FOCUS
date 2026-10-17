@@ -20,6 +20,8 @@ export interface SyncConfigInput {
 
 interface FocusApi {
   platform: string;
+  /** 界面按哪个系统画（开发时可被 FOCUS_FORCE_PLATFORM 改写）；旧版预加载脚本没有这个字段 */
+  uiPlatform?: string;
   loadLegacyProfiles(): Promise<unknown>;
   loadLegacyData(profileId: string): Promise<unknown>;
   loadStore(name: 'doc' | 'local'): Promise<unknown>;
@@ -62,7 +64,19 @@ declare global {
 export const api: FocusApi | undefined = window.focusApi;
 export const isElectron = !!api;
 export const platform = api?.platform ?? 'web';
-export const isMac = platform === 'darwin' || (!api && /Mac/.test(navigator.platform));
+
+/**
+ * 界面按哪个系统画标题栏和字体。Electron 里跟主进程报的平台走（开发时可用环境变量
+ * FOCUS_FORCE_PLATFORM=win 在 Mac 上画 Windows 版）；浏览器调试时可加 ?os=win / ?os=mac
+ */
+const forcedOs = !api ? new URLSearchParams(location.search).get('os') : null;
+export const os: 'mac' | 'win' =
+  forcedOs === 'win' || forcedOs === 'mac'
+    ? forcedOs
+    : (api?.uiPlatform ?? platform) === 'darwin' || (!api && /Mac/.test(navigator.platform))
+      ? 'mac'
+      : 'win';
+export const isMac = os === 'mac';
 
 // ---------- 浏览器调试时的 localStorage 退路 ----------
 

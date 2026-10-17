@@ -1,4 +1,4 @@
-// 自写的指针拖拽：同层同状态内排序，或拖到顶部页签上换列表。
+// 自写的指针拖拽：同层同状态内排序、拖到页签 / 侧栏上换列表、拖到 NOW 卡上设为现在。
 // 不移动兄弟节点，只画一条插入线，嵌套结构下最稳。
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { ListId } from './types';
@@ -13,6 +13,9 @@ export interface DragOptions {
   onReorder(id: string, toIndex: number): void;
   onMoveToList(id: string, list: ListId): void;
   onHoverTab(list: ListId | null): void;
+  /** 能拖到 NOW 卡上（FOCUS 队列里的行）：松手时给出拖拽预览的位置，用来做交接动画 */
+  onDropNow?(id: string, ghostRect: DOMRect): void;
+  onHoverNow?(over: boolean): void;
 }
 
 const THRESHOLD = 5;
@@ -36,9 +39,10 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
   let lastX = startX;
   let lastY = startY;
   let tab: ListId | null = null;
+  let overNow = false;
   let insertAt: number | null = null;
   let raf = 0;
-  const scroller = row.closest<HTMLElement>('.list-scroll');
+  const scroller = row.closest<HTMLElement>('.view');
   const others = opts.siblingIds.filter((x) => x !== opts.id);
   const fromIndex = opts.siblingIds.indexOf(opts.id);
 
@@ -48,6 +52,7 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
     grabDX = startX - rect.left;
     grabDY = startY - rect.top;
     ghost = row.cloneNode(true) as HTMLElement;
+    ghost.classList.remove('lift', 'flash', 'menu-open');
     ghost.classList.add('drag-ghost');
     ghost.style.width = `${rect.width}px`;
     ghost.style.left = `${rect.left}px`;
@@ -70,7 +75,7 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
 
   const update = () => {
     if (!ghost || !line) return;
-    ghost.style.transform = `translate(${lastX - grabDX - parseFloat(ghost.style.left)}px, ${lastY - grabDY - parseFloat(ghost.style.top)}px) rotate(-1.2deg)`;
+    ghost.style.transform = `translate(${lastX - grabDX - parseFloat(ghost.style.left)}px, ${lastY - grabDY - parseFloat(ghost.style.top)}px) rotate(-2deg)`;
 
     // 页签优先：拖到其它列表的页签上即为移动
     const hit = document.elementFromPoint(lastX, lastY) as HTMLElement | null;
@@ -81,7 +86,13 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
       tab = newTab;
       opts.onHoverTab(tab);
     }
-    if (tab) {
+    // 其次是 NOW 卡：松手 = 设为现在
+    const nowHit = !tab && !!opts.onDropNow && !!hit?.closest('[data-drop-now]');
+    if (nowHit !== overNow) {
+      overNow = nowHit;
+      opts.onHoverNow?.(overNow);
+    }
+    if (tab || overNow) {
       insertAt = null;
       line.style.opacity = '0';
       return;
@@ -116,7 +127,7 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
   };
 
   function autoScroll() {
-    if (scroller && !tab) {
+    if (scroller && !tab && !overNow) {
       const r = scroller.getBoundingClientRect();
       let dy = 0;
       if (lastY < r.top + EDGE) dy = -Math.ceil((r.top + EDGE - lastY) / 4);
@@ -151,6 +162,7 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
     nodeEl(opts.id)?.classList.remove('is-dragging');
     document.body.classList.remove('dragging');
     opts.onHoverTab(null);
+    opts.onHoverNow?.(false);
     if (started) {
       // 吞掉拖拽结束后紧跟的 click，避免误触勾选/编辑
       const swallow = (ev: MouseEvent) => {
@@ -164,15 +176,19 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
 
   const onUp = () => {
     const dropTab = tab;
+    const dropNow = overNow;
     const dropAt = insertAt;
+    const ghostRect = ghost?.getBoundingClientRect();
     cleanup();
     if (!started) return;
     if (dropTab) opts.onMoveToList(opts.id, dropTab);
+    else if (dropNow && ghostRect) opts.onDropNow?.(opts.id, ghostRect);
     else if (dropAt !== null) opts.onReorder(opts.id, dropAt);
   };
 
   const onCancel = () => {
     tab = null;
+    overNow = false;
     insertAt = null;
     cleanup();
   };

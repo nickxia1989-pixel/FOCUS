@@ -1,17 +1,35 @@
-import { useEffect, useRef } from 'react';
-import { undoDelete } from './actions';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { useEffect, useState } from 'react';
+import { goView, undoDelete } from './actions';
+import { ConflictPanel, JoinModal } from './components/ConflictPanel';
+import { FocusView } from './components/FocusView';
 import { HistoryView } from './components/HistoryView';
 import { ListView } from './components/ListView';
+import { Pills, Sidebar } from './components/Nav';
 import { ContextMenu, Footer, Toast } from './components/Overlays';
-import { Sidebar } from './components/Sidebar';
-import { TitleBar } from './components/TitleBar';
-import { TrashPanel } from './components/TrashPanel';
-import { ConflictPanel } from './components/ConflictPanel';
+import { ProfileMenu } from './components/ProfileMenu';
 import { SyncPanel } from './components/SyncPanel';
+import { TitleBar } from './components/TitleBar';
+import { TrashView } from './components/TrashView';
 import { initSync } from './syncDesktop';
-import { isMac, platform } from './platform';
+import { isMac } from './platform';
 import { useData, useUi } from './store';
 import { VIEW_IDS } from './types';
+
+/** 宽 < 520 是 compact（页签胶囊），≥ 520 是 regular（左侧栏） */
+const REGULAR_MIN = 520;
+/** 再窄一点时页签胶囊收紧 */
+const NARROW_MAX = 350;
+
+function useWidth() {
+  const [w, setW] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const on = () => setW(window.innerWidth);
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  return w;
+}
 
 function isTyping(e: KeyboardEvent) {
   const el = e.target as HTMLElement | null;
@@ -25,23 +43,22 @@ function useShortcuts() {
       // ⌘1～5：四个列表和完成记录
       if (mod && !e.shiftKey && !e.altKey && /^[1-9]$/.test(e.key) && Number(e.key) <= VIEW_IDS.length) {
         e.preventDefault();
-        useData.getState().setPrefs({ activeView: VIEW_IDS[Number(e.key) - 1] });
-        useUi.getState().set({ trashOpen: false });
+        goView(VIEW_IDS[Number(e.key) - 1]);
         return;
       }
       // ⌘⇧P：打开 / 关闭 profile 菜单
       if (mod && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         const ui = useUi.getState();
-        ui.set({ profileMenuOpen: !ui.profileMenuOpen, menu: null });
+        ui.set({ profileMenuOpen: !ui.profileMenuOpen, menu: null, mainMenuOpen: false });
         return;
       }
+      // ⌘N：聚焦新建框（HISTORY 里没有新建框，先回到 FOCUS）
       if (mod && !e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
-        useUi.getState().set({ trashOpen: false });
-        // 完成记录里没有输入框，先回到 INBOX
-        if (useData.getState().prefs.activeView === 'history') useData.getState().setPrefs({ activeView: 'inbox' });
-        // 回收站收起、列表渲染出来后输入框才可见
+        const view = useData.getState().prefs.activeView;
+        if (view === 'history' || useUi.getState().trashOpen) goView('focus');
+        useUi.getState().set({ composeFocus: true });
         requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('add-input')?.focus()));
         return;
       }
@@ -55,18 +72,24 @@ function useShortcuts() {
   }, []);
 }
 
+const EASE = [0.2, 0.8, 0.2, 1] as const;
+
 export default function App() {
   const loaded = useData((s) => s.loaded);
   const active = useData((s) => s.prefs.activeView);
   const profileId = useData((s) => s.profileId);
-  const prev = useRef(active);
-  const dir = Math.sign(VIEW_IDS.indexOf(active) - VIEW_IDS.indexOf(prev.current));
+  const trashOpen = useUi((s) => s.trashOpen);
+  const width = useWidth();
+  const regular = width >= REGULAR_MIN;
+  const narrow = width < NARROW_MAX;
 
+  // 布局模式挂在根节点上：动效层、拖拽预览这些挂在 body 下的元素也按同一套尺寸画
   useEffect(() => {
-    prev.current = active;
-    // 主题色挂在根节点上，拖拽预览、粒子等挂在 body 下的元素也能取到
-    document.documentElement.dataset.list = active;
-  }, [active]);
+    const cl = document.documentElement.classList;
+    cl.toggle('regular', regular);
+    cl.toggle('compact', !regular);
+    cl.toggle('narrow', narrow);
+  }, [regular, narrow]);
 
   useEffect(() => {
     void useData
@@ -75,29 +98,57 @@ export default function App() {
       .then(() => initSync());
   }, []);
 
+  // 换列表时收起「写一件」
+  useEffect(() => {
+    useUi.getState().set({ composeFocus: false });
+  }, [active, profileId]);
+
   useShortcuts();
 
   if (!loaded) return null;
 
+  const viewKey = `${profileId}:${trashOpen ? 'trash' : active}`;
+
   return (
-    <div className={`app platform-${platform}`}>
-      <TitleBar />
-      <div className="main">
-        <Sidebar />
-        <div className="content">
-          {active === 'history' ? (
-            <HistoryView key={`${profileId}:history`} dir={dir} />
-          ) : (
-            <ListView key={`${profileId}:${active}`} list={active} dir={dir} />
-          )}
-          <Footer />
+    <MotionConfig reducedMotion="user">
+      <div className="app">
+        <TitleBar />
+        <div className="body">
+          <AnimatePresence initial={false}>{regular && <Sidebar key="side" />}</AnimatePresence>
+          <div className="main">
+            <AnimatePresence initial={false}>{!regular && <Pills key="pills" />}</AnimatePresence>
+            <div className="stage">
+              {/* 切换列表：旧内容淡出下沉 0–120，新内容淡入并上升 8px 60–220 */}
+              <AnimatePresence initial={false}>
+                <motion.div
+                  key={viewKey}
+                  className="view"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0, transition: { duration: 0.16, delay: 0.06, ease: EASE } }}
+                  exit={{ opacity: 0, y: 4, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } }}
+                >
+                  {trashOpen ? (
+                    <TrashView />
+                  ) : active === 'focus' ? (
+                    <FocusView />
+                  ) : active === 'history' ? (
+                    <HistoryView />
+                  ) : (
+                    <ListView list={active} />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            <Footer />
+            <Toast />
+          </div>
         </div>
+        <SyncPanel />
+        <ConflictPanel />
+        <JoinModal />
+        <ContextMenu />
+        <ProfileMenu />
       </div>
-      <TrashPanel />
-      <SyncPanel />
-      <ConflictPanel />
-      <ContextMenu />
-      <Toast />
-    </div>
+    </MotionConfig>
   );
 }

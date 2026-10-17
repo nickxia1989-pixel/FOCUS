@@ -1,71 +1,181 @@
+import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { api, isElectron, isMac } from '../platform';
+import { openTrash } from '../actions';
+import { api, isElectron, isMac, os } from '../platform';
 import { useData, useUi } from '../store';
-import { CheckIcon, CloseIcon, CloudIcon, CloudOffIcon, MinimizeIcon, MoreIcon, PinIcon, SyncIcon, TrashIcon } from './icons';
-import { statusText } from './SyncPanel';
+import type { SyncStatus } from '../sync/engine';
+import { AppGlyph, CloseIcon, CloudStateIcon, FolderIcon, MinimizeIcon, MoreIcon, PinIcon, SoundIcon, TrashIcon, type CloudState } from './icons';
 
-const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
-
-function useToday() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
-  }, []);
-  return now;
+/** 云朵的六种状态，对应同步面板里 statusText 的 tone */
+export function cloudState(status: SyncStatus | null, enabled: boolean, conflicts: number): CloudState {
+  if (conflicts > 0) return 'conflict';
+  if (!enabled || !status || status.state === 'off') return 'off';
+  if (status.state === 'syncing') return 'syncing';
+  if (status.state === 'offline' || status.state === 'ratelimit') return 'offline';
+  if (status.state === 'error' || status.state === 'auth') return 'error';
+  return 'ok';
 }
 
-/** 标题栏上的同步状态：有冲突时显示角标，点开冲突面板；否则点开同步设置 */
-function SyncIndicator() {
+export const CLOUD_LABEL: Record<CloudState, string> = {
+  ok: '已同步',
+  syncing: '正在同步…',
+  offline: '离线：改动已保存在本机',
+  error: '同步出错，稍后自动重试',
+  conflict: '有冲突需要你决定',
+  off: '未开启同步',
+};
+
+const CLOUD_SHORT: Record<CloudState, string> = {
+  ok: '已同步',
+  syncing: '同步中',
+  offline: '离线',
+  error: '出错',
+  conflict: '有冲突',
+  off: '未开启',
+};
+
+function useCloud() {
   const status = useData((s) => s.syncStatus);
   const enabled = useData((s) => s.local.sync.enabled);
   const conflicts = useData((s) => s.conflicts.length);
-  const st = statusText(status, enabled);
-  const Icon = status?.state === 'syncing' ? SyncIcon : st.tone === 'warn' || st.tone === 'bad' || st.tone === 'off' ? CloudOffIcon : CloudIcon;
+  return { state: cloudState(status, enabled, conflicts), conflicts, status };
+}
+
+/** 标题栏上的同步状态：有冲突时显示红色角标，点开冲突面板；否则点开同步设置 */
+function SyncCloud() {
+  const { state, conflicts, status } = useCloud();
+  const title = state === 'conflict' ? `有 ${conflicts} 个冲突需要你决定` : state === 'error' && status?.message ? status.message : CLOUD_LABEL[state];
   return (
     <button
-      className={`tb-btn sync-indicator tone-${conflicts ? 'conflict' : st.tone}`}
-      title={conflicts ? `有 ${conflicts} 个冲突需要你决定` : st.text}
-      onClick={() => useUi.getState().set(conflicts ? { conflictsOpen: true, syncOpen: false } : { syncOpen: true, conflictsOpen: false })}
+      className={`ib sync ${state}`}
+      title={title}
+      aria-label={title}
+      onClick={() =>
+        useUi.getState().set(conflicts ? { conflictsOpen: true, syncOpen: false, mainMenuOpen: false } : { syncOpen: true, conflictsOpen: false, mainMenuOpen: false })
+      }
     >
-      <Icon className={status?.state === 'syncing' ? 'spin' : ''} />
-      {conflicts > 0 && <span className="sync-badge">{conflicts}</span>}
+      <CloudStateIcon state={state} />
+      <AnimatePresence>
+        {conflicts > 0 && (
+          <motion.span
+            key={conflicts}
+            className="sync-badge"
+            initial={{ scale: 0 }}
+            animate={{ scale: [0, 1.25, 1] }}
+            exit={{ scale: 0 }}
+            transition={{ duration: 0.24 }}
+          >
+            {conflicts}
+          </motion.span>
+        )}
+      </AnimatePresence>
     </button>
   );
 }
 
-export function TitleBar() {
-  const now = useToday();
-  const [pinned, setPinned] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+/** ⋯ 菜单：回收站、同步设置 | 完成提示音、打开数据文件夹 | 版本与快捷键提示 */
+function MainMenu({ onClose }: { onClose(): void }) {
+  const ref = useRef<HTMLDivElement>(null);
   const [version, setVersion] = useState('');
   const sound = useData((s) => s.settings.sound);
   const trashCount = useData((s) => s.trash.reduce((n, e) => n + e.items.length, 0));
-  const menuRef = useRef<HTMLDivElement>(null);
+  const { state } = useCloud();
+
+  useEffect(() => {
+    if (api) void api.version().then(setVersion);
+  }, []);
+
+  useEffect(() => {
+    const onDown = (e: Event) => {
+      const t = e.target as Element;
+      if (!ref.current?.contains(t) && !t.closest?.('[data-main-menu]')) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('blur', onClose);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', onClose);
+    };
+  }, [onClose]);
+
+  const mod = isMac ? '⌘' : 'Ctrl+';
+  return (
+    <motion.div
+      ref={ref}
+      className="pop"
+      role="menu"
+      style={{ right: 8, top: os === 'win' ? 36 : 40, width: 216 }}
+      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.1 } }}
+      transition={{ duration: 0.14, ease: [0.2, 0.8, 0.2, 1] }}
+    >
+      <button
+        className="mi"
+        role="menuitem"
+        onClick={() => {
+          onClose();
+          openTrash();
+        }}
+      >
+        <TrashIcon />
+        回收站
+        <em>{trashCount || ''}</em>
+      </button>
+      {isElectron && (
+        <button
+          className="mi"
+          role="menuitem"
+          onClick={() => {
+            onClose();
+            useUi.getState().set({ syncOpen: true, conflictsOpen: false, menu: null });
+          }}
+        >
+          <CloudStateIcon state={state} />
+          同步设置…
+          <em>{CLOUD_SHORT[state]}</em>
+        </button>
+      )}
+      <div className="msep" />
+      <button className="mi" role="menuitemcheckbox" aria-checked={sound} onClick={() => useData.getState().setSettings({ sound: !sound })}>
+        <SoundIcon />
+        完成提示音
+        <span className={`tg ${sound ? 'on' : ''}`} />
+      </button>
+      {isElectron && (
+        <button
+          className="mi"
+          role="menuitem"
+          onClick={() => {
+            void api!.openDataDir();
+            onClose();
+          }}
+        >
+          <FolderIcon />
+          打开数据文件夹
+        </button>
+      )}
+      <div className="msep" />
+      <div className="mcap">
+        FOCUS {version || ''} · {mod}1–5 切换列表
+      </div>
+    </motion.div>
+  );
+}
+
+export function TitleBar() {
+  const [pinned, setPinned] = useState(false);
+  const menuOpen = useUi((s) => s.mainMenuOpen);
+  const closeMenu = () => useUi.getState().set({ mainMenuOpen: false });
 
   useEffect(() => {
     if (!api) return;
     void api.getAlwaysOnTop().then(setPinned);
-    void api.version().then(setVersion);
     return api.onAlwaysOnTop(setPinned);
   }, []);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: Event) => {
-      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
-    const onBlur = () => setMenuOpen(false);
-    window.addEventListener('pointerdown', close, true);
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('blur', onBlur);
-    return () => {
-      window.removeEventListener('pointerdown', close, true);
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('blur', onBlur);
-    };
-  }, [menuOpen]);
 
   const togglePin = async () => {
     if (api) setPinned(await api.setAlwaysOnTop(!pinned));
@@ -73,94 +183,43 @@ export function TitleBar() {
 
   return (
     <header className="titlebar">
-      <div className="titlebar-date">
-        <span className="date-day">{now.getDate()}</span>
-        <span className="date-rest">
-          {now.getMonth() + 1}月 · 周{WEEK[now.getDay()]}
+      {os === 'mac' ? (
+        <span className="tb-lights" />
+      ) : (
+        <span className="tb-app">
+          <AppGlyph />
+          FOCUS
         </span>
-      </div>
-      <div className="titlebar-actions">
-        {isElectron && <SyncIndicator />}
+      )}
+      <div className="tb-right">
+        {isElectron && <SyncCloud />}
         {isElectron && (
-          <button
-            className={`tb-btn ${pinned ? 'is-on' : ''}`}
-            title={pinned ? '取消置顶' : '窗口置顶'}
-            onClick={togglePin}
-          >
-            <PinIcon />
+          <button className={`ib ${pinned ? 'pinned' : ''}`} title={pinned ? '取消置顶' : '窗口置顶'} aria-pressed={pinned} onClick={togglePin}>
+            <PinIcon filled={pinned} />
           </button>
         )}
-        <div className="tb-menu-wrap" ref={menuRef}>
-          <button className={`tb-btn ${menuOpen ? 'is-open' : ''}`} title="设置" onClick={() => setMenuOpen((v) => !v)}>
-            <MoreIcon />
-          </button>
-          {menuOpen && (
-            <div className="menu tb-menu" role="menu">
-              <button
-                className="menu-item"
-                onClick={() => {
-                  useUi.getState().set({ trashOpen: true, menu: null, profileMenuOpen: false, editingId: null, addingChildOf: null });
-                  setMenuOpen(false);
-                }}
-              >
-                <span className="menu-check">
-                  <TrashIcon />
-                </span>
-                回收站
-                {trashCount > 0 && <span className="menu-badge">{trashCount}</span>}
-              </button>
-              {isElectron && (
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    useUi.getState().set({ syncOpen: true, trashOpen: false, conflictsOpen: false, menu: null });
-                    setMenuOpen(false);
-                  }}
-                >
-                  <span className="menu-check">
-                    <CloudIcon />
-                  </span>
-                  同步设置…
-                </button>
-              )}
-              <div className="menu-sep" />
-              <button
-                className="menu-item"
-                role="menuitemcheckbox"
-                aria-checked={sound}
-                onClick={() => useData.getState().setSettings({ sound: !sound })}
-              >
-                <span className="menu-check">{sound && <CheckIcon />}</span>
-                完成提示音
-              </button>
-              {isElectron && (
-                <button
-                  className="menu-item"
-                  onClick={() => {
-                    void api!.openDataDir();
-                    setMenuOpen(false);
-                  }}
-                >
-                  <span className="menu-check" />
-                  打开数据文件夹
-                </button>
-              )}
-              <div className="menu-sep" />
-              <div className="menu-note">FOCUS {version && `v${version}`}</div>
-            </div>
-          )}
-        </div>
-        {isElectron && !isMac && (
-          <>
-            <button className="tb-btn" title="最小化" onClick={() => api!.minimize()}>
+        <button
+          className={`ib ${menuOpen ? 'on' : ''}`}
+          data-main-menu
+          title="更多"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => useUi.getState().set({ mainMenuOpen: !menuOpen, menu: null, profileMenuOpen: false })}
+        >
+          <MoreIcon />
+        </button>
+        {isElectron && os === 'win' && (
+          <span className="caption">
+            <button title="最小化" aria-label="最小化" onClick={() => api!.minimize()}>
               <MinimizeIcon />
             </button>
-            <button className="tb-btn tb-close" title="关闭" onClick={() => api!.close()}>
+            <button className="x" title="关闭" aria-label="关闭" onClick={() => api!.close()}>
               <CloseIcon />
             </button>
-          </>
+          </span>
         )}
       </div>
+      <AnimatePresence>{menuOpen && <MainMenu onClose={closeMenu} />}</AnimatePresence>
     </header>
   );
 }
