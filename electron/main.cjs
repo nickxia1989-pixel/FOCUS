@@ -96,6 +96,24 @@ function scheduleSaveWindowState() {
 
 // ---------- 窗口 ----------
 
+/** 窄窗口不允许被放大到整屏 */
+function preventMacMaximize(w) {
+  // 构造参数里的 maximizable: false 在 macOS 上不生效（isMaximizable() 仍为 true），
+  // 绿灯和双击标题栏照样会放大，要在创建后再设一次
+  w.setMaximizable(false);
+
+  // 系统「窗口 › 填充」等平铺操作不受 maximizable 控制，铺满后退回原来的位置和大小
+  let normalBounds = w.getBounds();
+  const remember = () => {
+    if (!w.isMaximized() && !w.isFullScreen()) normalBounds = w.getBounds();
+  };
+  w.on('moved', remember);
+  w.on('resized', () => {
+    if (w.isMaximized()) w.setBounds(normalBounds, true);
+    else remember();
+  });
+}
+
 function createWindow() {
   const st = loadWindowState();
   const b = st.bounds || {};
@@ -125,6 +143,8 @@ function createWindow() {
       spellcheck: false,
     },
   });
+
+  if (isMac) preventMacMaximize(win);
 
   win.once('ready-to-show', () => win && win.show());
   win.on('move', scheduleSaveWindowState);
@@ -162,9 +182,71 @@ function buildMenu() {
     Menu.setApplicationMenu(null);
     return;
   }
-  // macOS 必须有 Edit 菜单，输入框里的 ⌘C / ⌘V 才能用
+  // macOS 必须有编辑菜单，输入框里的 ⌘C / ⌘V 才能用。
+  // 内置 role 菜单的文字固定是英文，这里逐项写上 macOS 中文版的叫法
+  const name = app.name;
   Menu.setApplicationMenu(
-    Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]),
+    Menu.buildFromTemplate([
+      {
+        label: name,
+        submenu: [
+          { role: 'about', label: `关于 ${name}` },
+          { type: 'separator' },
+          { role: 'services', label: '服务' },
+          { type: 'separator' },
+          { role: 'hide', label: `隐藏 ${name}` },
+          { role: 'hideOthers', label: '隐藏其他' },
+          { role: 'unhide', label: '全部显示' },
+          { type: 'separator' },
+          { role: 'quit', label: `退出 ${name}` },
+        ],
+      },
+      {
+        label: '文件',
+        submenu: [{ role: 'close', label: '关闭窗口' }],
+      },
+      {
+        label: '编辑',
+        submenu: [
+          { role: 'undo', label: '撤销' },
+          { role: 'redo', label: '重做' },
+          { type: 'separator' },
+          { role: 'cut', label: '剪切' },
+          { role: 'copy', label: '拷贝' },
+          { role: 'paste', label: '粘贴' },
+          { role: 'pasteAndMatchStyle', label: '粘贴并匹配样式' },
+          { role: 'delete', label: '删除' },
+          { role: 'selectAll', label: '全选' },
+          { type: 'separator' },
+          {
+            label: '替换',
+            submenu: [
+              { role: 'showSubstitutions', label: '显示替换' },
+              { type: 'separator' },
+              { role: 'toggleSmartQuotes', label: '智能引号' },
+              { role: 'toggleSmartDashes', label: '智能破折号' },
+              { role: 'toggleTextReplacement', label: '文本替换' },
+            ],
+          },
+          {
+            label: '语音',
+            submenu: [
+              { role: 'startSpeaking', label: '开始朗读' },
+              { role: 'stopSpeaking', label: '停止朗读' },
+            ],
+          },
+        ],
+      },
+      {
+        label: '窗口',
+        role: 'window',
+        submenu: [
+          { role: 'minimize', label: '最小化' },
+          { type: 'separator' },
+          { role: 'front', label: '前置全部窗口' },
+        ],
+      },
+    ]),
   );
 }
 
