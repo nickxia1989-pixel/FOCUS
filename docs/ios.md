@@ -2,9 +2,11 @@
 
 用 Capacitor 8 把一套专为手机重写的 React 界面包成 iOS App。数据逻辑直接复用桌面端的 `src/model.ts` 和 `src/trash.ts`，通过坚果云和桌面端同步（见 [sync.md](sync.md)）。iOS 26 起页签栏、「+」和导航栏按钮是系统原生的 Liquid Glass，iPhone Duo 上由系统竖排到侧边（见下文「原生外壳」「iPhone Duo」两节）。
 
-![iPhone 17 Pro：原生 Liquid Glass 页签栏](ios/glass-iphone.jpg)
+视觉按全平台重设计 F「一件事」（交接包 `design_handoff_focus/`：`screens/iPhone.jpg` P1–P17、`Duo.jpg` U1–U10、`Motion.jpg`、`tokens.css`）：一次只做一件，FOCUS 最上面那件放大成荧光绿的 NOW 卡。
 
-![iPhone Duo 各姿态](ios/duo-postures.jpg)
+![iPhone 17 Pro：FOCUS、长按菜单、新建](ios/redesign-iphone.jpg)
+
+![VERIFY、INBOX、GOAL、HISTORY](ios/redesign-lists.jpg)
 
 ## 技术路线
 
@@ -25,13 +27,15 @@ src/mobile/                 移动端界面（独立入口，不影响桌面构�
   store.ts                  zustand 状态：多个 profile，各自一份 todos + 回收站
   storage.ts                存储适配层（现在用 Capacitor Preferences）
   native.ts                 触感反馈、键盘高度
-  actions.ts                带动画 / 触感的高层操作
+  actions.ts                带动画 / 触感的高层操作（完成、换 NOW、送去验证、删除可撤销…）
+  fx.ts                     完成时的火花、光圈、飞向页签的星星 / 幽灵卡（减弱动态效果时不放）
+  icons.tsx                 设计交接包里的图标（描边 2px，24 网格）
   ui.ts                     仅界面用的临时状态
   transient.ts              编辑草稿、新建卡片里的字、阅读位置的短时备份（页面万一重载时恢复）
   widgetData.ts             主屏小组件的快照（从各空间的 todos 派生，widgetData.test.ts 有单元测试）
   widget.ts                 把快照交给原生插件写进 App Group；处理点小组件打开的 focustodo:// 链接
-  components/               导航栏、标签栏、侧栏、条目行、滑动行、HISTORY、新建卡片、菜单、面板、双页的右页（Companion）
-  mobile.css                样式（浅色 / 深色、安全区、动态字体）
+  components/               导航栏、页签栏、侧栏、FOCUS（NOW 卡 + 接下来）、列表行、滑动行、HISTORY、空状态、新建卡片、菜单、面板
+  mobile.css                样式（设计 token、浅色 / 深色、提高对比度、降低透明度、减弱动态效果、安全区、动态字体）
 ios/                        Capacitor 生成的 Xcode 工程（App 图标、启动屏已改成 FOCUS 的）
   App/App/FocusChrome.swift 原生外壳：Liquid Glass 页签栏 / 导航栏按钮、Duo 的竖排栏和铰链、和网页互通的插件
   App/App/SceneDelegate.swift  根视图（iOS 26 起是原生外壳）、钥匙串和后台时间插件
@@ -39,34 +43,53 @@ ios/                        Capacitor 生成的 Xcode 工程（App 图标、启�
   App/FocusWidget/                  主屏 / 锁屏小组件（WidgetKit 扩展，SwiftUI）
 capacitor.config.json       Capacitor 配置（webDir = dist-ios）
 vite.ios.config.mts         移动端的 Vite 配置（端口 5299）
-scripts/make-ios-icon.cjs   生成 iOS 图标（满版、无 alpha）
+scripts/make-ios-icon.cjs   生成 iOS 图标：默认 / 深色 / 着色三种外观（取 design_handoff_focus/icons，满版、无 alpha）
 ```
 
 ## 界面设计
 
-**五个分区**：FOCUS、VERIFY、INBOX、GOAL 四个列表加 HISTORY。每个分区有自己的主题色，大标题、选中态、空状态、页签栏的选中色和「+」都跟着变；列表的未完成数显示在页签角标上。
+**五个分区**：FOCUS、VERIFY、INBOX、GOAL 四个列表加 HISTORY。页头是日期一行加「列表名 · 数字」（Bricolage Grotesque 粗体，随应用打包，来自 `@fontsource/bricolage-grotesque`）。数字、页签角标都只数**未完成的顶层项**，不含子任务；GOAL、HISTORY 不挂角标。
 
-**Profile（界面上叫「空间」）**：例如「工作」「生活」，每个空间有独立的列表和回收站。点导航栏左上角的头像（网页版侧栏形态是侧栏顶部的空间卡片）打开面板，可切换、新建、改名、删除（删除需再点一次确认，至少保留一个）。
+**FOCUS：一次只做一件**
 
-**新建**：点页签栏旁边的 `+`（Duo 竖排栏里是侧边那一列的 `+`）。底部弹出贴着键盘的输入卡片，可选放进哪个列表；回车添加后保持打开，可以连续输入。拼音等输入法组字时的回车只上屏，不会误提交。
+- 最上面那件是荧光绿的 **NOW 卡**：`NOW · 01 / 05`、大标题（点按原地编辑）、子任务分段进度条、最多列 3 条子任务（多的折成「还有 N 条」，子任务能直接勾）、黑色「完成」圆钮和「送去验证」。
+- 其余排在「**接下来**」：序号 02、03…，越往后越淡；有子任务的带 `0/2` 胶囊，点开就地展开。
+- 点「完成」：NOW 卡划线、滑出，火花加光圈，「接下来」的第一条变形升成新的 NOW（同一个元素，`layoutId` 动画），星星飞向 HISTORY 页签。
+- 新建的、从 INBOX 送进来的事默认排在 NOW 之后（新建卡片里「排在现在之后」可以关掉，关掉就直接成为 NOW；这个开关记在本机）。
 
-**条目上的操作**（尽量贴近 iOS 习惯）：
+**其它分区**
+
+- **VERIFY**：做完但还要测的。列表行右边的荧光绿星芒钮把它退回 FOCUS（排在 NOW 之后）；勾掉后回到 INBOX 的「已完成」。
+- **INBOX**：随手记。星芒钮一键送进 FOCUS（排在 NOW 之后）。底下是可折叠的「已完成 · N」。
+- **GOAL**：每个目标一张卡，下面一行「写下于 M 月 D 日」，**不显示进度**；子任务用右边的折叠钮收起 / 展开。
+- **HISTORY**：今天 / 近 7 天 / 连续天数（今天那格荧光绿）、近 7 天柱状图（点柱子跳到那天），下面按天分组：时间、来源列表的小圆点、标题，小字写「父项 › 子项」「在 VERIFY 完成」「含 N 个子项」。点一条可以恢复为未完成、在原列表中查看、删除。
+- **空状态**：叠放的空卡片插画、一句大字（Nothing now. / All checked. / Inbox zero. / No goals yet. / Nothing yet.）、一行说明和按钮（FOCUS 空了是「去 INBOX 挑一件」）。
+
+**条目上的操作**：
 
 | 手势 / 控件 | 作用 |
 | --- | --- |
-| 点圆圈 | 完成（弹跳 + 粒子 + 划线 + 触感 + 提示音）；FOCUS / VERIFY 顶层项完成后飞向 HISTORY |
+| 点圆圈 | 完成（火花 + 划线 + 触感 + 提示音）；星星飞向 HISTORY 页签 |
 | 点文字 | 原地编辑，回车 / 失焦保存 |
 | 右滑 | 完成 / 取消完成，滑过一大半直接执行 |
-| 左滑 | INBOX：送进 FOCUS；VERIFY：退回 FOCUS；其它：标为待测。另有「移动」「删除」，滑到底直接删除 |
-| 长按 | iOS 式上下文菜单：完成、编辑、添加子任务、标为待测 / 退回 FOCUS、移到…（二级菜单）、删除 |
-| 右侧圆按钮 | 与桌面一致：INBOX 顶层项 ◎ 送进 FOCUS，FOCUS 顶层项烧瓶标为待测 |
-| `1/3 ⌄` 胶囊 | 子任务进度，点按折叠 / 展开 |
+| 左滑 | 设为现在 · 送去验证（或取消待验证）· 移动 · 删除；拉过按钮全露出的位置再往里一截才算「滑到底」，直接删除 |
+| 长按 | 行抬起、背景模糊，弹出玻璃上下文菜单：完成、编辑、添加子任务 / 设为现在、送去验证（VERIFY 里是退回 FOCUS）、移到…（二级）/ 删除 |
+| 星芒钮 | INBOX、VERIFY 的顶层项：送进 FOCUS，排在 NOW 之后 |
+| `0/2` 胶囊 | 子任务进度，点按展开 / 收起 |
 
-子任务无限嵌套，用缩进和层级竖线表示；子项标为待测时留在父项下，勾选圈变成青绿虚线并挂「待测」标签。已完成的顶层项收在「已完成」分组里，可折叠。删除后底部提示条 5 秒内可撤销；右上角 `⋯`（系统的溢出菜单）里有回收站（恢复 / 彻底删除 / 清空）、切换空间、同步、完成提示音和触感反馈开关。
+子任务无限嵌套；子项标为待验证时留在父项下，圆圈变成紫色虚线并挂「待验证」标签（NOW 卡上同样）。删除后底部玻璃提示条 5 秒内可撤销；回收站在 `⋯` 菜单里（恢复 / 彻底删除要再点一次确认 / 清空）。
 
-**HISTORY**：顶部是今天 / 近 7 天 / 连续天数和 7 天柱状图（点柱子跳到那天），下面按日期分组列出完成的事。父项当天一起完成的子项折叠成「含 N 个子项」；子项单独完成时带上父项路径。点某条可以「标记为未完成」「在某列表中查看」或删除。
+**新建**：点页签栏旁边的荧光绿 `+`（Duo 竖排栏里是侧边那一列的 `+`；双页时 FOCUS 右页顶上还有「接下来要做…」）。底部弹出贴着键盘的玻璃输入卡片：一排列表芯片（选中的是黑底荧光绿星芒加列表名），FOCUS 时右边是「排在现在之后」开关；回车添加后保持打开，可以连续输入，新的一行撑开并闪一下荧光绿。拼音等输入法组字时的回车只上屏，不会误提交。
 
-**系统适配**：安全区（含 iPhone Duo 的侧边竖排栏）、浅色 / 深色实时跟随、动态字体（正文用 `-apple-system-body`，随系统字号缩放）、原生 Liquid Glass 栏（iOS 26 之前是 CSS 毛玻璃）、触感反馈（Capacitor Haptics）、关闭双击缩放延迟和长按选字。
+**面板**：空间（左滑改名 / 删除）、回收站、同步（状态卡、坚果云设置、设备列表）、冲突（标题二选一、删除与修改、空间被删）、第一次加入云端的提示（合并本机数据 / 以云端为准）。手机上是从底部拉出的面板，顶上露出导航栏和 NOW 卡的一截；宽屏居中成卡片，双页时只居中在右页。
+
+![空间、同步、撤销提示条、回收站](ios/redesign-sheets.jpg)
+
+**系统适配**：安全区（含 iPhone Duo 的侧边竖排栏）、浅色 / 深色实时跟随、提高对比度（分隔线、玻璃描边和次要文字加深，深色下相应调亮）、降低透明度（网页画的玻璃改成实色）、减弱动态效果（不放火花和飞行动画，换场直接切）、动态字体（正文用 `-apple-system-body`）、原生 Liquid Glass 栏（iOS 26 之前网页自己画）、触感反馈（Capacitor Haptics）、关闭双击缩放延迟和长按选字。
+
+**App 图标**：近黑底上一张荧光绿 NOW 卡、黑色星芒，下面压着两张灰卡；默认、深色、着色三种外观（`npm run icon:ios` 从交接包的 SVG 生成）。启动背景是 `#F6F6F2` / `#0B0B0C`。
+
+![App 图标：默认、深色、着色](ios/app-icons.jpg)
 
 ## 原生外壳：Liquid Glass 页签栏（iOS 26 起）
 
@@ -81,31 +104,27 @@ scripts/make-ios-icon.cjs   生成 iOS 图标（满版、无 alpha）
 ```
 
 - **为什么不用 CSS 仿**：WKWebView 里 `backdrop-filter` 只能仿出毛玻璃的样子，没有 Liquid Glass 的折射、高光和随内容变色；而且 Duo 上只有系统的栏才会被系统竖排到侧边。
-- **「+」**：系统页签栏在手机上最多放 5 个页签，第 6 个会被折进「更多」（iOS 27 的 prominent 页签、pinned 页签都试过，同样会折），所以「+」不做成页签：栏横排时是页签栏右边一颗独立的玻璃圆钮（`UIButton.Configuration.prominentGlass()`，分区色），页签栏收窄让位；栏竖排时是侧边那一列里的 prominent 按钮。
-- **`⋯`** 用系统的溢出菜单（`UINavigationItem.additionalOverflowItems`）：回收站、切换空间、同步、提示音、触感（开关带勾）。HIG 要求自己的溢出菜单并进系统的，Duo 上放不下的按钮也会自动收进这里。
-- **云朵**按同步状态换图标和颜色（已同步青绿、离线 / 限流琥珀、出错红色、未开启斜杠），有冲突时带红色角标，点开冲突面板。
-- **头像**是按空间颜色和首字画的图片，点开空间面板。
+- **页签图标**用交接包的描边图标（`Assets.xcassets` 里的 `TabFocus` / `TabVerify` / `TabInbox` / `TabGoal` / `TabHistory`，SVG 保留矢量、按模板图上色）。不用 SF Symbols 的 `tray`、`mountain.2` 等：系统页签栏会自动换成它们的实心款，和设计的线性风格不符。
+- **选中态**：设计是浅色「荧光绿底 + 近黑」、深色「17% 荧光绿底 + 荧光绿」。但 iOS 26 起玻璃页签栏的选中胶囊是系统玻璃，`UITabBarAppearance.selectionIndicatorTintColor` 和 `selectionIndicatorImage` 都不生效（27.1 实测），所以只给选中项的图标和文字上色：浅色近黑，深色荧光绿；胶囊本身是系统的浅灰 / 深灰玻璃。
+- **角标**只给 FOCUS / VERIFY / INBOX，是未完成的顶层项数：不用系统的红底，灰色小字贴在图标右上（`badgeBackgroundColor = .clear`）。
+- **「+」**：系统页签栏在手机上最多放 5 个页签，第 6 个会被折进「更多」（iOS 27 的 prominent 页签、pinned 页签都试过，同样会折），所以「+」不做成页签：栏横排时是页签栏右边一颗独立的玻璃圆钮（`UIButton.Configuration.prominentGlass()`，荧光绿 `#D6FF3D`，近黑的加号按原色画——深色下玻璃按钮会把前景改成白色），页签栏收窄让位；栏竖排时是侧边那一列里的 prominent 按钮。
+- **`⋯`** 用系统的溢出菜单（`UINavigationItem.additionalOverflowItems`）：回收站（小字是条数）、同步（小字是状态）、空间（小字是当前空间）｜完成提示音、触感反馈（开关带勾）。HIG 要求自己的溢出菜单并进系统的，Duo 上放不下的按钮也会自动收进这里。
+- **云朵**按同步状态换 SF Symbol 和颜色：已同步 `checkmark.icloud`（绿）、同步中 `arrow.triangle.2.circlepath`（转动）、离线 `icloud.slash`、出错 `exclamationmark.icloud`（红）、未开启 `icloud.dashed`（浅灰）；有冲突时带红色角标，点开冲突面板。
+- **头像**是按空间颜色和首字画的图片（八种空间色；黑色那种在深色下反成浅底黑字），点开空间面板。
+- **标题**：栏横排时导航栏那一行只有原生的头像和右边的胶囊，「日期 / 列表名 · 数字」由网页画在两者之间——原生报来那一行的位置（`nav`：顶、高、头像右边界、胶囊左边界），网页写进 `--nav-top/h/left/right`。
 
 **和网页互通**（插件 `FocusChrome`，网页侧在 `src/mobile/chrome.ts`）：
 
 | 方向 | 内容 |
 | --- | --- |
-| 网页 → 原生 | 当前分区、各列表未完成数（角标）、各分区主题色（跟浅色 / 深色）、空间名和颜色、同步状态、`⋯` 里的开关状态、滚过大标题后导航栏的小标题、有没有网页弹层、「分区收到东西」的脉冲（页签弹一下） |
-| 原生 → 网页 | 点了页签、点了 `+` / 头像 / 云朵 / 菜单项；几何信息：栏在系统安全区之外又占掉的边距（写进 `--chrome-top/right/bottom/left`）、折痕、铰链（`data-hinge`）、栏竖排在哪侧（`data-bar`）、各页签图标的位置（完成 / 移动条目时「飞向某个分区」的终点） |
+| 网页 → 原生 | 当前分区、FOCUS / VERIFY / INBOX 的未完成顶层项数（角标）、设计 token 里原生要用的颜色（跟浅色 / 深色）、空间名和头像颜色、同步状态（图标、冲突数、菜单里的小字）、`⋯` 里的回收站条数 / 空间名 / 开关状态、有没有网页弹层、「分区收到东西」的脉冲（页签弹一下） |
+| 原生 → 网页 | 点了页签、点了 `+` / 头像 / 云朵 / 菜单项；几何信息：栏在系统安全区之外又占掉的边距（写进 `--chrome-top/right/bottom/left`）、导航栏那一行的位置（`--nav-*`）、折痕、铰链（`data-hinge`）、栏竖排在哪侧（`data-bar`）、各页签图标的位置（完成 / 送去验证时「飞向某个分区」的终点） |
 
 - 页面开始加载前原生注入 `data-chrome="native"`，网页第一次渲染就不画自己的页签和导航栏按钮，不会闪。网页的第一份状态到之前原生栏先不露出（不知道该选中哪个页签）。
-- **浅色 / 深色**：两边各自跟系统走；分区色由网页的 CSS 变量推给原生，换外观时重推一次。
+- **浅色 / 深色**：两边各自跟系统走；颜色由网页的 CSS 变量推给原生，换外观时重推一次。
 - **键盘**：软键盘真的盖住底部时页签栏和 `+` 收起（外接键盘时的小工具条不算），收起期间网页的底边距冻结，内容不跳。
 - **网页弹层的层级**：长按菜单、新建卡片、空间 / 回收站 / 同步 / 冲突面板打开时，原生栏整个淡出、不接触摸——它们本该在面板底下，而原生视图永远盖在网页上面。
-- **降级**：iOS 26 之前、在浏览器里、或者带启动参数 `-cssChrome` 时没有原生外壳，网页照旧自己画页签（窄屏）和侧栏（iPad）：
-
-  | 网页版导航：子任务与待测 | HISTORY（深色） | 空间面板（深色） |
-  | --- | --- | --- |
-  | ![](ios/iphone-goal.jpg) | ![](ios/iphone-history-dark.jpg) | ![](ios/iphone-profiles-dark.jpg) |
-
-| iPhone 横屏 | Duo 内屏：`⋯` 菜单、面板、新建卡片 |
-| --- | --- |
-| ![](ios/glass-iphone-landscape.jpg) | ![](ios/duo-overlays.jpg) |
+- **降级**：iOS 26 之前、在浏览器里、或者带启动参数 `-cssChrome` 时没有原生外壳，网页照旧自己画：窄屏是 CSS 毛玻璃页签栏（选中项荧光绿胶囊）加荧光绿 `+`，导航栏是头像、标题和云朵 / `⋯` 胶囊；宽屏（iPad）是侧栏，新建在右上胶囊里的 `+`。
 
 ## iPhone Duo
 
@@ -119,16 +138,26 @@ scripts/make-ios-icon.cjs   生成 iOS 图标（满版、无 alpha）
 | 半折（书本） | 同上 | 同上 | 和展开一样，不重排 |
 | 展开，竖握 | 669×951 | 横排：导航栏在顶上（和状态栏同一行），页签栏 + `+` 在底部 | 单页（折痕是横的，列表滚过它没关系） |
 
+![iPhone Duo 各姿态（旧视觉；栏的排法和分页不变）](ios/duo-postures.jpg)
+
 - **栏横排 / 竖排要两种层级**：竖排时用系统标准的"页签控制器里每个页签一个导航控制器"，系统才会把导航按钮和页签排进同一列、放不下时自动收进 `⋯`（外屏横握就放不下）；横排时导航栏在外层、页签控制器在里面，才能只收窄页签栏给 `+` 让位。开合、旋转时栏的排法一变，外壳把原生栏整套重搭（网页不动）；布局稳定后还会再核对一次，转的过程中短暂地"没有竖排栏"不会让它搭错。
-- **双页**（`layout.ts`、`components/Companion.tsx`）：内容区宽度 ≥ 700pt 就分两页，Duo 内屏横握和手机横屏都是。左页就是当前分区本身——和外屏是同一个滚动页，只是收窄到折痕左边，所以开合时列表不重建；右页是外屏上没有的"多出来的一层"：四个列表的右页是这个列表的完成记录（按天，FOCUS / VERIFY 完成后挪进 INBOX 的仍记在原列表名下），HISTORY 的右页是统计（7 天柱状图，点柱子让左页跳到那天；按列表分的近 7 天 / 累计）。勾掉一条时它飞向右页的「DONE」。视觉定稿后右页内容可以再换，分页机制不用动。
+- **双页**（`layout.ts`、`Chrome.tsx` 的 `Panes`）：内容区宽度 ≥ 700pt 就分两页，Duo 内屏横握和手机横屏都是。每个分区的内容分成左右两块（`.pane-l` / `.pane-r`），单页时上下接着排在同一个滚动页里，双页时各自成一个滚动页、以折痕为界——同一份 DOM，开合时不重建。按设计 U4–U6：
+  - **FOCUS**：左页 NOW 卡（标题放大到 32pt，顶上写「NOW · 现在就做这件」）+ 今天完成 / 近 7 天 / 连续天数；右页「接下来要做…」新建框 + 接下来 + 可展开的「今天已完成」。
+  - **VERIFY / INBOX / GOAL**：左页是列表，右页是这个列表的完成记录（按天；FOCUS / VERIFY 完成后挪进 INBOX 的仍记在原列表名下，所以 INBOX 左页的「已完成」可能比右页多）。
+  - **HISTORY**：左页统计 + 最近 16 周热力图（点一天，右页跳到那天），右页按天的记录。
+  - NOW 卡在单页和双页里是同一个元素：合上时它在外屏单列的顶上，展开后平移放大到左页同一位置，「接下来」从下面挪到右页。
+
+  ![双页：951×669、手机横屏](ios/redesign-spread.jpg)
+
+  上图是 iPhone 17 Pro 上用 `appResize` 开到 Duo 内屏尺寸（栏横排）和手机横屏截的，数据是测试数据；Duo 模拟器上装着真实数据，只核对了布局，没有存截图。
 - **不压折痕**：新建卡片放在左页（要加进的列表在那儿），提示条放在右页底下，空间 / 回收站 / 同步 / 冲突面板居中在右页，长按菜单限制在长按的那一页里。
 - **折痕的位置**：按 HIG 应该问系统要（`UIView.reservedRegions(kind: .division, options: .includeInactive)`），代码里也问了；但实测在模拟器里这个 App 不论用 UIKit 还是挂一个 SwiftUI `GeometryReader` 都问不到任何保留区域（Capy Pay 用 SwiftUI 的根视图能问到 456–496 的折痕，原因没查明）。所以网页以窗口中线为界兜底——Duo 内屏的折痕正好在中线上，分出来的空档和系统报告的一致。铰链状态（合上 / 半折 / 展平）用 `UIHingeInteraction` 能拿到，写在根节点的 `data-hinge` 上，目前排版不区分。
 - **开合时状态连续**：分区、空间在全局状态里；滚动页不卸载，宽度一变就把导航栏下方第一行放回原位（`useScrollAnchor`）；编辑框不卸载，光标还在。重搭原生栏时系统会报一次"选中页签"，网页对同一分区不响应，否则会顺手结束编辑。万一页面被重载，`transient.ts` 兜底恢复草稿和阅读位置。
 
-![开合时编辑不中断](ios/duo-continuity.jpg)
+![开合时编辑不中断（旧视觉）](ios/duo-continuity.jpg)
 
 - **要用 Xcode 27.1 编**：竖排栏、铰链、折痕是 iOS 27.1 SDK 的接口，代码用 `#if canImport(UIKit, _version: 9127.0.85)` 包着，所以 Xcode 27.0 也编得过，但那样编出来的包在 Duo 上跑兼容模式（栏不竖排，App 只占竖排栏以外的区域——此前「看起来没适配」就是这个原因）。这台 Mac 上 27.1 在 `/Applications/Xcode-27.1-RC.app`，系统默认选中的还是 27.0，命令行编译前设 `DEVELOPER_DIR`（见下文「运行」）。
-- **模拟器实测方法**：姿态只能在 Xcode 的 Device Hub 窗口底部手动切（合上 / 半折 / 展开 / 旋转），自动化点不了；Duo 合上时模拟器的自动点击也不生效。所以联调时用 `VITE_FOCUS_E2E=1` 的测试包，靠命令队列（见 [sync.md](sync.md)）里只动界面的命令切分区、开面板、读布局（`section`、`ui`、`chrome`、`eval`），后台每秒查一次 `xcrun devicectl device info displays` 和 `chrome`，姿态一变就截当前那块屏（`xcrun simctl io <UDID> screenshot --display=<1 外屏 | 3 内屏>`）。启动参数 `-chromeDebug` 会在几何信息里带上键盘 / 页签栏 / 层级状态，并把视图树写到 App 的临时目录。
+- **模拟器实测方法**：姿态只能在 Xcode 的 Device Hub 窗口底部手动切（合上 / 半折 / 展开 / 旋转），自动化点不了；Duo 合上时模拟器的自动点击也不生效。所以联调时用 `VITE_FOCUS_E2E=1` 的测试包，靠命令队列（见 [sync.md](sync.md)）里只动界面的命令切分区、开面板、读布局（`section`、`ui`、`chrome`、`eval`；`seed` 新建一个演示空间并填上条目，文档截图用，只在测试包里），后台每秒查一次 `xcrun devicectl device info displays` 和 `chrome`，姿态一变就截当前那块屏（`xcrun simctl io <UDID> screenshot --display=<1 外屏 | 3 内屏>`）。启动参数 `-chromeDebug` 会在几何信息里带上键盘 / 页签栏 / 层级状态，并把视图树写到 App 的临时目录。
 
 ## 运行
 
@@ -252,9 +281,11 @@ cat "$(xcrun simctl get_app_container <UDID> app.focus.todo group.com.nickxia.fo
 ## 已知问题
 
 - **真机签名还差一步（App Group 没进描述文件）**：App Group 已换成带个人标识的 `group.com.nickxia.focus.todo`（`App.entitlements`、`FocusWidget.entitlements`、`FocusWidgetPlugin.swift`、`FocusSnapshot.swift` 四处）。`xcodebuild -destination 'generic/platform=iOS' DEVELOPMENT_TEAM=49G26925BS -allowProvisioningUpdates` 能在开发者账号里登记 `app.focus.todo` 和 `app.focus.todo.FocusWidget`、打开 App Groups 能力并取回一年期描述文件，但两个描述文件里的 App Group 列表都是空的，构建报 “doesn't match the entitlements file's value for the com.apple.security.application-groups entitlement”。旧 id 和新 id 结果一样，加 `REGISTER_APP_GROUPS=YES`、删掉描述文件重取也一样，看起来不是 id 被别人占用，而是命令行的自动签名没有把新的 App Group 登记、分配给 App ID（Capy Pay 的 `group.com.nickxia.capypay` 是在描述文件里的，同一个团队）。另外 Mac 锁屏时 Xcode 读不到账号，命令行会报 “No Accounts”。解决：解锁 Mac，用 Xcode 打开 `ios/App/App.xcodeproj`，App 和 FocusWidgetExtension 两个 target 的 Signing & Capabilities 里 Team 选 Ning Xia，App Groups 里勾上（没有就点 + 新建）`group.com.nickxia.focus.todo`；之后命令行构建就能签名。模拟器不受影响。
-- **拖拽排序没做**：长按已用于上下文菜单。可考虑在长按菜单里加「排序」模式，或长按后拖动（类似「提醒事项」）。
+- **拖拽排序没做**：长按已用于上下文菜单；换 NOW 用左滑或菜单里的「设为现在」。设计 U4 里「拖到左页 = 换成现在」也没做。可考虑在长按菜单里加「排序」模式，或长按后拖动（类似「提醒事项」）。
+- **页签选中态不是荧光绿底**：系统玻璃页签栏的选中胶囊不能着色（见「原生外壳」），只有图标和文字上色。要完全照设计，只能自己画页签栏，就丢了系统的 Liquid Glass 和 Duo 竖排。
+- **Duo 竖排栏里「+」的位置**：设计 U1 / U4 把 `+` 放在页签胶囊下面单独一颗；现在是系统竖排栏里头像、云朵下面的 prominent 按钮（竖排时页签控制器由系统摆，没法在它下面再挂一颗）。
 - **只在模拟器上验证过**：没有真机；模拟器用的是硬件键盘，软键盘弹出时新建卡片贴键盘、页签栏收起的效果还需要真机确认。
-- **视觉是过渡状态**：原生栏是系统样式，网页内容仍是上一版的样子，等 Claude Design 的全平台重设计定稿后再统一。双页右页放什么（完成记录 / 统计）也可以随设计调整，分页机制不用动。
+- **新视觉在 Duo 上只看了内屏展开横握**：外屏、半折、旋转要在 Device Hub 里手动切姿态，留给旅行者核对（上面「各姿态」「开合时编辑不中断」两张图还是旧视觉）。
 - **折痕问不到**：见「iPhone Duo」一节，以窗口中线兜底；真机上要再确认一次 `reservedRegions` 能不能问到。
 - **未在 iOS 26 上实测**：原生外壳从 iOS 26 起启用，但这次只用 iOS 27 / 27.1 模拟器验过；iOS 26 上 `+` 圆钮、溢出菜单用的都是 26 就有的接口。
 - **「半折」立着当小笔记本（内屏竖握半折）**没有专门做上下分屏，照单页排；折痕横穿列表时只是列表滚过它。

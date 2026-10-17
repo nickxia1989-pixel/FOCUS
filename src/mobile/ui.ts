@@ -48,8 +48,14 @@ interface UiState {
   toast: ToastState | null;
   /** 分区"收到东西"的脉冲计数，变化即触发动画 */
   pulse: Record<Section, number>;
-  /** 页面滚过了大标题（原生导航栏据此显示小标题） */
+  /** 页面滚过了顶部（导航栏底下出现毛玻璃） */
   scrolled: boolean;
+  /** 「接下来」里展开了子任务的行（只在界面上，不落盘） */
+  expanded: Record<string, true>;
+  /** 刚新建的行：撑开 + 荧光绿闪一下 */
+  added: Record<string, true>;
+  /** 正在播「完成 NOW · 换场」的那一件 */
+  handoff: string | null;
   set(p: Partial<Omit<UiState, 'set'>>): void;
 }
 
@@ -64,6 +70,9 @@ export const useUi = create<UiState>((set) => ({
   toast: null,
   pulse: { focus: 0, verify: 0, inbox: 0, goal: 0, history: 0 },
   scrolled: false,
+  expanded: {},
+  added: {},
+  handoff: null,
   set: (p) => set(p),
 }));
 
@@ -96,4 +105,21 @@ export function useRefitOnWidth(ref: RefObject<HTMLElement | null>, fit: () => v
     ro.observe(box);
     return () => ro.disconnect();
   }, [ref, fit]);
+}
+
+/** 标记刚新建的行，一会儿后撤掉（新建动效只播一次） */
+export function markAdded(id: string) {
+  useUi.getState().set({ added: { ...useUi.getState().added, [id]: true } });
+  setTimeout(() => {
+    const rest = { ...useUi.getState().added };
+    delete rest[id];
+    useUi.getState().set({ added: rest });
+  }, 900);
+}
+
+export function toggleExpanded(id: string) {
+  const cur = { ...useUi.getState().expanded };
+  if (cur[id]) delete cur[id];
+  else cur[id] = true;
+  useUi.getState().set({ expanded: cur });
 }

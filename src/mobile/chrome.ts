@@ -4,12 +4,10 @@
 // 原生外壳不在时（浏览器、iOS 26 之前）nativeChrome 为 false，网页照旧自己画页签。
 import { registerPlugin } from '@capacitor/core';
 import { create } from 'zustand';
-import { composeTarget, SECTION_META } from './components/Chrome';
-import { PROFILE_TINTS, SECTIONS, type Section } from './data';
+import { composeTarget, openRoots } from './components/Chrome';
+import { avatarColors, type Section } from './data';
 import { goSection, openComposer } from './actions';
 import { statusOf } from './components/SyncSheets';
-import { completedSince, openCount, startOfToday } from '../model';
-import { LISTS } from '../types';
 import { activeOf, useData } from './store';
 import { useUi } from './ui';
 
@@ -31,6 +29,8 @@ export interface ChromeGeometry {
   bar: 'left' | 'right' | null;
   /** 原生页签图标的位置：「飞向某个分区」的终点 */
   targets: Partial<Record<Section, Point>>;
+  /** 栏横排时导航栏那一行：网页把标题画在头像右边、按钮左边 */
+  nav: { top: number; height: number; leadingEnd: number; trailingStart: number } | null;
 }
 
 const EMPTY: ChromeGeometry = {
@@ -39,6 +39,7 @@ const EMPTY: ChromeGeometry = {
   hinge: null,
   bar: null,
   targets: {},
+  nav: null,
 };
 
 export const useChrome = create<{ geo: ChromeGeometry }>(() => ({ geo: EMPTY }));
@@ -62,7 +63,22 @@ function applyGeometry(raw: Partial<ChromeGeometry>) {
   else delete root.dataset.hinge;
   if (geo.bar) root.dataset.bar = geo.bar;
   else delete root.dataset.bar;
+  if (geo.nav) {
+    root.style.setProperty('--nav-top', `${geo.nav.top}px`);
+    root.style.setProperty('--nav-h', `${geo.nav.height}px`);
+    root.style.setProperty('--nav-left', `${geo.nav.leadingEnd}px`);
+    root.style.setProperty('--nav-right', `${geo.nav.trailingStart}px`);
+  }
   useChrome.setState({ geo });
+}
+
+/** 同步状态在原生云朵上的样子 */
+function syncIcon(state: string | undefined, enabled: boolean): 'ok' | 'syncing' | 'offline' | 'error' | 'off' {
+  if (!enabled || !state || state === 'off') return 'off';
+  if (state === 'syncing') return 'syncing';
+  if (state === 'offline' || state === 'ratelimit') return 'offline';
+  if (state === 'auth' || state === 'error') return 'error';
+  return 'ok';
 }
 
 /** 推给原生的状态（字段对应 FocusChrome.swift 的 ChromeState） */
@@ -70,21 +86,37 @@ function snapshot() {
   const d = useData.getState();
   const ui = useUi.getState();
   const profile = activeOf(d);
-  const counts = {} as Record<Section, number>;
-  for (const l of LISTS) counts[l.id] = openCount(profile.todos, l.id);
-  counts.history = completedSince(profile.todos, startOfToday(Date.now()));
+  const counts: Partial<Record<Section, number>> = {};
+  for (const l of ['focus', 'verify', 'inbox'] as const) counts[l] = openRoots(profile.todos, l);
   const css = getComputedStyle(document.documentElement);
-  const colors = Object.fromEntries(SECTIONS.map((s) => [s, css.getPropertyValue(`--c-${s}`).trim()]));
+  const v = (name: string) => css.getPropertyValue(name).trim();
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const st = statusOf(d.syncStatus, d.local.sync.enabled);
   const conflicts = d.conflicts.length;
+  const short: Record<string, string> = { ok: '已同步', busy: '同步中', warn: '离线', bad: '出错', off: '未开启' };
   return {
     section: d.prefs.section,
     counts,
-    colors,
-    profile: { name: profile.name, color: PROFILE_TINTS[profile.tint] ?? PROFILE_TINTS[0] },
-    sync: { tone: st.tone, conflicts, label: conflicts ? `有 ${conflicts} 个冲突需要决定` : st.text },
-    menu: { trash: profile.trash.length, sound: d.prefs.sound, haptics: d.prefs.haptics },
-    title: ui.scrolled ? SECTION_META[d.prefs.section].label : null,
+    palette: {
+      lime: v('--lime'),
+      limeInk: v('--lime-ink'),
+      text: v('--text'),
+      muted: v('--text-muted'),
+      faint: v('--text-faint'),
+      ok: v('--ok'),
+      bad: v('--bad'),
+      // 选中页签的图标和字色（系统玻璃页签栏的选中胶囊不能着色）
+      tabOnFg: v('--tab-on-fg'),
+      dark,
+    },
+    profile: { name: profile.name, ...avatarColors(profile.tint, dark) },
+    sync: {
+      icon: syncIcon(d.syncStatus?.state, d.local.sync.enabled),
+      conflicts,
+      label: conflicts ? `有 ${conflicts} 个冲突需要决定` : st.text,
+      status: conflicts ? `${conflicts} 个冲突` : (short[st.tone] ?? ''),
+    },
+    menu: { trash: profile.trash.length, sound: d.prefs.sound, haptics: d.prefs.haptics, space: profile.name },
     modal: !!(ui.sheet || ui.menu || ui.more || ui.composer.open),
     pulse: ui.pulse,
   };

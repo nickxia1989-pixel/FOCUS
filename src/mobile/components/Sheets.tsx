@@ -1,29 +1,31 @@
-// 底部弹出的面板（宽屏上居中成表单卡片）：空间切换、回收站
+// 底部面板（大屏 / 双页时居中成表单卡片，双页时只居中在右页）：空间、回收站
 import { AnimatePresence, motion, useDragControls, type DragControls, type PanInfo } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import { completedSince, openCount, startOfToday } from '../../model';
 import { TRASH_KEEP_DAYS } from '../../trash';
-import { LIST_IDS, LISTS, type TrashEntry } from '../../types';
+import { type TrashEntry } from '../../types';
 import { listLabel, restoreFromTrash } from '../actions';
-import { CheckIcon, CloseIcon, PlusIcon, RestoreIcon, SectionIcons, TrashIcon } from '../icons';
+import { CheckIcon, CloseIcon, EditIcon, PlusIcon, TrashIcon } from '../icons';
 import { haptic } from '../native';
 import { activeOf, useData } from '../store';
 import { showToast, useUi } from '../ui';
-import { Avatar } from './Chrome';
+import { Avatar, openRoots } from './Chrome';
+import { SwipeRow } from './SwipeRow';
 
 interface SheetProps {
   open: boolean;
   wide: boolean;
   title: string;
+  /** 标题右边的小字（例如「坚果云 WebDAV」） */
   subtitle?: string;
   onClose(): void;
-  left?: ReactNode;
+  /** 标题右边的按钮（例如「清空」「稍后处理」）；不给就是关闭圆钮 */
+  right?: ReactNode;
   children: ReactNode;
   tall?: boolean;
 }
 
-export function Sheet({ open, wide, title, subtitle, onClose, left, children, tall }: SheetProps) {
+export function Sheet({ open, wide, title, subtitle, onClose, right, children, tall }: SheetProps) {
   const controls = useDragControls();
   const onDragEnd = (_: unknown, info: PanInfo) => {
     if (info.offset.y > 110 || info.velocity.y > 700) onClose();
@@ -55,13 +57,7 @@ export function Sheet({ open, wide, title, subtitle, onClose, left, children, ta
             dragControls={controls}
             onDragEnd={onDragEnd}
           >
-            <SheetHeader
-              title={title}
-              subtitle={subtitle}
-              left={left}
-              onClose={onClose}
-              controls={wide ? null : controls}
-            />
+            <SheetHeader title={title} subtitle={subtitle} right={right} onClose={onClose} controls={wide ? null : controls} />
             <div className="sheet-body">{children}</div>
           </motion.div>
         </div>
@@ -73,13 +69,13 @@ export function Sheet({ open, wide, title, subtitle, onClose, left, children, ta
 function SheetHeader({
   title,
   subtitle,
-  left,
+  right,
   onClose,
   controls,
 }: {
   title: string;
   subtitle?: string;
-  left?: ReactNode;
+  right?: ReactNode;
   onClose(): void;
   controls: DragControls | null;
 }) {
@@ -92,44 +88,46 @@ function SheetHeader({
       }}
     >
       <div className="sheet-grabber" />
-      <div className="sheet-head-row">
-        <div className="sheet-head-side">{left}</div>
-        <div className="sheet-title">
-          <span>{title}</span>
-          {subtitle && <small>{subtitle}</small>}
-        </div>
-        <div className="sheet-head-side is-right">
-          <button className="glass-btn small" aria-label="关闭" onClick={onClose}>
-            <CloseIcon width={18} height={18} />
+      <div className="shh">
+        <b className="shh-title">{title}</b>
+        {subtitle && <span className="shh-sub">{subtitle}</span>}
+        {right ?? (
+          <button className="shh-x" aria-label="关闭" onClick={onClose}>
+            <CloseIcon />
           </button>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ---------- 空间（profile） ----------
+// ---------- 空间（profile）：切换、新建；左滑改名 / 删除 ----------
 
 export function ProfileSheet({ wide }: { wide: boolean }) {
   const open = useUi((s) => s.sheet === 'profiles');
   const profiles = useData((s) => s.profiles);
   const activeId = useData((s) => s.activeId);
-  const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [armed, setArmed] = useState<string | null>(null);
   const close = () => useUi.getState().set({ sheet: null });
-  const today = startOfToday(Date.now());
 
   useEffect(() => {
     if (!open) {
-      setEditing(false);
+      setRenaming(null);
       setAdding(false);
       setArmed(null);
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!armed) return;
+    const t = setTimeout(() => setArmed(null), 3000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
   const pick = (id: string) => {
-    if (editing) return;
+    if (renaming) return;
     if (id !== activeId) {
       haptic.light();
       useData.getState().switchProfile(id);
@@ -141,110 +139,113 @@ export function ProfileSheet({ wide }: { wide: boolean }) {
 
   const startAdd = () => {
     flushSync(() => setAdding(true));
-    document.querySelector<HTMLInputElement>('.profile-add-input')?.focus();
+    document.querySelector<HTMLInputElement>('.space-add-input')?.focus();
+  };
+
+  const startRename = (id: string) => {
+    flushSync(() => setRenaming(id));
+    document.querySelector<HTMLInputElement>(`[data-rename="${CSS.escape(id)}"]`)?.focus();
   };
 
   return (
-    <Sheet
-      open={open}
-      wide={wide}
-      title="空间"
-      subtitle="每个空间有独立的列表和回收站"
-      onClose={close}
-      left={
-        <button className="text-btn" onClick={() => setEditing((v) => !v)}>
-          {editing ? '完成' : '编辑'}
-        </button>
-      }
-    >
-      <div className="card">
+    <Sheet open={open} wide={wide} title="空间" onClose={close}>
+      <div className="scard spaces">
         {profiles.map((p) => {
-          const open = LIST_IDS.reduce((n, l) => n + (l === 'goal' ? 0 : openCount(p.todos, l)), 0);
-          const done = completedSince(p.todos, today);
+          const n = openRoots(p.todos, 'focus');
+          const isActive = p.id === activeId;
           return (
-            <div
-              key={p.id}
-              className={`profile-row ${p.id === activeId ? 'is-active' : ''}`}
-              onClick={() => pick(p.id)}
-            >
-              <Avatar profile={p} size={40} />
-              <div className="profile-row-text">
-                {editing ? (
-                  <input
-                    className="profile-name-input"
-                    defaultValue={p.name}
-                    enterKeyHint="done"
-                    onBlur={(e) => useData.getState().renameProfile(p.id, e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && e.keyCode !== 229 && e.currentTarget.blur()}
-                  />
-                ) : (
-                  <span className="profile-row-name">{p.name}</span>
-                )}
-                <span className="profile-row-sub">
-                  {open} 项待办{done > 0 ? ` · 今天完成 ${done}` : ''}
-                </span>
-              </div>
-              {editing
-                ? profiles.length > 1 && (
-                    <button
-                      className={`danger-pill ${armed === p.id ? 'is-armed' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (armed === p.id) {
-                          haptic.warning();
-                          useData.getState().deleteProfile(p.id);
-                          setArmed(null);
-                        } else setArmed(p.id);
-                      }}
-                    >
-                      {armed === p.id ? '确认删除' : <TrashIcon width={18} height={18} />}
-                    </button>
-                  )
-                : p.id === activeId && (
-                    <span className="profile-check">
-                      <CheckIcon width={20} height={20} />
-                    </span>
-                  )}
+            <div key={p.id} className="space-node">
+              <SwipeRow
+                id={`space-${p.id}`}
+                disabled={renaming === p.id}
+                trailing={[
+                  { key: 'rename', label: '改名', icon: <EditIcon />, color: 'var(--sw-move)', run: () => startRename(p.id) },
+                  ...(profiles.length > 1
+                    ? [
+                        {
+                          key: 'delete',
+                          label: armed === p.id ? '再点一次' : '删除',
+                          icon: <TrashIcon />,
+                          color: 'var(--sw-delete)',
+                          fg: '#fff',
+                          run: () => {
+                            if (armed === p.id) {
+                              haptic.warning();
+                              useData.getState().deleteProfile(p.id);
+                              setArmed(null);
+                            } else {
+                              setArmed(p.id);
+                              showToast(`再左滑点一次「删除」，删除「${p.name}」`);
+                            }
+                          },
+                        },
+                      ]
+                    : []),
+                ]}
+              >
+                <div className="li" onClick={() => pick(p.id)}>
+                  <Avatar profile={p} size={34} />
+                  <div className="li-main">
+                    {renaming === p.id ? (
+                      <input
+                        className="li-input"
+                        data-rename={p.id}
+                        defaultValue={p.name}
+                        enterKeyHint="done"
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={(e) => {
+                          useData.getState().renameProfile(p.id, e.target.value);
+                          setRenaming(null);
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && e.keyCode !== 229 && e.currentTarget.blur()}
+                      />
+                    ) : (
+                      <b>{p.name}</b>
+                    )}
+                    <small>
+                      {n > 0 ? `${n} 件在 FOCUS` : 'FOCUS 空着'}
+                      {isActive ? ' · 当前' : ''}
+                    </small>
+                  </div>
+                  {isActive && <CheckIcon className="ck" />}
+                </div>
+              </SwipeRow>
             </div>
           );
         })}
-        {adding ? (
-          <div className="profile-row is-adding">
-            <span className="avatar avatar-new">
-              <PlusIcon width={20} height={20} />
-            </span>
-            <input
-              className="profile-add-input"
-              placeholder="新空间的名字，例如「副业」"
-              enterKeyHint="done"
-              onBlur={(e) => {
-                const name = e.target.value.trim();
-                setAdding(false);
-                if (name) {
-                  haptic.light();
-                  useData.getState().addProfile(name);
-                  showToast(`已新建并切换到「${name}」`);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.keyCode !== 229) e.currentTarget.blur();
-                if (e.key === 'Escape') {
-                  e.currentTarget.value = '';
-                  e.currentTarget.blur();
-                }
-              }}
-            />
-          </div>
-        ) : (
-          <button className="profile-row profile-add" onClick={startAdd}>
-            <span className="avatar avatar-new">
-              <PlusIcon width={20} height={20} />
-            </span>
-            <span className="profile-row-name">新建空间</span>
-          </button>
-        )}
       </div>
-      {editing && <p className="sheet-note">删除空间会连同它的列表和回收站一起删除，无法恢复。</p>}
+      {adding ? (
+        <div className="li li-add">
+          <PlusIcon />
+          <input
+            className="li-input space-add-input"
+            placeholder="新空间的名字，例如「副业」"
+            enterKeyHint="done"
+            onBlur={(e) => {
+              const name = e.target.value.trim();
+              setAdding(false);
+              if (name) {
+                haptic.light();
+                useData.getState().addProfile(name);
+                showToast(`已新建并切换到「${name}」`);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.keyCode !== 229) e.currentTarget.blur();
+              if (e.key === 'Escape') {
+                e.currentTarget.value = '';
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        </div>
+      ) : (
+        <button className="li li-add" onClick={startAdd}>
+          <PlusIcon />
+          新建空间
+        </button>
+      )}
+      <p className="note">左滑一个空间可改名或删除；删除需要再点一次确认，至少保留一个。</p>
     </Sheet>
   );
 }
@@ -252,19 +253,20 @@ export function ProfileSheet({ wide }: { wide: boolean }) {
 // ---------- 回收站 ----------
 
 const DAY = 24 * 60 * 60 * 1000;
+const pad = (n: number) => String(n).padStart(2, '0');
 
-function relTime(t: number, now: number) {
-  const d = now - t;
-  if (d < 60_000) return '刚刚';
-  if (d < 3_600_000) return `${Math.floor(d / 60_000)} 分钟前`;
-  if (d < DAY) return `${Math.floor(d / 3_600_000)} 小时前`;
-  return `${Math.floor(d / DAY)} 天前`;
+function deletedAt(t: number, now: number) {
+  const d = new Date(t);
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const startToday = new Date(now).setHours(0, 0, 0, 0);
+  if (t >= startToday) return `今天 ${hm}`;
+  if (t >= startToday - DAY) return `昨天 ${hm}`;
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 export function TrashSheet({ wide }: { wide: boolean }) {
   const open = useUi((s) => s.sheet === 'trash');
   const trash = useData((s) => activeOf(s)?.trash ?? []);
-  const profileName = useData((s) => activeOf(s)?.name ?? '');
   const [armedAll, setArmedAll] = useState(false);
   const close = () => useUi.getState().set({ sheet: null });
 
@@ -280,12 +282,12 @@ export function TrashSheet({ wide }: { wide: boolean }) {
       wide={wide}
       tall
       title="回收站"
-      subtitle={`「${profileName}」· 保留 ${TRASH_KEEP_DAYS} 天`}
       onClose={close}
-      left={
-        trash.length > 0 && (
+      right={
+        trash.length > 0 ? (
           <button
             className={`text-btn is-danger ${armedAll ? 'is-armed' : ''}`}
+            style={{ marginLeft: 'auto' }}
             onClick={() => {
               if (armedAll) {
                 haptic.warning();
@@ -294,26 +296,22 @@ export function TrashSheet({ wide }: { wide: boolean }) {
               } else setArmedAll(true);
             }}
           >
-            {armedAll ? '确认清空' : '清空'}
+            {armedAll ? '再点一次清空' : '清空'}
           </button>
-        )
+        ) : undefined
       }
     >
+      <p className="note">删除的条目连同子项保留 {TRASH_KEEP_DAYS} 天，可以恢复到原来的位置。</p>
       {trash.length === 0 ? (
-        <div className="empty small">
-          <div className="empty-icon">
-            <TrashIcon width={28} height={28} />
-          </div>
-          <p>回收站是空的。</p>
-        </div>
+        <p className="note" style={{ padding: '24px 4px' }}>
+          回收站是空的。
+        </p>
       ) : (
-        <div className="card">
-          <AnimatePresence initial={false}>
-            {trash.map((e) => (
-              <TrashRow key={e.id} entry={e} />
-            ))}
-          </AnimatePresence>
-        </div>
+        <AnimatePresence initial={false}>
+          {trash.map((e) => (
+            <TrashRow key={e.id} entry={e} />
+          ))}
+        </AnimatePresence>
       )}
     </Sheet>
   );
@@ -322,51 +320,39 @@ export function TrashSheet({ wide }: { wide: boolean }) {
 function TrashRow({ entry }: { entry: TrashEntry }) {
   const root = entry.items.find((t) => t.id === entry.rootId)!;
   const kids = entry.items.filter((t) => t.id !== entry.rootId);
-  const meta = LISTS.find((l) => l.id === entry.list)!;
-  const Icon = SectionIcons[entry.list];
   const [armed, setArmed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
   return (
     <motion.div
-      className="trash-row"
+      className="tr"
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.26 }}
+      style={{ '--c': `var(--c-${entry.list})` } as React.CSSProperties}
     >
-      <div className="trash-main">
-        <span className={`trash-title ${root.done ? 'is-done' : ''}`}>{root.title}</span>
-        <span className="trash-meta">
-          <span style={{ color: `var(--c-${entry.list})` }} className="h-list">
-            <Icon width={12} height={12} />
-            {meta.label}
-          </span>
-          <span>{relTime(entry.deletedAt, Date.now())}删除</span>
-          {kids.length > 0 && <span>含 {kids.length} 个子项</span>}
+      <b>{root.title}</b>
+      <span className="tr-meta">
+        <i />
+        原在 {listLabel(entry.list)} · {deletedAt(entry.deletedAt, Date.now())}
+        {kids.length > 0 ? ` · 含 ${kids.length} 个子项` : ''}
+      </span>
+      {kids.length > 0 && (
+        <span className="tr-kids">
+          {kids
+            .slice(0, 3)
+            .map((k) => k.title)
+            .join(' · ')}
+          {kids.length > 3 ? ' …' : ''}
         </span>
-        {kids.length > 0 && (
-          <span className="trash-kids">
-            {kids
-              .slice(0, 3)
-              .map((k) => k.title)
-              .join(' · ')}
-            {kids.length > 3 ? ' …' : ''}
-          </span>
-        )}
-      </div>
-      <div className="trash-actions">
-        <button
-          className="pill-btn"
-          onClick={() => restoreFromTrash(entry.id)}
-          aria-label={`恢复到 ${listLabel(entry.list)}`}
-        >
-          <RestoreIcon width={16} height={16} />
+      )}
+      <div className="tr-actions">
+        <button className="btn pri sm" onClick={() => restoreFromTrash(entry.id)} aria-label={`恢复到 ${listLabel(entry.list)}`}>
           恢复
         </button>
         <button
-          className={`danger-pill ${armed ? 'is-armed' : ''}`}
-          aria-label="彻底删除"
+          className={`btn sm ${armed ? 'conf' : 'bad'}`}
           onClick={() => {
             if (armed) {
               haptic.warning();
@@ -378,7 +364,7 @@ function TrashRow({ entry }: { entry: TrashEntry }) {
             }
           }}
         >
-          {armed ? '彻底删除' : <TrashIcon width={18} height={18} />}
+          {armed ? '再点一次彻底删除' : '彻底删除'}
         </button>
       </div>
     </motion.div>

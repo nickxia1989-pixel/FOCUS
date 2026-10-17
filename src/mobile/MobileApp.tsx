@@ -1,7 +1,8 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
-import { initChrome, nativeChrome } from './chrome';
+import { initChrome, nativeChrome, useChrome } from './chrome';
 import { Screen, Sidebar, TabBar } from './components/Chrome';
 import { Composer } from './components/Composer';
+import { FocusContent } from './components/FocusContent';
 import { HistoryContent } from './components/HistoryContent';
 import { ListContent } from './components/ListContent';
 import { ContextMenu, MoreMenu, Toast } from './components/Overlays';
@@ -44,6 +45,9 @@ export function MobileApp() {
   // 内容区够宽时分成左右两页（Duo 展开的内屏、手机横屏），以折痕为界
   const hasProfile = useData((s) => s.profiles.length > 0);
   const spread = useSpread(appRef, mainRef, loaded && hasProfile);
+  // 标题画在导航栏那一行（网页自己画导航时、原生导航栏横排时）；竖排栏（Duo）和双页时标题在内容顶上
+  const navRow = useChrome((s) => !!s.geo.nav);
+  const titleInNav = !spread && (!nativeChrome || navRow);
 
   useEffect(() => {
     void useData
@@ -97,7 +101,7 @@ export function MobileApp() {
   return (
     <div
       ref={appRef}
-      className={`app ${wide ? 'is-wide' : 'is-compact'} ${spread ? 'is-spread' : ''} ${nativeChrome ? 'has-native-chrome' : ''}`}
+      className={`app ${wide ? 'is-wide' : 'is-compact'} ${spread ? 'is-spread' : ''} ${nativeChrome ? 'has-native-chrome' : ''} ${titleInNav ? 'title-in-nav' : ''}`}
     >
       {/* 侧栏和页签都常驻，只用 CSS 过渡切换显隐：切换形态时列表不重建，滚动和编辑都不丢 */}
       {!nativeChrome && (
@@ -107,7 +111,13 @@ export function MobileApp() {
       )}
       <main className="main" ref={mainRef}>
         <Screen section={section} wide={wide} spread={spread}>
-          {section === 'history' ? <HistoryContent /> : <ListContent list={section} />}
+          {section === 'history' ? (
+            <HistoryContent />
+          ) : section === 'focus' ? (
+            <FocusContent />
+          ) : (
+            <ListContent list={section} />
+          )}
         </Screen>
       </main>
       {!nativeChrome && <TabBar section={section} hidden={wide} />}

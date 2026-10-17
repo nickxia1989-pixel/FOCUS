@@ -1,7 +1,8 @@
-// 底部的新建卡片：贴着键盘，回车添加后保持打开，可以连续输入
+// 新建：贴着键盘的玻璃输入卡（设计 P3）。回车添加后保持打开，可以连续输入；
+// 列表芯片选放进哪个列表，FOCUS 顶层项有「排在现在之后」开关（关掉 = 新建并设为现在）
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LISTS, type ListId } from '../../types';
-import { closeComposer, registerComposerInput } from '../actions';
+import { addTodo, closeComposer, registerComposerInput } from '../actions';
 import { ArrowUpIcon, SectionIcons, SubtaskIcon } from '../icons';
 import { haptic } from '../native';
 import { useData, useTodos } from '../store';
@@ -41,12 +42,14 @@ export function Composer() {
   useEffect(fit, [text, fit]);
   useRefitOnWidth(ref, fit);
 
+  const afterNow = useData((s) => s.prefs.insertAfterNow);
+  const kb = useKeyboardUp();
+
   const submit = () => {
     const title = (ref.current?.value ?? text).trim();
     if (!title) return;
-    const id = useData.getState().add(title, list, parent?.id ?? null);
+    const id = addTodo(title, list, parent?.id ?? null, afterNow);
     if (!id) return;
-    haptic.light();
     setText('');
     saveTransient({ composer: undefined });
     // 加到了别的列表（不在当前页）时，让那个分区的图标弹一下
@@ -70,7 +73,7 @@ export function Composer() {
   return (
     <div className={`composer-layer ${open ? 'is-open' : ''}`} aria-hidden={!open}>
       <div className="composer-scrim" onClick={closeComposer} />
-      <div className="composer" style={{ '--c': `var(--c-${list})` } as React.CSSProperties}>
+      <div className={`composer glass ${kb ? '' : 'is-floating'}`} style={{ '--c': `var(--c-${list})` } as React.CSSProperties}>
         {parent && (
           <div className="composer-context">
             <SubtaskIcon width={15} height={15} />
@@ -111,7 +114,7 @@ export function Composer() {
             }}
           />
           <button
-            className="composer-send"
+            className="send"
             aria-label="添加"
             disabled={!text.trim()}
             onPointerDown={keepFocus}
@@ -125,16 +128,18 @@ export function Composer() {
           </button>
         </div>
         {!parent && (
-          <div className="composer-lists" role="radiogroup" aria-label="放进哪个列表">
+          <div className="chips" role="radiogroup" aria-label="放进哪个列表">
             {LISTS.map((l) => {
               const Icon = SectionIcons[l.id];
+              const on = l.id === list;
               return (
                 <button
                   key={l.id}
                   role="radio"
-                  aria-checked={l.id === list}
-                  className={`chip ${l.id === list ? 'is-on' : ''}`}
-                  style={{ '--c': `var(--c-${l.id})` } as React.CSSProperties}
+                  aria-checked={on}
+                  aria-label={l.label}
+                  className={`chip ${on ? 'on' : ''}`}
+                  style={{ '--c': l.id === 'focus' ? 'var(--text)' : `var(--c-${l.id})` } as React.CSSProperties}
                   onPointerDown={keepFocus}
                   onMouseDown={keepFocus}
                   onClick={() => {
@@ -142,14 +147,45 @@ export function Composer() {
                     setList(l.id);
                   }}
                 >
-                  <Icon width={15} height={15} />
-                  {l.label}
+                  <Icon />
+                  {on && l.label}
                 </button>
               );
             })}
+            {list === 'focus' && (
+              <button
+                role="switch"
+                aria-checked={afterNow}
+                className={`chip chip-sw ${afterNow ? 'is-on' : ''}`}
+                onPointerDown={keepFocus}
+                onMouseDown={keepFocus}
+                onClick={() => {
+                  refocus();
+                  haptic.selection();
+                  useData.getState().setPrefs({ insertAfterNow: !afterNow });
+                }}
+              >
+                <i aria-hidden />
+                排在现在之后
+              </button>
+            )}
           </div>
         )}
       </div>
     </div>
   );
+}
+
+/** 软键盘起来了没有（外接键盘、浏览器里没有软键盘时卡片浮在底部，四角都圆） */
+function useKeyboardUp() {
+  const [up, setUp] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setUp(parseFloat(getComputedStyle(root).getPropertyValue('--kb')) > 80);
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(root, { attributes: true, attributeFilter: ['style'] });
+    return () => mo.disconnect();
+  }, []);
+  return up;
 }

@@ -25,6 +25,8 @@ export interface MobilePrefs {
   haptics: boolean;
   /** 各列表"已完成"分组是否折叠 */
   doneCollapsed: Partial<Record<ListId, boolean>>;
+  /** 新建 FOCUS 顶层项时排在 NOW 之后（关掉 = 新建并设为现在）；只存本机，默认开 */
+  insertAfterNow: boolean;
 }
 
 /** 落盘的完整快照（存储适配层只认这个形状） */
@@ -35,9 +37,25 @@ export interface MobileSnapshot {
   prefs: MobilePrefs;
 }
 
-export const PROFILE_TINTS = ['#f2622e', '#0f9e8e', '#2f7bf5', '#8657f0', '#e0457b', '#3c9d4e', '#d18a00', '#6b7280'];
+/**
+ * 空间头像底色（设计：近黑、珊瑚、薰衣草、天蓝、奶油，后三个是补位）。序号随数据同步，所以保持 8 个、只换颜色。
+ */
+export const PROFILE_TINTS = ['#0B0B0C', '#FF8A65', '#B8A6FF', '#8FD3FF', '#F2E2B8', '#7EE2A0', '#FFB3C7', '#C9C9C2'];
 
-export const DEFAULT_PREFS: MobilePrefs = { section: 'focus', sound: true, haptics: true, doneCollapsed: {} };
+/** 头像的底色和字色：近黑底配荧光绿字，其余浅色底配近黑字；深色模式下近黑那个反过来（浅底近黑字） */
+export function avatarColors(tint: number, dark: boolean): { bg: string; fg: string } {
+  const bg = PROFILE_TINTS[tint] ?? PROFILE_TINTS[0];
+  if (bg === PROFILE_TINTS[0]) return dark ? { bg: '#F4F4EF', fg: '#0B0B0C' } : { bg, fg: '#D6FF3D' };
+  return { bg, fg: '#0B0B0C' };
+}
+
+export const DEFAULT_PREFS: MobilePrefs = {
+  section: 'focus',
+  sound: true,
+  haptics: true,
+  doneCollapsed: {},
+  insertAfterNow: true,
+};
 
 export const DAY = 24 * 60 * 60 * 1000;
 
