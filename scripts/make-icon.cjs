@@ -1,5 +1,8 @@
 // 用 Electron 离屏渲染把 SVG 图标导出为 build/icon.png / icon.ico / icon.icns
 // 直接生成 ico / icns（内嵌 PNG），打包时就不用再转换
+// 图形取自设计交接包 design_handoff_focus/icons：近黑底上一张荧光绿 NOW 卡，中间黑色星芒，下面压着两张灰卡
+// - macOS（icns）：app-icon-macos.svg，带 macOS 圆角方形、留边和描边
+// - Windows（ico）/ Linux（png）：app-icon-windows.svg，满版圆角 16/132
 // 用法：npm run icon
 const { app, BrowserWindow } = require('electron');
 const fs = require('node:fs');
@@ -7,21 +10,31 @@ const path = require('node:path');
 
 const SIZE = 1024;
 
-const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 1024 1024">
+const SPARK = 'M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z';
+
+/** 卡片组：两张灰卡 + 荧光绿 NOW 卡 + 星芒（132 网格） */
+const CARDS = `
+  <rect x="34" y="94" width="64" height="16" rx="7" fill="#2A2A2D"/>
+  <rect x="27" y="84" width="78" height="17" rx="8" fill="#45454A"/>
+  <rect x="20" y="20" width="92" height="70" rx="17" fill="#D6FF3D"/>
+  <path transform="translate(66 55) scale(1.95) translate(-12 -11.2)" d="${SPARK}" fill="#0B0B0C"/>`;
+
+const SVG_MAC = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" width="${SIZE}" height="${SIZE}">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff9a5a"/>
-      <stop offset="1" stop-color="#ee4f24"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#7a2408" flood-opacity="0.28"/>
-    </filter>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2A2D"/><stop offset="1" stop-color="#0B0B0C"/></linearGradient>
+    <clipPath id="c"><rect x="12" y="12" width="108" height="108" rx="25"/></clipPath>
   </defs>
-  <rect x="100" y="100" width="824" height="824" rx="190" fill="url(#bg)" filter="url(#shadow)"/>
-  <circle cx="512" cy="512" r="250" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="44"/>
-  <path d="M392 518 L478 604 L642 430" fill="none" stroke="#fff" stroke-width="72"
-        stroke-linecap="round" stroke-linejoin="round"/>
+  <g clip-path="url(#c)">
+    <rect x="12" y="12" width="108" height="108" fill="url(#g)"/>
+    <g transform="translate(14.5 16) scale(.78)">${CARDS}</g>
+  </g>
+  <rect x="12.5" y="12.5" width="107" height="107" rx="24.5" fill="none" stroke="#fff" stroke-opacity=".14"/>
+</svg>`;
+
+const SVG_WIN = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" width="${SIZE}" height="${SIZE}">
+  <rect width="132" height="132" rx="16" fill="#0B0B0C"/>${CARDS}
 </svg>`;
 
 /** ICO：Vista 起支持直接内嵌 PNG */
@@ -79,8 +92,10 @@ function buildIcns(pngBySize) {
 
 app.disableHardwareAcceleration();
 
-app.whenReady().then(async () => {
-  const win = new BrowserWindow({
+/** 离屏渲染 SVG（同一个窗口依次渲染），返回各尺寸的 PNG */
+let renderer = null;
+async function render(svg) {
+  renderer ??= new BrowserWindow({
     width: SIZE,
     height: SIZE,
     show: false,
@@ -90,26 +105,34 @@ app.whenReady().then(async () => {
     enableLargerThanScreen: true,
     webPreferences: { offscreen: true, zoomFactor: 1 },
   });
-  win.setContentSize(SIZE, SIZE);
+  renderer.setContentSize(SIZE, SIZE);
   const html = `<html><body style="margin:0;background:transparent;overflow:hidden">${svg}</body></html>`;
-  await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  await renderer.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   await new Promise((r) => setTimeout(r, 400));
-  const img = await win.webContents.capturePage();
+  const img = await renderer.webContents.capturePage();
   const { width, height } = img.getSize();
   if (width !== height) throw new Error(`capture is not square: ${width}x${height}`);
-  const dir = path.join(__dirname, '..', 'build');
-  fs.mkdirSync(dir, { recursive: true });
-
   const png = {};
   for (const s of [16, 24, 32, 48, 64, 128, 256, 512, 1024]) {
-    png[s] = s === SIZE ? img.toPNG() : img.resize({ width: s, height: s, quality: 'best' }).toPNG();
+    png[s] = s === width ? img.toPNG() : img.resize({ width: s, height: s, quality: 'best' }).toPNG();
   }
-  fs.writeFileSync(path.join(dir, 'icon.png'), png[1024]);
+  return png;
+}
+
+app.whenReady().then(async () => {
+  const dir = path.join(__dirname, '..', 'build');
+  fs.mkdirSync(dir, { recursive: true });
+  const mac = await render(SVG_MAC);
+  const win = await render(SVG_WIN);
+  fs.writeFileSync(path.join(dir, 'icon.png'), win[1024]);
   fs.writeFileSync(
     path.join(dir, 'icon.ico'),
-    buildIco([16, 24, 32, 48, 64, 128, 256].map((size) => ({ size, data: png[size] }))),
+    buildIco([16, 24, 32, 48, 64, 128, 256].map((size) => ({ size, data: win[size] }))),
   );
-  fs.writeFileSync(path.join(dir, 'icon.icns'), buildIcns(png));
+  fs.writeFileSync(path.join(dir, 'icon.icns'), buildIcns(mac));
   console.log(`icons written to ${dir}`);
   app.quit();
+}).catch((e) => {
+  console.error(e);
+  app.exit(1);
 });

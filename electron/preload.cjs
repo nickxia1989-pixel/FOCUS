@@ -1,7 +1,14 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// 界面按哪个系统画：通常就是 process.platform，开发时可被 FOCUS_FORCE_PLATFORM 改写（见 main.cjs）
+let uiPlatform = process.platform;
+try {
+  uiPlatform = ipcRenderer.sendSync('app:uiPlatform') || process.platform;
+} catch {}
+
 contextBridge.exposeInMainWorld('focusApi', {
   platform: process.platform,
+  uiPlatform,
   loadLegacyProfiles: () => ipcRenderer.invoke('legacy:profiles'),
   loadLegacyData: (profileId) => ipcRenderer.invoke('legacy:data', profileId),
   loadStore: (name) => ipcRenderer.invoke('store:load', name),

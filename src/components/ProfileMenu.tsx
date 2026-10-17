@@ -1,33 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { isMac } from '../platform';
 import { showToast, useData, useUi } from '../store';
 import type { Profile } from '../types';
 import { CheckIcon, EditIcon, PlusIcon, TrashIcon } from './icons';
-
-const PALETTE = ['#f06a5d', '#e8973d', '#3aa76d', '#24a3b4', '#4c7cf0', '#6f5cf0', '#a25cf0', '#e0559b'];
+import { isComposing } from './Inputs';
+import { avatarStyle, initialOf } from './Nav';
 
 export const PROFILE_SHORTCUT = isMac ? '⌘⇧P' : 'Ctrl+Shift+P';
-
-/** 按 id 固定配色，改名不变色 */
-export function profileColor(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-}
-
-/** 头像上的字：取名字的第一个字符，英文转大写 */
-const initialOf = (name: string) => (Array.from(name.trim())[0] ?? '?').toUpperCase();
-
-export function ProfileAvatar({ profile, size = 28 }: { profile: Profile; size?: number }) {
-  const style = { '--pf-color': profileColor(profile.id), width: size, height: size, fontSize: Math.round(size * 0.46) };
-  return (
-    <span className="pf-avatar" style={style as CSSProperties} aria-hidden>
-      {initialOf(profile.name)}
-    </span>
-  );
-}
-
-const isComposing = (e: KeyboardEvent) => e.nativeEvent.isComposing || e.keyCode === 229;
 
 function NameInput(props: { initial?: string; placeholder: string; onSubmit(name: string): void; onCancel(): void }) {
   const [text, setText] = useState(props.initial ?? '');
@@ -47,36 +27,33 @@ function NameInput(props: { initial?: string; placeholder: string; onSubmit(name
   };
 
   return (
-    <div className="pf-input-row">
-      <input
-        ref={ref}
-        className="pf-input"
-        value={text}
-        maxLength={24}
-        placeholder={props.placeholder}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (isComposing(e)) return;
-          if (e.key === 'Enter' || e.key === 'Escape') {
-            e.preventDefault();
-            e.stopPropagation();
-            finish(e.key === 'Enter');
-          }
-        }}
-        onBlur={() => finish(true)}
-        autoComplete="off"
-        spellCheck={false}
-      />
-    </div>
+    <input
+      ref={ref}
+      value={text}
+      maxLength={24}
+      placeholder={props.placeholder}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={(e) => {
+        if (isComposing(e)) return;
+        if (e.key === 'Enter' || e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          finish(e.key === 'Enter');
+        }
+      }}
+      onBlur={() => finish(true)}
+      autoComplete="off"
+      spellCheck={false}
+    />
   );
 }
 
-/** 侧栏顶部头像点开的 profile 菜单：切换、新建、改名、删除 */
-export function ProfileMenu({ anchor }: { anchor: RefObject<HTMLElement | null> }) {
+/** profile 菜单（从页签行头像 / 侧栏空间卡片弹出）：切换、新建、改名、删除 */
+function Menu() {
   const profiles = useData((s) => s.profiles);
   const activeId = useData((s) => s.profileId);
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ x: -999, y: -999 });
+  const [pos, setPos] = useState({ x: 10, y: 82 });
   /** 正在改名的 profile id；'__new' 表示正在新建 */
   const [editing, setEditing] = useState<string | null>(null);
   /** 删除需要再点一次确认 */
@@ -94,16 +71,16 @@ export function ProfileMenu({ anchor }: { anchor: RefObject<HTMLElement | null> 
   };
 
   useLayoutEffect(() => {
-    const a = anchor.current?.getBoundingClientRect();
+    const a = document.querySelector<HTMLElement>('[data-profile-anchor]')?.getBoundingClientRect();
     const r = ref.current?.getBoundingClientRect();
     if (!a || !r) return;
     const pad = 6;
-    let x = a.left;
-    let y = a.bottom + 6;
+    let x = a.left - 2;
+    let y = a.bottom + 8;
     if (x + r.width > window.innerWidth - pad) x = Math.max(pad, window.innerWidth - pad - r.width);
     if (y + r.height > window.innerHeight - pad) y = Math.max(pad, window.innerHeight - pad - r.height);
     setPos({ x, y });
-  }, [anchor, profiles.length, editing]);
+  }, [profiles.length, editing]);
 
   useEffect(() => {
     if (!armed) return;
@@ -113,11 +90,11 @@ export function ProfileMenu({ anchor }: { anchor: RefObject<HTMLElement | null> 
 
   useEffect(() => {
     const onDown = (e: Event) => {
-      const t = e.target as Node;
-      if (ref.current?.contains(t) || anchor.current?.contains(t)) return;
+      const t = e.target as Element;
+      if (ref.current?.contains(t) || t.closest?.('[data-profile-anchor]')) return;
       close();
     };
-    const onKey = (e: globalThis.KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.isComposing || editing) return;
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -141,70 +118,99 @@ export function ProfileMenu({ anchor }: { anchor: RefObject<HTMLElement | null> 
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('blur', close);
     };
-  }, [anchor, profiles, editing]);
+  }, [profiles, editing]);
 
   return (
-    <div ref={ref} className="menu pf-menu" role="menu" style={{ left: pos.x, top: pos.y }}>
-      <div className="menu-note">Profile</div>
-      {profiles.map((p, i) =>
-        editing === p.id ? (
-          <NameInput
+    <motion.div
+      ref={ref}
+      className="pop"
+      role="menu"
+      style={{ left: pos.x, top: pos.y, width: 236 }}
+      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, transition: { duration: 0.1 } }}
+      transition={{ duration: 0.14, ease: [0.2, 0.8, 0.2, 1] }}
+    >
+      <div className="mcap up">PROFILE</div>
+      {profiles.map((p, i) => {
+        const on = p.id === activeId;
+        if (editing === p.id)
+          return (
+            <div key={p.id} className="pf on">
+              <span className="a" style={avatarStyle(i)}>
+                {initialOf(p.name)}
+              </span>
+              <NameInput
+                initial={p.name}
+                placeholder="名称"
+                onSubmit={(name) => {
+                  useData.getState().renameProfile(p.id, name);
+                  setEditing(null);
+                }}
+                onCancel={() => setEditing(null)}
+              />
+            </div>
+          );
+        return (
+          <div
             key={p.id}
-            initial={p.name}
-            placeholder="名称"
-            onSubmit={(name) => {
-              useData.getState().renameProfile(p.id, name);
-              setEditing(null);
+            className={`pf ${on ? 'on' : ''}`}
+            role="menuitemradio"
+            aria-checked={on}
+            tabIndex={-1}
+            onClick={(e) => {
+              if ((e.target as Element).closest('.ed')) return;
+              pick(p.id);
             }}
-            onCancel={() => setEditing(null)}
-          />
-        ) : (
-          <div key={p.id} className={`pf-item ${p.id === activeId ? 'is-active' : ''}`}>
-            <button className="menu-item pf-pick" onClick={() => pick(p.id)}>
-              <ProfileAvatar profile={p} size={20} />
-              <span className="pf-name">{p.name}</span>
-              {p.id === activeId ? (
-                <CheckIcon className="pf-check" width={14} height={14} />
-              ) : (
-                i < 9 && <kbd className="pf-key">{i + 1}</kbd>
-              )}
-            </button>
-            <span className="pf-tools">
-              <button className="pf-tool" title="重命名" onClick={() => setEditing(p.id)}>
-                <EditIcon width={13} height={13} />
+          >
+            <span className="a" style={avatarStyle(i)}>
+              {initialOf(p.name)}
+            </span>
+            <b>{p.name}</b>
+            {on && <CheckIcon className="ck" />}
+            <span className="ed">
+              <button className="mini" title="重命名" onClick={() => setEditing(p.id)}>
+                <EditIcon />
               </button>
               {profiles.length > 1 && (
                 <button
-                  className={`pf-tool pf-delete ${armed === p.id ? 'is-armed' : ''}`}
+                  className={`mini del ${armed === p.id ? 'armed' : ''}`}
                   title={armed === p.id ? '再点一次删除' : '删除'}
                   onClick={() => (armed === p.id ? void remove(p) : setArmed(p.id))}
                 >
-                  {armed === p.id ? '删除' : <TrashIcon width={13} height={13} />}
+                  {armed === p.id ? '删除' : <TrashIcon />}
                 </button>
               )}
             </span>
+            {i < 9 && <em>{i + 1}</em>}
           </div>
-        ),
-      )}
-      <div className="menu-sep" />
+        );
+      })}
+      <div className="msep" />
       {editing === '__new' ? (
-        <NameInput
-          placeholder="新 profile 的名字，如：工作"
-          onSubmit={(name) => {
-            close();
-            void useData.getState().createProfile(name);
-          }}
-          onCancel={() => setEditing(null)}
-        />
+        <div className="pf">
+          <PlusIcon className="ck" />
+          <NameInput
+            placeholder="新 profile 的名字，如：工作"
+            onSubmit={(name) => {
+              close();
+              void useData.getState().createProfile(name);
+            }}
+            onCancel={() => setEditing(null)}
+          />
+        </div>
       ) : (
-        <button className="menu-item" onClick={() => setEditing('__new')}>
-          <span className="menu-check">
-            <PlusIcon />
-          </span>
+        <button className="mi" onClick={() => setEditing('__new')}>
+          <PlusIcon />
           新建 profile
         </button>
       )}
-      <div className="menu-note pf-hint">{PROFILE_SHORTCUT} 打开 · 数字键切换</div>
-    </div>
+      <div className="mcap">{PROFILE_SHORTCUT} 打开 · 数字键切换</div>
+    </motion.div>
   );
+}
+
+export function ProfileMenu() {
+  const open = useUi((s) => s.profileMenuOpen);
+  return <AnimatePresence>{open && <Menu />}</AnimatePresence>;
 }

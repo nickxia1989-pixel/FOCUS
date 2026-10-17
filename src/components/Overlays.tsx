@@ -1,27 +1,43 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { deleteWithUndo, describeMove, moveTodoTo, startAddChild, toggleTest, toggleTodo, undoDelete } from '../actions';
-import { completedSince } from '../model';
+import { deleteWithUndo, goView, moveTodoTo, sendToFocus, sendToVerify, setNow, startAddChild, toggleTodo, undoDelete } from '../actions';
+import { countsByDay, streak } from '../history';
+import { completedSince, nowOf } from '../model';
 import { isMac } from '../platform';
 import { useData, useUi } from '../store';
-import { LISTS } from '../types';
-import { CheckIcon, EditIcon, FlaskIcon, ListIcons, SparkIcon, SubtaskIcon, TrashIcon, UndoIcon } from './icons';
+import type { ListId, Todo } from '../types';
+import { VIEW_COPY } from './copy';
+import { CheckIcon, ChevronRightIcon, EditIcon, EyeCheckIcon, ListIcons, MoveIcon, SparkFilledIcon, SubtaskIcon, TrashIcon, UndoIcon, UpIcon } from './icons';
+import { startEdit } from './TodoNode';
 import { useTodayStart } from './useToday';
 
-/** 条目的右键 / ⋯ 菜单 */
+const EASE = [0.2, 0.8, 0.2, 1] as const;
+
+/** 「移到」能去哪：不含 VERIFY（走「送去验证」）；子项可以选自己的列表 = 提升为顶层项 */
+function moveTargets(todo: Todo): { list: ListId; label: string }[] {
+  const lists: ListId[] = ['focus', 'inbox', 'goal'];
+  return lists
+    .filter((l) => l !== todo.list || todo.parentId !== null)
+    .map((l) => ({ list: l, label: l === todo.list ? '提升为顶层项' : VIEW_COPY[l].en }));
+}
+
+/** 条目的右键 / ⋯ 菜单：完成、编辑、添加子任务 | 设为现在、送去验证、移到 › | 删除 */
 export function ContextMenu() {
   const menu = useUi((s) => s.menu);
   const todo = useData((s) => (menu ? s.todos.find((t) => t.id === menu.todoId) : undefined));
+  const isNowItem = useData((s) => !!todo && nowOf(s.todos)?.id === todo.id);
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [pos, setPos] = useState({ x: -999, y: -999 });
+  const [sub, setSub] = useState<{ x: number; y: number; left: boolean } | null>(null);
 
   const close = () => useUi.getState().set({ menu: null });
 
   useLayoutEffect(() => {
+    setSub(null);
     if (!menu || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
     const pad = 6;
-    // 从按钮打开时右对齐按钮；靠边时翻转，保证完整显示
+    // 从 ⋯ 打开时右对齐按钮；靠边时翻转，保证完整显示
     let x = menu.x;
     let y = menu.y;
     if (x + r.width > window.innerWidth - pad) x = Math.max(pad, x - r.width);
@@ -32,9 +48,17 @@ export function ContextMenu() {
   useEffect(() => {
     if (!menu) return;
     const onDown = (e: Event) => {
-      if (!ref.current?.contains(e.target as Node)) close();
+      if (!(e.target as Element).closest?.('.ctx')) close();
     };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+      // ⌫ / Delete：删除这一条
+      if ((e.key === 'Backspace' || e.key === 'Delete') && todo) {
+        e.preventDefault();
+        close();
+        deleteWithUndo(todo);
+      }
+    };
     window.addEventListener('pointerdown', onDown, true);
     window.addEventListener('keydown', onKey);
     window.addEventListener('blur', close);
@@ -45,7 +69,7 @@ export function ContextMenu() {
       window.removeEventListener('blur', close);
       window.removeEventListener('wheel', close);
     };
-  }, [menu]);
+  }, [menu, todo]);
 
   if (!menu || !todo) return null;
 
@@ -54,65 +78,109 @@ export function ContextMenu() {
     fn();
   };
 
+  const verifyRoot = todo.parentId === null && todo.list === 'verify';
+  const testing = !!todo.testing && !todo.done;
+  const targets = moveTargets(todo);
+
+  const openSub = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const w = 168;
+    const left = r.right + w > window.innerWidth - 6;
+    setSub({ x: left ? r.left - w + 4 : r.right - 4, y: Math.min(r.top - 6, window.innerHeight - 6 - (targets.length * 32 + 12)), left });
+  };
+
   return (
-    <div ref={ref} className="menu ctx-menu" role="menu" style={{ left: pos.x, top: pos.y }}>
-      <button className="menu-item" onClick={run(() => toggleTodo(todo))}>
-        <span className="menu-check">
-          <CheckIcon />
-        </span>
-        {todo.done ? '标记为未完成' : '完成'}
-      </button>
-      {/* VERIFY 的顶层项本身就是待测，不再提供 */}
-      {!(todo.parentId === null && todo.list === 'verify') && (
-        <button className="menu-item menu-move-verify" onClick={run(() => toggleTest(todo))}>
-          <span className="menu-check">
-            <FlaskIcon />
-          </span>
-          {todo.testing && !todo.done ? '取消待测' : todo.parentId ? '标为待测（留在原处）' : '标为待测'}
+    <>
+      <motion.div
+        ref={ref}
+        className="pop ctx"
+        role="menu"
+        style={{ left: pos.x, top: pos.y }}
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.12, ease: EASE }}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => toggleTodo(todo))}>
+          {todo.done ? <UndoIcon /> : <CheckIcon />}
+          {todo.done ? '恢复为未完成' : verifyRoot ? '测完了' : '完成'}
         </button>
-      )}
-      <button className="menu-item" onClick={run(() => useUi.getState().set({ editingId: todo.id }))}>
-        <span className="menu-check">
+        <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => startEdit(todo))}>
           <EditIcon />
-        </span>
-        编辑
-      </button>
-      <button className="menu-item" onClick={run(() => startAddChild(todo))}>
-        <span className="menu-check">
+          编辑
+          <kbd>双击</kbd>
+        </button>
+        <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => startAddChild(todo))}>
           <SubtaskIcon />
-        </span>
-        添加子任务
-      </button>
-      <div className="menu-sep" />
-      {/* 移进 VERIFY 统一走上面的"标为待测"；同列表的子项可提升为顶层 */}
-      {LISTS.filter((l) => (l.id === todo.list ? todo.parentId !== null : l.id !== 'verify')).map((l) => {
-        const Icon = ListIcons[l.id];
-        const label = l.id === todo.list ? '提升为顶层项' : describeMove(l.id);
-        return (
-          <button
-            key={l.id}
-            className={`menu-item menu-move menu-move-${l.id}`}
-            onClick={run(() => moveTodoTo(todo, l.id))}
-          >
-            <span className="menu-check">
-              <Icon />
-            </span>
-            {label}
+          添加子任务
+        </button>
+        <div className="msep" />
+        {!isNowItem && (
+          <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => setNow(todo))}>
+            <UpIcon />
+            设为现在
           </button>
-        );
-      })}
-      <div className="menu-sep" />
-      <button className="menu-item menu-danger" onClick={run(() => deleteWithUndo(todo))}>
-        <span className="menu-check">
+        )}
+        {verifyRoot ? (
+          <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => sendToFocus(todo))}>
+            <SparkFilledIcon />
+            退回 FOCUS
+          </button>
+        ) : (
+          <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => sendToVerify(todo))}>
+            <EyeCheckIcon />
+            {testing ? '取消待验证' : todo.parentId ? '送去验证（留在原处）' : '送去验证'}
+          </button>
+        )}
+        <button
+          className={`mi ${sub ? 'hl' : ''}`}
+          aria-haspopup="menu"
+          aria-expanded={!!sub}
+          onMouseEnter={(e) => openSub(e.currentTarget)}
+          onClick={(e) => (sub ? setSub(null) : openSub(e.currentTarget))}
+        >
+          <MoveIcon />
+          移到
+          <em>
+            {targets
+              .slice(0, 2)
+              .map((t) => (t.label === '提升为顶层项' ? '顶层' : t.label))
+              .join(' · ')}
+          </em>
+          <ChevronRightIcon className="chev" />
+        </button>
+        <div className="msep" />
+        <button className="mi bad" onMouseEnter={() => setSub(null)} onClick={run(() => deleteWithUndo(todo))}>
           <TrashIcon />
-        </span>
-        删除
-      </button>
-    </div>
+          删除
+          <kbd>⌫</kbd>
+        </button>
+      </motion.div>
+      {sub && (
+        <motion.div
+          className="pop ctx"
+          role="menu"
+          style={{ left: sub.x, top: sub.y, width: 168, minWidth: 0 }}
+          initial={{ opacity: 0, x: sub.left ? 4 : -4 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.12, ease: EASE }}
+        >
+          {targets.map((t) => {
+            const Icon = ListIcons[t.list];
+            return (
+              <button key={t.list} className="mi" onClick={run(() => moveTodoTo(todo, t.list))}>
+                <Icon />
+                {t.label}
+              </button>
+            );
+          })}
+        </motion.div>
+      )}
+    </>
   );
 }
 
-/** 底部浮出的提示条，删除后可撤销 */
+/** 底部提示条：删除后 5 秒可撤销，左侧圆环倒计时，右侧荧光绿「撤销」 */
 export function Toast() {
   const toast = useUi((s) => s.toast);
 
@@ -130,14 +198,21 @@ export function Toast() {
         <motion.div
           key={toast.key}
           className="toast"
-          initial={{ opacity: 0, y: 12, scale: 0.96 }}
+          role="status"
+          initial={{ opacity: 0, y: 12, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
+          transition={{ duration: 0.22, ease: EASE }}
         >
-          <span className="toast-text">{toast.text}</span>
           {toast.undoEntry && (
-            <button className="toast-undo" onClick={undoDelete}>
-              <UndoIcon width={13} height={13} />
+            <svg className="ring" viewBox="0 0 22 22" aria-hidden>
+              <circle className="bg" cx="11" cy="11" r="9" />
+              <circle className="fg" cx="11" cy="11" r="9" />
+            </svg>
+          )}
+          <span>{toast.text}</span>
+          {toast.undoEntry && (
+            <button onClick={undoDelete} title={`撤销（${isMac ? '⌘' : 'Ctrl+'}Z）`}>
               撤销
             </button>
           )}
@@ -147,30 +222,30 @@ export function Toast() {
   );
 }
 
-/** 底栏：今日完成数 */
+/** 底栏：星芒 + 「今天 N 件 · 连续 N 天」+ 5 段小进度（今天完成数） */
 export function Footer() {
   const todos = useData((s) => s.todos);
   const today = useTodayStart();
-  const inHistory = useData((s) => s.prefs.activeView === 'history');
   const n = useMemo(() => completedSince(todos, today), [todos, today]);
+  const days = useMemo(() => streak(countsByDay(todos), today), [todos, today]);
 
   return (
-    <footer className={`footer ${n > 0 ? 'has-done' : ''}`}>
-      <button
-        className="footer-btn"
-        disabled={inHistory}
-        title={inHistory ? undefined : `查看完成记录（${isMac ? '⌘' : 'Ctrl+'}5）`}
-        onClick={() => useData.getState().setPrefs({ activeView: 'history' })}
-      >
-        <SparkIcon width={12} height={12} className="footer-spark" />
-        <span>
-          今天完成了{' '}
-          <motion.b key={n} initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="footer-num">
-            {n}
-          </motion.b>{' '}
-          件事
-        </span>
-      </button>
-    </footer>
+    <button className="ft" title={`查看完成记录（${isMac ? '⌘' : 'Ctrl+'}5）`} onClick={() => goView('history')}>
+      <SparkFilledIcon />
+      今天{' '}
+      <motion.b key={`n${n}`} initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+        {n}
+      </motion.b>{' '}
+      件 · 连续{' '}
+      <motion.b key={`d${days}`} initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+        {days}
+      </motion.b>{' '}
+      天
+      <span className="dots" aria-hidden>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <i key={i} className={i < n ? 'on' : ''} />
+        ))}
+      </span>
+    </button>
   );
 }

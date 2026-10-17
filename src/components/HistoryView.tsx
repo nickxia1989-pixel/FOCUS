@@ -1,11 +1,11 @@
-import { motion } from 'motion/react';
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { addDays, countSince, countsByDay, groupByDay, heatmap, streak, weekStart, type HistoryItem } from '../history';
 import { showToast, useData } from '../store';
-import { HISTORY_META, LISTS, type Todo } from '../types';
-import { CheckIcon, HistoryIcon, UndoIcon } from './icons';
+import type { Todo } from '../types';
+import { LIST_COLOR, VIEW_COPY } from './copy';
+import { UndoIcon } from './icons';
+import { EmptyState, ListHead } from './ListView';
 import { useTodayStart } from './useToday';
-import { ViewHead } from './ViewHead';
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -19,188 +19,170 @@ const monthDay = (day: number, today: number) => {
   const year = d.getFullYear() === new Date(today).getFullYear() ? '' : `${d.getFullYear()}年`;
   return `${year}${d.getMonth() + 1}月${d.getDate()}日`;
 };
-const listLabel = (id: string) => LISTS.find((l) => l.id === id)?.label ?? id;
 
-// 热力图格子尺寸（px），列数随宽度自适应
-const CELL = 12;
+// 热力图：至少 16 周；窗口宽时格子不超过 24px，多出来的宽度换成更多周
 const GAP = 3;
-const LABEL_W = 18;
+const MAX_CELL = 24;
+const MIN_WEEKS = 16;
 
-function Heatmap(props: { counts: Map<number, number>; today: number; selected: number | null; onPick(day: number): void }) {
-  const { counts, today, selected, onPick } = props;
+function Heatmap({ counts, today, onPick }: { counts: Map<number, number>; today: number; onPick(day: number): void }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [weeks, setWeeks] = useState(15);
+  const [weeks, setWeeks] = useState(MIN_WEEKS);
+  const [selected, setSelected] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
-      const w = entry.contentRect.width - LABEL_W;
-      setWeeks(Math.max(8, Math.min(30, Math.floor((w + GAP) / (CELL + GAP)))));
+      const w = entry.contentRect.width;
+      setWeeks(Math.max(MIN_WEEKS, Math.min(52, Math.floor((w + GAP) / (MAX_CELL + GAP)))));
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   const cols = useMemo(() => heatmap(counts, today, weeks), [counts, today, weeks]);
-  // 每列按周一所在月份标注；两个标签离得太近时去掉前一个（通常是只露出一点的月份）
-  const months: string[] = [];
-  let last = -1;
-  cols.forEach((col, i) => {
-    const m = new Date(col[0].day).getMonth();
-    const prev = i > 0 ? new Date(cols[i - 1][0].day).getMonth() : -1;
-    months.push('');
-    if (m === prev || i === cols.length - 1) return;
-    if (last >= 0 && i - last < 3) months[last] = '';
-    months[i] = `${m + 1}月`;
-    last = i;
-  });
-  const grid = { gridTemplateColumns: `repeat(${weeks}, ${CELL}px)`, gap: GAP } as CSSProperties;
 
   return (
-    <div className="heat" ref={ref}>
-      <div className="heat-months" style={{ ...grid, marginLeft: LABEL_W }}>
-        {months.map((m, i) => (
-          <span key={i}>{m}</span>
-        ))}
+    <div className="heat">
+      <div className="hd">
+        <span>最近 {weeks} 周</span>
+        <span>点一天看那天</span>
       </div>
-      <div className="heat-body">
-        <div className="heat-days" style={{ width: LABEL_W, gap: GAP }}>
-          {['一', '', '三', '', '五', '', ''].map((d, i) => (
-            <span key={i}>{d}</span>
-          ))}
-        </div>
-        <div className="heat-grid" style={{ ...grid, gridTemplateRows: `repeat(7, ${CELL}px)` }}>
-          {cols.flat().map((c) => (
-            <button
-              key={c.day}
-              className={`heat-cell l${c.level} ${c.future ? 'is-future' : ''} ${c.day === today ? 'is-today' : ''} ${
-                selected === c.day ? 'is-selected' : ''
-              }`}
-              disabled={c.future || c.count === 0}
-              title={c.future ? undefined : `${monthDay(c.day, today)} ${weekday(c.day)} · ${c.count ? `完成 ${c.count} 件` : '没有完成'}`}
-              onClick={() => onPick(c.day)}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="heat-legend">
-        少
-        {[0, 1, 2, 3, 4].map((l) => (
-          <span key={l} className={`heat-cell l${l}`} />
+      <div className="hm" ref={ref} style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))` }}>
+        {cols.flat().map((c) => (
+          <button
+            key={c.day}
+            className={`l${c.level} ${c.future ? 'fut' : ''} ${c.day === today ? 't' : ''} ${selected === c.day && c.day !== today ? 'sel' : ''}`}
+            disabled={c.future || c.count === 0}
+            title={c.future ? undefined : `${monthDay(c.day, today)} ${weekday(c.day)} · ${c.count ? `完成 ${c.count} 件` : '没有完成'}`}
+            onClick={() => {
+              setSelected(c.day);
+              onPick(c.day);
+            }}
+          />
         ))}
-        多
       </div>
     </div>
   );
 }
 
-function uncompleteFromHistory(todo: Todo) {
+function restore(todo: Todo) {
   useData.getState().uncomplete(todo.id);
-  showToast(`已恢复为未完成 · ${listLabel(todo.list)}`);
+  showToast(`已恢复为未完成 · ${VIEW_COPY[todo.list].en}`);
 }
 
-function HistoryRow({ item, parentTime }: { item: HistoryItem; parentTime?: string }) {
+function HistoryRow({ item }: { item: HistoryItem }) {
+  const [open, setOpen] = useState(false);
   const t = item.todo;
   const from = t.completedFrom ?? t.list;
-  const time = hm(t.completedAt!);
+  const kids = item.children;
+  const notes: ReactNode[] = [];
+  if (item.parentTitle) notes.push(`${item.parentTitle} › 子项`);
+  else if (from !== 'focus') notes.push(`在 ${VIEW_COPY[from].en} 完成`);
+  if (kids.length)
+    notes.push(
+      <button key="k" onClick={() => setOpen((v) => !v)} title={open ? '收起子项' : '看看是哪几个'}>
+        含 {kids.length} 个子项
+      </button>,
+    );
+
   return (
-    <li>
-      <div className="hrow" style={{ '--c': `var(--c-${from})` } as CSSProperties}>
-        <span className="hcheck" title={`在 ${listLabel(from)} 完成`}>
-          <CheckIcon width={10} height={10} strokeWidth={2.4} />
+    <>
+      <div className="hr" style={{ '--c': LIST_COLOR[from] } as CSSProperties}>
+        <time>{hm(t.completedAt!)}</time>
+        <i />
+        <span className="hx">
+          {t.title}
+          {notes.length > 0 && (
+            <small>
+              {notes.map((n, i) => (
+                <span key={i}>
+                  {i > 0 && ' · '}
+                  {n}
+                </span>
+              ))}
+            </small>
+          )}
         </span>
-        <div className="hmain">
-          {item.parentTitle && <div className="hparent">{item.parentTitle}</div>}
-          <div className="htitle">{t.title}</div>
-        </div>
-        {/* 和父项同一分钟完成的子项不重复显示时间 */}
-        <span className="htime">{time === parentTime ? '' : time}</span>
-        <button className="hundo" title="恢复为未完成" onClick={() => uncompleteFromHistory(t)}>
-          <UndoIcon width={13} height={13} />
+        <button className="hundo" title="恢复为未完成" onClick={() => restore(t)}>
+          <UndoIcon />
+          恢复
         </button>
       </div>
-      {item.children.length > 0 && (
+      {open && kids.length > 0 && (
         <ul className="hkids">
-          {item.children.map((c) => (
-            <HistoryRow key={c.todo.id} item={c} parentTime={time} />
+          {flatten(kids).map((k) => (
+            <li key={k.id}>
+              <span>{k.title}</span>
+              <button className="hundo" onClick={() => restore(k)}>
+                恢复
+              </button>
+            </li>
           ))}
         </ul>
       )}
-    </li>
+    </>
   );
 }
 
-/** 完成记录：统计 + 热力图 + 按天分组的完成列表 */
-export function HistoryView({ dir }: { dir: number }) {
+const flatten = (items: HistoryItem[]): Todo[] => items.flatMap((i) => [i.todo, ...flatten(i.children)]);
+
+/** HISTORY：今天 / 本周 / 连续天数，热力图，按天分组 */
+export function HistoryView() {
   const todos = useData((s) => s.todos);
   const today = useTodayStart();
   const days = useMemo(() => groupByDay(todos), [todos]);
   const counts = useMemo(() => countsByDay(todos), [todos]);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const stats = [
-    { label: '今天', value: counts.get(today) ?? 0 },
-    { label: '本周', value: countSince(counts, weekStart(today)) },
-    { label: '连续天数', value: streak(counts, today) },
+    { label: '今天', value: counts.get(today) ?? 0, cls: 'f' },
+    { label: '本周', value: countSince(counts, weekStart(today)), cls: '' },
+    { label: '连续天数', value: streak(counts, today), cls: '' },
   ];
 
   const pick = (day: number) => {
-    setSelected(day);
-    const el = scrollRef.current?.querySelector<HTMLElement>(`[data-day="${day}"]`);
+    const el = rootRef.current?.querySelector<HTMLElement>(`[data-day="${day}"]`);
     if (!el) return;
     el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    const flash = getComputedStyle(document.documentElement).getPropertyValue('--flash').trim();
-    el.animate([{ backgroundColor: flash }, { backgroundColor: 'transparent' }], { duration: 1200, easing: 'ease-out' });
+    const hi = getComputedStyle(document.documentElement).getPropertyValue('--hi').trim() || '#D6FF3D';
+    el.animate([{ backgroundColor: hi }, { backgroundColor: 'transparent' }], { duration: 1200, easing: 'ease-out' });
   };
 
   return (
-    <motion.section
-      className="historyview"
-      initial={{ opacity: 0, x: dir * 18 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-    >
-      <ViewHead title={HISTORY_META.label} hint={HISTORY_META.hint} />
-      <div className="history-scroll" ref={scrollRef}>
-        {days.length === 0 ? (
-          <div className="empty">
-            <HistoryIcon className="empty-icon" width={34} height={34} />
-            <p>{HISTORY_META.empty}</p>
-          </div>
-        ) : (
-          <>
-            <div className="hstats">
-              {stats.map((s) => (
-                <div key={s.label} className="hstat">
-                  <b>{s.value}</b>
-                  <span>{s.label}</span>
-                </div>
-              ))}
-            </div>
-            <Heatmap counts={counts} today={today} selected={selected} onPick={pick} />
-            {days.map((d) => (
-              <section key={d.day} className="hday" data-day={d.day}>
-                <header className="hday-head">
-                  <span className="hday-title">{d.day === today ? '今天' : d.day === addDays(today, -1) ? '昨天' : monthDay(d.day, today)}</span>
-                  <span className="hday-sub">
-                    {d.day >= addDays(today, -1) ? `${monthDay(d.day, today)} ` : ''}
-                    {weekday(d.day)}
-                  </span>
-                  <span className="hday-count">{d.count} 件</span>
-                </header>
-                <ul className="hitems">
-                  {d.items.map((item) => (
-                    <HistoryRow key={item.todo.id} item={item} />
-                  ))}
-                </ul>
-              </section>
+    <div ref={rootRef}>
+      <ListHead view="history" />
+      {days.length === 0 ? (
+        <EmptyState view="history" small />
+      ) : (
+        <>
+          <div className="stats">
+            {stats.map((s) => (
+              <div key={s.label} className={`st ${s.cls}`}>
+                <b>{s.value}</b>
+                <span>{s.label}</span>
+              </div>
             ))}
-            <div className="list-bottom-space" />
-          </>
-        )}
-      </div>
-    </motion.section>
+          </div>
+          <Heatmap counts={counts} today={today} onPick={pick} />
+          {days.map((d) => {
+            const label = d.day === today ? '今天' : d.day === addDays(today, -1) ? '昨天' : null;
+            return (
+              <section key={d.day}>
+                <div className="day" data-day={d.day}>
+                  <b>{label ?? monthDay(d.day, today)}</b>
+                  {label ? `${monthDay(d.day, today)} ` : ''}
+                  {weekday(d.day)} · {d.count} 件
+                </div>
+                {d.items.map((item) => (
+                  <HistoryRow key={item.todo.id} item={item} />
+                ))}
+              </section>
+            );
+          })}
+        </>
+      )}
+    </div>
   );
 }

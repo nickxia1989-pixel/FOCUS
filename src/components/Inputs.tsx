@@ -1,31 +1,46 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { addTodo } from '../actions';
+import { isMac } from '../platform';
 import { useData, useUi } from '../store';
-import { LISTS, type ListId, type Todo } from '../types';
+import type { ListId, Todo } from '../types';
+import { VIEW_COPY } from './copy';
 import { PlusIcon } from './icons';
 
-const isComposing = (e: KeyboardEvent) => e.nativeEvent.isComposing || e.keyCode === 229;
+export const isComposing = (e: KeyboardEvent) => e.nativeEvent.isComposing || e.keyCode === 229;
 
-/** 列表顶部的新建输入框：回车新建并保持焦点，方便连续输入 */
-export function AddBar({ list }: { list: ListId }) {
+const MOD = isMac ? '⌘' : 'Ctrl';
+
+/**
+ * 列表顶部的新建框：回车新建并保持焦点，方便连续输入。
+ * FOCUS 里新建的排在 NOW 之后；⌘/Ctrl + 回车 = 新建并设为现在。
+ */
+export function AddBar({ list, autoFocus }: { list: ListId; autoFocus?: boolean }) {
   const [text, setText] = useState('');
-  const meta = LISTS.find((l) => l.id === list)!;
+  const ref = useRef<HTMLInputElement>(null);
 
-  const submit = () => {
-    if (useData.getState().add(text, list)) setText('');
+  useEffect(() => {
+    if (autoFocus) ref.current?.focus();
+  }, [autoFocus]);
+
+  const submit = (top: boolean) => {
+    if (addTodo(text, list, top && list === 'focus')) setText('');
   };
 
   return (
-    <div className="addbar">
-      <PlusIcon className="addbar-icon" />
+    <label className="add">
+      <PlusIcon />
       <input
+        ref={ref}
         id="add-input"
-        className="addbar-input"
         value={text}
-        placeholder={meta.placeholder}
+        placeholder={VIEW_COPY[list].placeholder}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (isComposing(e)) return;
-          if (e.key === 'Enter') submit();
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submit(isMac ? e.metaKey : e.ctrlKey);
+          }
           if (e.key === 'Escape') {
             setText('');
             e.currentTarget.blur();
@@ -34,17 +49,13 @@ export function AddBar({ list }: { list: ListId }) {
         autoComplete="off"
         spellCheck={false}
       />
-      {text.trim() && (
-        <button className="addbar-enter" onClick={submit} title="添加（回车）">
-          ↵
-        </button>
-      )}
-    </div>
+      {list === 'focus' && text.trim() && <kbd title="新建并设为现在">{MOD}↵ 设为现在</kbd>}
+    </label>
   );
 }
 
-/** 父项下方的子 TODO 输入框 */
-export function ChildAdder({ parent }: { parent: Todo }) {
+/** 父项下方的子任务输入框；inCard：放在 NOW 卡里 */
+export function ChildAdder({ parent, inCard }: { parent: Todo; inCard?: boolean }) {
   const [text, setText] = useState('');
   const ref = useRef<HTMLInputElement>(null);
   const cancelled = useRef(false);
@@ -58,32 +69,43 @@ export function ChildAdder({ parent }: { parent: Todo }) {
     if (useData.getState().add(text, parent.list, parent.id)) setText('');
   };
 
+  const input = (
+    <input
+      ref={ref}
+      value={text}
+      placeholder="子任务，回车添加…"
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={(e) => {
+        if (isComposing(e)) return;
+        if (e.key === 'Enter') submit();
+        if (e.key === 'Escape') {
+          cancelled.current = true;
+          close();
+        }
+      }}
+      onBlur={() => {
+        // 点到别处时保留已输入的内容；按 Esc 则放弃
+        if (!cancelled.current && text.trim()) useData.getState().add(text, parent.list, parent.id);
+        close();
+      }}
+      autoComplete="off"
+      spellCheck={false}
+    />
+  );
+
+  if (inCard)
+    return (
+      <li className="now-sub now-adder">
+        <span className="sc" />
+        {input}
+      </li>
+    );
+
   return (
     <div className="node child-adder">
       <div className="row">
-        <span className="check check-ghost" />
-        <input
-          ref={ref}
-          className="child-input"
-          value={text}
-          placeholder="子任务，回车添加…"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (isComposing(e)) return;
-            if (e.key === 'Enter') submit();
-            if (e.key === 'Escape') {
-              cancelled.current = true;
-              close();
-            }
-          }}
-          onBlur={() => {
-            // 点到别处时保留已输入的内容；按 Esc 则放弃
-            if (!cancelled.current && text.trim()) useData.getState().add(text, parent.list, parent.id);
-            close();
-          }}
-          autoComplete="off"
-          spellCheck={false}
-        />
+        <span className="cb" />
+        {input}
       </div>
     </div>
   );
@@ -123,7 +145,6 @@ export function TitleEditor({ todo }: { todo: Todo }) {
   return (
     <textarea
       ref={ref}
-      className="title-editor"
       value={text}
       rows={1}
       onChange={(e) => {
@@ -139,6 +160,7 @@ export function TitleEditor({ todo }: { todo: Todo }) {
         if (e.key === 'Escape') finish(false);
       }}
       onBlur={() => finish(true)}
+      onPointerDown={(e) => e.stopPropagation()}
       spellCheck={false}
     />
   );

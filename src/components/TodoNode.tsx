@@ -1,16 +1,85 @@
-import { AnimatePresence, motion } from 'motion/react';
-import type { MouseEvent, PointerEvent } from 'react';
-import { markForTest, moveTodoTo, startAddChild, toggleTest, toggleTodo } from '../actions';
+import { AnimatePresence, motion, type Variants } from 'motion/react';
+import { useMemo, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
+import { moveTodoTo, sendToFocus, sendToVerify, setNow, startAddChild, toggleTodo } from '../actions';
 import { beginPointerDrag } from '../dnd';
+import { exitModes, type ExitMode } from '../fx';
 import { childrenOf, descendantIds, type TreeIndex } from '../model';
 import { useData, useUi } from '../store';
-import type { ListId, Todo } from '../types';
+import type { Todo } from '../types';
+import { LIST_COLOR, LIST_SOFT } from './copy';
+import { CheckIcon, ChevronIcon, EyeCheckIcon, GripIcon, MoreIcon, PlusIcon, SparkIcon, UpIcon } from './icons';
 import { ChildAdder, TitleEditor } from './Inputs';
-import { ChevronIcon, FlaskIcon, MoreIcon, PlusIcon, TargetIcon } from './icons';
-import { nodeMotion } from './motionPresets';
 
-/** 常驻的流转按钮（只给未完成的顶层项）：INBOX → FOCUS，FOCUS → 待测 */
-const FLOW_NEXT: Partial<Record<ListId, 'focus' | 'verify'>> = { inbox: 'focus', focus: 'verify' };
+const EASE = [0.2, 0.8, 0.2, 1] as const;
+const SPRING = [0.3, 1.25, 0.4, 1] as const;
+
+/** 行的进场 / 离场：新建时高度撑开 180ms 并从上方 8px 落下 */
+export function nodeVariants(id: string): Variants {
+  return {
+    initial: { opacity: 0, height: 0, y: -8 },
+    enter: {
+      opacity: 1,
+      height: 'auto',
+      y: 0,
+      transition: { height: { duration: 0.18, ease: EASE }, y: { duration: 0.3, ease: SPRING }, opacity: { duration: 0.18 } },
+    },
+    exit: (modes?: Map<string, ExitMode>) => {
+      const mode = modes?.get(id);
+      if (mode === 'instant') return { opacity: 0, transition: { duration: 0 } };
+      if (mode === 'collapse') return { opacity: 0, height: 0, transition: { opacity: { duration: 0 }, height: { duration: 0.2, ease: EASE } } };
+      return { opacity: 0, height: 0, transition: { duration: 0.24, ease: EASE } };
+    },
+  };
+}
+
+export const presenceProps = { initial: false, custom: exitModes } as const;
+
+/** 同层排序、拖到页签换列表；FOCUS 队列的行还能拖到 NOW 卡上设为现在 */
+export function useRowDrag(todo: Todo, siblings: Todo[], opts: { queueOffset?: number; canDropNow?: boolean } = {}) {
+  return (e: PointerEvent) => {
+    const ui = useUi.getState();
+    if (ui.editingId === todo.id || ui.completing[todo.id]) return;
+    const all = useData.getState().todos;
+    const offset = opts.queueOffset ?? 0;
+    beginPointerDrag(e, {
+      id: todo.id,
+      list: todo.list,
+      siblingIds: siblings.filter((s) => s.done === todo.done).map((s) => s.id),
+      descendantCount: descendantIds(all, todo.id).size,
+      // 队列不含 NOW：插入位置要跳过它
+      onReorder: (id, to) => useData.getState().reorder(id, to + offset),
+      onMoveToList: (id, list) => {
+        const t = useData.getState().todos.find((x) => x.id === id);
+        if (t) moveTodoTo(t, list);
+      },
+      onHoverTab: (list) => useUi.getState().set({ dragOverTab: list }),
+      ...(opts.canDropNow
+        ? {
+            onHoverNow: (over: boolean) => useUi.getState().set({ dropNow: over }),
+            onDropNow: (id: string, rect: DOMRect) => {
+              const t = useData.getState().todos.find((x) => x.id === id);
+              if (t) setNow(t, rect);
+            },
+          }
+        : {}),
+    });
+  };
+}
+
+export function openMenuAt(e: MouseEvent, todo: Todo, fromButton = false) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (fromButton) {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    useUi.getState().set({ menu: { x: r.right, y: r.bottom + 4, todoId: todo.id }, mainMenuOpen: false, profileMenuOpen: false });
+  } else {
+    useUi.getState().set({ menu: { x: e.clientX, y: e.clientY, todoId: todo.id }, mainMenuOpen: false, profileMenuOpen: false });
+  }
+}
+
+export function startEdit(todo: Todo) {
+  useUi.getState().set({ editingId: todo.id, addingChildOf: null, menu: null });
+}
 
 interface Props {
   todo: Todo;
@@ -18,161 +87,154 @@ interface Props {
   index: TreeIndex;
   /** 同层兄弟（已排序），拖拽时取同状态的子集 */
   siblings: Todo[];
+  /** queue = FOCUS「接下来」的行（序号、逐行变淡、悬停出现设为现在） */
+  variant?: 'list' | 'queue';
+  /** 队列序号（02、03…） */
+  no?: number;
+  fade?: number;
 }
 
-export function TodoNode({ todo, depth, index, siblings }: Props) {
+/** 一行待办和它的子项 */
+export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, fade = 1 }: Props) {
   const children = childrenOf(index, todo.id);
   const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
   const addingChild = useUi((s) => s.addingChildOf === todo.id);
   const menuOpen = useUi((s) => s.menu?.todoId === todo.id);
+  const flash = useUi((s) => !!s.flash[todo.id]);
+  const queueOpen = useUi((s) => !!s.queueOpen[todo.id]);
+  const variants = useMemo(() => nodeVariants(todo.id), [todo.id]);
+  const queue = variant === 'queue';
+  // 队列里的行默认收起子任务（只看标题），点进度胶囊展开；其它列表按各条自己的折叠状态
+  const folded = queue ? !queueOpen : !!todo.collapsed;
+  const toggleFold = () => {
+    if (!queue) return useData.getState().setCollapsed(todo.id, !todo.collapsed);
+    const cur = { ...useUi.getState().queueOpen };
+    if (cur[todo.id]) delete cur[todo.id];
+    else cur[todo.id] = true;
+    useUi.getState().set({ queueOpen: cur });
+  };
+  const onPointerDown = useRowDrag(todo, siblings, queue ? { queueOffset: 1, canDropNow: true } : {});
 
   const checked = todo.done || completing;
   const testing = !!todo.testing && !checked;
-  const isVerifyRoot = depth === 0 && todo.list === 'verify';
+  const root = depth === 0;
   const doneKids = children.filter((c) => c.done).length;
-  const showChildren = (children.length > 0 && !todo.collapsed) || addingChild;
-  const flow = depth === 0 && !checked ? (FLOW_NEXT[todo.list] ?? null) : null;
-  const runFlow = (target: 'focus' | 'verify', el: Element) =>
-    target === 'verify' ? markForTest(todo, el) : moveTodoTo(todo, 'focus', el);
-
-  const onPointerDown = (e: PointerEvent) => {
-    if (editing || completing) return;
-    const all = useData.getState().todos;
-    beginPointerDrag(e, {
-      id: todo.id,
-      list: todo.list,
-      siblingIds: siblings.filter((s) => s.done === todo.done).map((s) => s.id),
-      descendantCount: descendantIds(all, todo.id).size,
-      onReorder: (id, to) => useData.getState().reorder(id, to),
-      onMoveToList: (id, list) => {
-        const t = useData.getState().todos.find((x) => x.id === id);
-        if (!t) return;
-        // 拖到页签是明确的"换页签"：子项也照搬过去；顶层项进 VERIFY 走标待测的动效
-        if (list === 'verify' && t.parentId === null) markForTest(t);
-        else moveTodoTo(t, list);
-      },
-      onHoverTab: (list) => useUi.getState().set({ dragOverTab: list }),
-    });
-  };
-
-  const openMenu = (e: MouseEvent, fromButton = false) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (fromButton) {
-      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      useUi.getState().set({ menu: { x: r.right, y: r.bottom + 4, todoId: todo.id } });
-    } else {
-      useUi.getState().set({ menu: { x: e.clientX, y: e.clientY, todoId: todo.id } });
-    }
-  };
+  const showChildren = (children.length > 0 && !folded) || addingChild;
+  // 列表色：FOCUS 用正文色（勾用底色），子项跟随所在列表
+  const color = LIST_COLOR[todo.list];
+  // VERIFY 顶层 = 退回 FOCUS，INBOX 顶层 = 送进 FOCUS
+  const sparkAct = root && !checked && (todo.list === 'verify' || todo.list === 'inbox') && !queue;
 
   const rowClass = [
     'row',
-    checked && 'done',
+    queue && 'q',
     completing && 'completing',
     menuOpen && 'menu-open',
-    testing && 'testing',
-    flow && 'has-flow-btn',
-    editing && 'editing',
+    editing && 'edit',
+    flash && 'flash',
   ]
     .filter(Boolean)
     .join(' ');
 
+  const cbClass = ['cb', !queue && 'c', checked && !completing && 'done', testing && 'vf', todo.list === 'focus' && 'ink'].filter(Boolean).join(' ');
+
   return (
-    <motion.div {...nodeMotion} className="node" data-node-id={todo.id} data-depth={depth}>
+    <motion.div
+      layout="position"
+      variants={variants}
+      initial="initial"
+      animate="enter"
+      exit="exit"
+      className={`node ${queue ? 'qn' : ''}`}
+      style={queue ? ({ '--fade': fade } as CSSProperties) : undefined}
+      data-node-id={todo.id}
+      data-depth={depth}
+    >
       <div
         className={rowClass}
+        style={{ '--c': color, '--cs': LIST_SOFT[todo.list] } as CSSProperties}
         onPointerDown={onPointerDown}
-        onContextMenu={(e) => openMenu(e)}
+        onContextMenu={(e) => openMenuAt(e, todo)}
         onDoubleClick={(e) => {
           if ((e.target as HTMLElement).closest('button')) return;
-          useUi.getState().set({ editingId: todo.id, addingChildOf: null });
+          startEdit(todo);
         }}
       >
+        {queue && (
+          <span className="grip">
+            <GripIcon />
+          </span>
+        )}
+        {queue && no !== undefined && <span className="no">{String(no).padStart(2, '0')}</span>}
         <button
-          className="check"
+          className={cbClass}
           role="checkbox"
           aria-checked={checked}
-          title={checked ? '标记为未完成' : '完成'}
+          title={checked ? '恢复为未完成' : todo.list === 'verify' && root ? '测完了' : '完成'}
           onClick={() => toggleTodo(todo)}
         >
-          <svg viewBox="0 0 20 20" width="12" height="12" aria-hidden>
-            <path d="M4.5 10.5l3.6 3.6 7.4-8" />
-          </svg>
+          <CheckIcon />
         </button>
 
-        <div className="title">
-          {editing ? <TitleEditor todo={todo} /> : <span className="title-text">{todo.title}</span>}
+        <span className={`tt ${checked && !completing ? 'done' : ''}`}>
+          {editing ? (
+            <TitleEditor todo={todo} />
+          ) : (
+            <span className="tt-text">{todo.title}</span>
+          )}
           {testing && !editing && (
-            <button className="test-tag" title="待测中，点击取消待测" onClick={() => toggleTest(todo)}>
-              <FlaskIcon width={11} height={11} />
-              待测
+            <button className="tag" title="待验证，点一下取消" onClick={() => sendToVerify(todo)}>
+              待验证
             </button>
           )}
-        </div>
+        </span>
 
-        {/* 零宽锚点：悬停按钮浮在标题末尾，不遮挡右侧的进度胶囊 */}
         {!editing && (
-          <div className="row-actions-anchor">
-            <div className="row-actions">
-              {isVerifyRoot ? (
-                <button
-                  className="icon-btn icon-btn-focus"
-                  title="没测过，退回 FOCUS"
-                  onClick={(e) => moveTodoTo(todo, 'focus', e.currentTarget)}
-                >
-                  <TargetIcon />
-                </button>
-              ) : (
-                flow !== 'verify' && (
-                  <button
-                    className={`icon-btn icon-btn-verify ${testing ? 'is-on' : ''}`}
-                    title={testing ? '取消待测' : depth > 0 ? '标为待测（留在原处）' : '做完了，标为待测'}
-                    onClick={(e) => toggleTest(todo, e.currentTarget)}
-                  >
-                    <FlaskIcon />
+          <span className="acts">
+            <span className="hov">
+              {queue ? (
+                <>
+                  <button className="mini" title="设为现在" onClick={() => setNow(todo)}>
+                    <UpIcon />
                   </button>
-                )
+                  <button className="mini" title="送去验证" onClick={(e) => sendToVerify(todo, e.currentTarget)}>
+                    <EyeCheckIcon />
+                  </button>
+                </>
+              ) : (
+                <button className="mini" title="添加子任务" onClick={() => startAddChild(todo)}>
+                  <PlusIcon />
+                </button>
               )}
-              <button className="icon-btn" title="添加子任务" onClick={() => startAddChild(todo)}>
-                <PlusIcon />
-              </button>
-              <button className="icon-btn" title="更多" onClick={(e) => openMenu(e, true)}>
+              <button className="mini" title="更多操作" onClick={(e) => openMenuAt(e, todo, true)}>
                 <MoreIcon />
               </button>
-            </div>
-          </div>
-        )}
-
-        {children.length > 0 && (
-          <button
-            className={`sub-progress ${todo.collapsed ? 'is-collapsed' : ''} ${doneKids === children.length ? 'is-full' : ''}`}
-            title={todo.collapsed ? '展开子任务' : '收起子任务'}
-            onClick={() => useData.getState().setCollapsed(todo.id, !todo.collapsed)}
-          >
-            {doneKids}/{children.length}
-            <ChevronIcon width={12} height={12} />
-          </button>
-        )}
-
-        {flow && (
-          <button
-            className={`flow-btn flow-${flow}`}
-            title={flow === 'focus' ? '移到 FOCUS' : '做完了，标为待测'}
-            onClick={(e) => runFlow(flow, e.currentTarget)}
-          >
-            {flow === 'focus' ? <TargetIcon width={14} height={14} /> : <FlaskIcon width={14} height={14} />}
-            <span className="flow-label">{flow === 'focus' ? 'FOCUS' : '待测'}</span>
-          </button>
+            </span>
+            {children.length > 0 && (
+              <button className={`prog ${folded ? 'folded' : ''}`} title={folded ? '展开子任务' : '收起子任务'} onClick={toggleFold}>
+                {doneKids}/{children.length}
+                <ChevronIcon />
+              </button>
+            )}
+            {sparkAct && (
+              <button
+                className="act spark"
+                title={todo.list === 'verify' ? '没测过，退回 FOCUS' : '送进 FOCUS（排在现在之后）'}
+                onClick={(e) => sendToFocus(todo, e.currentTarget)}
+              >
+                <SparkIcon />
+              </button>
+            )}
+          </span>
         )}
       </div>
 
       {showChildren && (
         <div className="children">
           {addingChild && <ChildAdder parent={todo} />}
-          {!todo.collapsed && (
-            <AnimatePresence initial={false}>
+          {!folded && (
+            <AnimatePresence {...presenceProps}>
               {children.map((c) => (
                 <TodoNode key={c.id} todo={c} depth={depth + 1} index={index} siblings={children} />
               ))}

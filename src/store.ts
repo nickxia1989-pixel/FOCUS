@@ -52,13 +52,17 @@ function seedTodos(now: number): Todo[] {
     s = M.createTodo(s, { id, title, list, parentId, now: now + offset });
     return id;
   };
-  add('右键或点 ⋯ 查看更多操作，双击文字可以编辑', 'inbox', null, 1);
-  add('拖动条目可以排序；拖到左侧栏的列表图标上可以移到那个列表', 'inbox', null, 2);
-  add('点右边的 ◎ 按钮，把这条一键送进 FOCUS', 'inbox', null, 3);
-  const g = add('写下一个长期目标', 'goal', null, 4);
-  add('点 + 把它拆成小步骤', 'goal', g, 5);
-  add('做完但还要测试？点右边的烧瓶，把它送进 VERIFY 待测', 'focus', null, 6);
-  add('勾选完成，体验一下完成动画 ✦', 'focus', null, 7);
+  // 同一列表里后加的排在前面：FOCUS 最后加的那件就是 NOW
+  add('拖动一行可以排序；拖到荧光绿的 NOW 卡上，就换成「现在」', 'focus', null, 1);
+  add('把鼠标移到这一行：可以直接勾掉、设为现在 ↑，或送去验证', 'focus', null, 2);
+  const now1 = add('先做完这一件：点左下角的黑色圆钮，下一件会自动接上来', 'focus', null, 3);
+  add('做完但还要测一下？点右边的「送去验证」', 'focus', now1, 4);
+  add('子任务也可以单独勾掉', 'focus', now1, 5);
+  add('右键或点 ⋯ 查看更多操作，双击文字可以编辑', 'inbox', null, 6);
+  add('拖到上面的页签（宽窗口是左侧栏）上，就移到那个列表', 'inbox', null, 7);
+  add('点右边的星芒，把这条送进 FOCUS，排在「现在」之后', 'inbox', null, 8);
+  add('测完了就勾掉；没过的话点星芒退回 FOCUS', 'verify', null, 9);
+  add('写下一个长期目标，做到了再自己勾掉', 'goal', null, 10);
   return s;
 }
 
@@ -366,9 +370,12 @@ export const useData = create<DataStore>((set, get) => {
         addingChildOf: null,
         completing: {},
         menu: null,
+        mainMenuOpen: false,
         toast: null,
         trashOpen: false,
         dragOverTab: null,
+        dropNow: false,
+        composeFocus: false,
       });
       commit(s.doc, s.clock, { ...s.local, activeProfileId: id }, false);
     },
@@ -535,6 +542,13 @@ export interface ToastState {
   undoEntry?: string;
 }
 
+export interface JoinPrompt {
+  /** 云端已有几台别的设备 */
+  devices: number;
+  /** 本机有几条待办 */
+  local: number;
+}
+
 interface UiStore {
   editingId: string | null;
   addingChildOf: string | null;
@@ -542,17 +556,27 @@ interface UiStore {
   completing: Record<string, true>;
   menu: MenuState | null;
   toast: ToastState | null;
-  /** 回收站面板是否打开 */
+  /** 回收站（作为一个视图显示在内容区） */
   trashOpen: boolean;
   /** profile 切换菜单是否打开 */
   profileMenuOpen: boolean;
+  /** 标题栏 ⋯ 菜单 */
+  mainMenuOpen: boolean;
   /** 同步设置面板 */
   syncOpen: boolean;
   /** 冲突处理面板 */
   conflictsOpen: boolean;
-  /** 页签"收到东西"的脉冲计数，变化即触发动画 */
-  tabPulse: Record<ListId, number>;
+  /** 第一次加入已有数据的云端：选合并还是以云端为准 */
+  join: JoinPrompt | null;
   dragOverTab: ListId | null;
+  /** 拖拽中悬停在 NOW 卡上 */
+  dropNow: boolean;
+  /** 刚新建 / 刚换下来的行：荧光绿闪一下 */
+  flash: Record<string, true>;
+  /** FOCUS 空着时点了「写一件」：显示新建框 */
+  composeFocus: boolean;
+  /** 「接下来」里展开了子任务的行（队列默认收起，只看标题；本次运行有效） */
+  queueOpen: Record<string, true>;
   set(p: Partial<Omit<UiStore, 'set'>>): void;
 }
 
@@ -564,16 +588,27 @@ export const useUi = create<UiStore>((set) => ({
   toast: null,
   trashOpen: false,
   profileMenuOpen: false,
+  mainMenuOpen: false,
   syncOpen: false,
   conflictsOpen: false,
-  tabPulse: { focus: 0, verify: 0, inbox: 0, goal: 0 },
+  join: null,
   dragOverTab: null,
+  dropNow: false,
+  flash: {},
+  composeFocus: false,
+  queueOpen: {},
   set: (p) => set(p),
 }));
 
-export function pulseTab(list: ListId) {
-  const cur = useUi.getState().tabPulse;
-  useUi.getState().set({ tabPulse: { ...cur, [list]: cur[list] + 1 } });
+/** 让一行荧光绿闪一下（新建、换下来的 NOW） */
+export function flashRow(id: string) {
+  const ui = useUi.getState();
+  ui.set({ flash: { ...ui.flash, [id]: true } });
+  setTimeout(() => {
+    const rest = { ...useUi.getState().flash };
+    delete rest[id];
+    useUi.getState().set({ flash: rest });
+  }, 700);
 }
 
 let toastKey = 0;
