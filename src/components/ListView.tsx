@@ -7,6 +7,7 @@ import { AddBar } from './Inputs';
 import { ChevronIcon, ListIcons } from './icons';
 import { nodeMotion } from './motionPresets';
 import { TodoNode } from './TodoNode';
+import { ViewHead } from './ViewHead';
 
 export function ListView({ list, dir }: { list: ListId; dir: number }) {
   const todos = useData((s) => s.todos);
@@ -30,6 +31,7 @@ export function ListView({ list, dir }: { list: ListId; dir: number }) {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
     >
+      <ViewHead title={meta.label} hint={meta.hint} />
       <AddBar list={list} />
       <motion.div className="list-scroll" layoutScroll>
         {roots.length === 0 && (

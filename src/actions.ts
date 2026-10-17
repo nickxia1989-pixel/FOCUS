@@ -18,7 +18,7 @@ function centerOf(el: Element | null | undefined) {
 }
 
 function tabTarget(list: ListId) {
-  return centerOf(document.querySelector(`[data-tab-id="${list}"] .tab-count`));
+  return centerOf(document.querySelector(`[data-tab-id="${list}"] [data-fly-target]`));
 }
 
 function rowAnchor(id: string) {
@@ -36,7 +36,7 @@ export function toggleTodo(todo: Todo) {
   ui.set({ completing: { ...ui.completing, [todo.id]: true } });
   const at = rowAnchor(todo.id);
   if (at) burst(at.x, at.y, accentOf(todo.list));
-  if (useData.getState().prefs.sound) chime();
+  if (useData.getState().settings.sound) chime();
 
   setTimeout(() => {
     const from = rowAnchor(todo.id);

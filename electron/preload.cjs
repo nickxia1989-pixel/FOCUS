@@ -2,9 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('focusApi', {
   platform: process.platform,
-  load: () => ipcRenderer.invoke('data:load'),
-  save: (data) => ipcRenderer.invoke('data:save', data),
-  saveSync: (data) => ipcRenderer.sendSync('data:saveSync', data),
+  loadProfiles: () => ipcRenderer.invoke('profiles:load'),
+  saveProfiles: (data) => ipcRenderer.invoke('profiles:save', data),
+  archiveProfile: (profileId) => ipcRenderer.invoke('profiles:archive', profileId),
+  load: (profileId) => ipcRenderer.invoke('data:load', profileId),
+  save: (profileId, data) => ipcRenderer.invoke('data:save', profileId, data),
+  saveSync: (profileId, data) => ipcRenderer.sendSync('data:saveSync', profileId, data),
   minimize: () => ipcRenderer.invoke('win:minimize'),
   close: () => ipcRenderer.invoke('win:close'),
   getAlwaysOnTop: () => ipcRenderer.invoke('win:getAlwaysOnTop'),

@@ -2,7 +2,7 @@
   "name": "focus-todo",
   "productName": "FOCUS",
   "version": "0.1.0",
-  "description": "窄而高的桌面 TODO 小窗：FOCUS / INBOX / GOAL",
+  "description": "窄而高的桌面 TODO 小窗：FOCUS / VERIFY / INBOX / GOAL / HISTORY",
   "author": "xianing",
   "private": true,
   "main": "electron/main.cjs",

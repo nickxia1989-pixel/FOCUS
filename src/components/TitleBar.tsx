@@ -19,7 +19,7 @@ export function TitleBar() {
   const [pinned, setPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [version, setVersion] = useState('');
-  const sound = useData((s) => s.prefs.sound);
+  const sound = useData((s) => s.settings.sound);
   const trashCount = useData((s) => s.trash.reduce((n, e) => n + e.items.length, 0));
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -78,7 +78,7 @@ export function TitleBar() {
               <button
                 className="menu-item"
                 onClick={() => {
-                  useUi.getState().set({ trashOpen: true, menu: null, editingId: null, addingChildOf: null });
+                  useUi.getState().set({ trashOpen: true, menu: null, profileMenuOpen: false, editingId: null, addingChildOf: null });
                   setMenuOpen(false);
                 }}
               >
@@ -93,7 +93,7 @@ export function TitleBar() {
                 className="menu-item"
                 role="menuitemcheckbox"
                 aria-checked={sound}
-                onClick={() => useData.getState().setPrefs({ sound: !sound })}
+                onClick={() => useData.getState().setSettings({ sound: !sound })}
               >
                 <span className="menu-check">{sound && <CheckIcon />}</span>
                 完成提示音

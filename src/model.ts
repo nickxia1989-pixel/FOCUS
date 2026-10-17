@@ -104,7 +104,7 @@ export function completeTodo(todos: Todo[], id: string, now: number): CompleteRe
   const moveToInbox = COMPLETE_TO_INBOX.has(target.list) && target.parentId === null;
   const next = todos.map((t) => {
     if (t.id !== id && !subtree.has(t.id)) return t;
-    const done = t.done ? t : { ...t, done: true, completedAt: now, testing: false };
+    const done = t.done ? t : { ...t, done: true, completedAt: now, completedFrom: t.list, testing: false };
     return moveToInbox ? { ...done, list: 'inbox' as ListId } : done;
   });
   return { todos: next, movedTo: moveToInbox ? 'inbox' : null };
@@ -120,7 +120,7 @@ export function markForTest(todos: Todo[], id: string): Todo[] {
   const target = todos.find((t) => t.id === id);
   if (!target) return todos;
   if (target.parentId === null) return moveTodo(todos, id, 'verify');
-  return todos.map((t) => (t.id === id ? { ...t, testing: true, done: false, completedAt: null } : t));
+  return todos.map((t) => (t.id === id ? { ...t, testing: true, done: false, completedAt: null, completedFrom: undefined } : t));
 }
 
 export function unmarkTest(todos: Todo[], id: string): Todo[] {
@@ -129,7 +129,7 @@ export function unmarkTest(todos: Todo[], id: string): Todo[] {
 
 /** 取消完成：只影响自身 */
 export function uncompleteTodo(todos: Todo[], id: string): Todo[] {
-  return todos.map((t) => (t.id === id && t.done ? { ...t, done: false, completedAt: null } : t));
+  return todos.map((t) => (t.id === id && t.done ? { ...t, done: false, completedAt: null, completedFrom: undefined } : t));
 }
 
 /**
@@ -145,7 +145,7 @@ export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
   return todos.map((t) => {
     if (t.id === id) {
       const moved = { ...t, list, parentId: null };
-      return intoVerify ? { ...moved, done: false, completedAt: null, testing: false } : moved;
+      return intoVerify ? { ...moved, done: false, completedAt: null, completedFrom: undefined, testing: false } : moved;
     }
     if (subtree.has(t.id)) return { ...t, list };
     return t;
@@ -226,6 +226,7 @@ export function sanitize(raw: unknown): Todo[] {
       parentId: typeof t.parentId === 'string' ? t.parentId : null,
       createdAt,
       completedAt: typeof t.completedAt === 'number' ? t.completedAt : null,
+      completedFrom: t.done && valid.has(t.completedFrom as ListId) ? (t.completedFrom as ListId) : undefined,
       order: typeof t.order === 'number' ? t.order : createdAt,
       collapsed: !!t.collapsed,
       testing: !!t.testing && !t.done,

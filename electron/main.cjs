@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const isMac = process.platform === 'darwin';
 
-const DEFAULT_SIZE = { width: 360, height: 660 };
+const DEFAULT_SIZE = { width: 384, height: 680 };
 
 // 可用环境变量指定数据目录（测试或便携使用）；默认在系统的应用数据目录
 if (process.env.FOCUS_USER_DATA) app.setPath('userData', path.resolve(process.env.FOCUS_USER_DATA));
@@ -16,9 +16,26 @@ let win = null;
 // ---------- 本地文件读写 ----------
 
 const userDir = () => app.getPath('userData');
-const dataFile = () => path.join(userDir(), 'focus-data.json');
-const backupFile = () => path.join(userDir(), 'focus-data.bak.json');
 const windowStateFile = () => path.join(userDir(), 'window-state.json');
+const profilesFile = () => path.join(userDir(), 'profiles.json');
+
+// 每个 profile 一个数据文件。升级前就有的数据归 default，文件位置不变，旧版本也还能读
+const DEFAULT_PROFILE_ID = 'default';
+const PROFILE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+function checkProfileId(id) {
+  if (typeof id !== 'string' || !PROFILE_ID_RE.test(id)) throw new Error(`invalid profile id: ${id}`);
+  return id;
+}
+
+function dataFile(profileId) {
+  checkProfileId(profileId);
+  return profileId === DEFAULT_PROFILE_ID
+    ? path.join(userDir(), 'focus-data.json')
+    : path.join(userDir(), 'profiles', `${profileId}.json`);
+}
+
+const backupFile = (file) => file.replace(/\.json$/, '.bak.json');
 
 function readJson(file) {
   try {
@@ -42,14 +59,14 @@ function writeJsonAtomic(file, obj) {
   }
 }
 
-function loadData() {
-  const file = dataFile();
+/** 读 JSON；能正常读取就顺手备份一份，主文件损坏时用备份恢复 */
+function loadJsonWithBackup(file) {
   if (fs.existsSync(file)) {
     const data = readJson(file);
     if (data) {
-      // 每次启动时把上一次能正常读取的数据留一份备份
+      // 每次读入时把上一次能正常读取的数据留一份备份
       try {
-        fs.copyFileSync(file, backupFile());
+        fs.copyFileSync(file, backupFile(file));
       } catch {}
       return data;
     }
@@ -57,9 +74,27 @@ function loadData() {
     try {
       fs.copyFileSync(file, `${file}.broken-${Date.now()}`);
     } catch {}
-    return readJson(backupFile());
+    return readJson(backupFile(file));
   }
   return null;
+}
+
+const loadData = (profileId) => loadJsonWithBackup(dataFile(profileId));
+
+/** 删除 profile 时不真删数据，挪到 deleted-profiles/ 里，需要时可以手动找回 */
+function archiveProfileData(profileId) {
+  const file = dataFile(profileId);
+  const dir = path.join(userDir(), 'deleted-profiles');
+  const stamp = Date.now();
+  fs.mkdirSync(dir, { recursive: true });
+  for (const [src, suffix] of [
+    [file, ''],
+    [backupFile(file), '.bak'],
+  ]) {
+    try {
+      if (fs.existsSync(src)) fs.renameSync(src, path.join(dir, `${profileId}-${stamp}${suffix}.json`));
+    } catch {}
+  }
 }
 
 // ---------- 窗口状态 ----------
@@ -123,7 +158,7 @@ function createWindow() {
     height: b.height || DEFAULT_SIZE.height,
     x: b.x,
     y: b.y,
-    minWidth: 300,
+    minWidth: 320,
     minHeight: 420,
     title: 'FOCUS',
     show: false,
@@ -252,15 +287,24 @@ function buildMenu() {
 
 // ---------- IPC ----------
 
-ipcMain.handle('data:load', () => ({ data: loadData(), path: dataFile() }));
-ipcMain.handle('data:save', (_e, data) => {
-  writeJsonAtomic(dataFile(), data);
+ipcMain.handle('profiles:load', () => loadJsonWithBackup(profilesFile()));
+ipcMain.handle('profiles:save', (_e, data) => {
+  writeJsonAtomic(profilesFile(), data);
+  return true;
+});
+ipcMain.handle('profiles:archive', (_e, profileId) => {
+  archiveProfileData(profileId);
+  return true;
+});
+ipcMain.handle('data:load', (_e, profileId) => ({ data: loadData(profileId), path: dataFile(profileId) }));
+ipcMain.handle('data:save', (_e, profileId, data) => {
+  writeJsonAtomic(dataFile(profileId), data);
   return true;
 });
 // 关闭窗口前同步落盘，保证最后一次修改不丢
-ipcMain.on('data:saveSync', (e, data) => {
+ipcMain.on('data:saveSync', (e, profileId, data) => {
   try {
-    writeJsonAtomic(dataFile(), data);
+    writeJsonAtomic(dataFile(profileId), data);
     e.returnValue = true;
   } catch {
     e.returnValue = false;

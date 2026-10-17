@@ -1,10 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { deleteWithUndo, describeMove, moveTodoTo, startAddChild, toggleTest, toggleTodo, undoDelete } from '../actions';
-import { completedSince, startOfToday } from '../model';
+import { completedSince } from '../model';
+import { isMac } from '../platform';
 import { useData, useUi } from '../store';
 import { LISTS } from '../types';
 import { CheckIcon, EditIcon, FlaskIcon, ListIcons, SparkIcon, SubtaskIcon, TrashIcon, UndoIcon } from './icons';
+import { useTodayStart } from './useToday';
 
 /** 条目的右键 / ⋯ 菜单 */
 export function ContextMenu() {
@@ -148,23 +150,27 @@ export function Toast() {
 /** 底栏：今日完成数 */
 export function Footer() {
   const todos = useData((s) => s.todos);
-  const [today, setToday] = useState(() => startOfToday(Date.now()));
-  useEffect(() => {
-    const t = setInterval(() => setToday(startOfToday(Date.now())), 60_000);
-    return () => clearInterval(t);
-  }, []);
+  const today = useTodayStart();
+  const inHistory = useData((s) => s.prefs.activeView === 'history');
   const n = useMemo(() => completedSince(todos, today), [todos, today]);
 
   return (
     <footer className={`footer ${n > 0 ? 'has-done' : ''}`}>
-      <SparkIcon width={12} height={12} className="footer-spark" />
-      <span>
-        今天完成了{' '}
-        <motion.b key={n} initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="footer-num">
-          {n}
-        </motion.b>{' '}
-        件事
-      </span>
+      <button
+        className="footer-btn"
+        disabled={inHistory}
+        title={inHistory ? undefined : `查看完成记录（${isMac ? '⌘' : 'Ctrl+'}5）`}
+        onClick={() => useData.getState().setPrefs({ activeView: 'history' })}
+      >
+        <SparkIcon width={12} height={12} className="footer-spark" />
+        <span>
+          今天完成了{' '}
+          <motion.b key={n} initial={{ y: -6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="footer-num">
+            {n}
+          </motion.b>{' '}
+          件事
+        </span>
+      </button>
     </footer>
   );
 }

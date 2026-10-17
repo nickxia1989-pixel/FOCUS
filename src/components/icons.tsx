@@ -125,3 +125,12 @@ export const SparkIcon = (p: P) => (
     <path d="M8 1.5l1.5 4.4 4.5 1.6-4.5 1.6L8 13.5 6.5 9.1 2 7.5l4.5-1.6z" />
   </svg>
 );
+
+/** 带勾的日历：代表完成记录 */
+export const HistoryIcon = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="2.5" y="3.3" width="11" height="10.2" rx="2" />
+    <path d="M2.5 6.6h11M5.5 2v2.4M10.5 2v2.4" />
+    <path d="M6 10.1l1.4 1.3 2.7-2.8" />
+  </svg>
+);
