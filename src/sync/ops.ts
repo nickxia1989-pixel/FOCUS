@@ -94,6 +94,7 @@ const simple =
 
 export const uncompleteTodo = simple(M.uncompleteTodo);
 export const moveTodo = simple(M.moveTodo);
+export const reparentTodo = simple(M.reparentTodo);
 export const markForTest = simple(M.markForTest);
 export const unmarkTest = simple(M.unmarkTest);
 export const reorderTodo = simple(M.reorderTodo);

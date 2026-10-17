@@ -105,6 +105,9 @@ export class SyncEngine {
   private failures = 0;
   private retryAt = 0;
   private lastPutAt = 0;
+  /** 并入了本机其它写入方（AI agent 的 outbox）的改动，要像本机改动一样尽快上传：请求次数 / 已经传上去的那次 */
+  private uploadWanted = 0;
+  private uploadServed = 0;
   enabled = false;
   status: SyncStatus;
 
@@ -156,6 +159,17 @@ export class SyncEngine {
     this.schedule(LOCAL_DEBOUNCE_MS);
   }
 
+  /**
+   * 并入了只在本机、别的设备还没有的改动（AI agent 的 outbox）：本机写入计数没涨，
+   * 但不能按"只是并入了别人的改动"攒 10 分钟，防抖后照常上传
+   */
+  requestUpload() {
+    if (!this.enabled) return;
+    this.uploadWanted++;
+    this.setStatus({ pending: true });
+    this.schedule(LOCAL_DEBOUNCE_MS);
+  }
+
   /** 窗口获得焦点、回到前台、网络恢复、电脑唤醒、手动点"立即同步"：马上来一轮（会跳过退避等待） */
   requestSync() {
     if (!this.enabled) return;
@@ -202,7 +216,7 @@ export class SyncEngine {
 
   /** 有本机的新改动还没上传 */
   private computePending() {
-    return this.host.state().clock.counter > this.host.meta().uploadedCounter;
+    return this.uploadWanted > this.uploadServed || this.host.state().clock.counter > this.host.meta().uploadedCounter;
   }
 
   private devicesDir() {
@@ -323,7 +337,9 @@ export class SyncEngine {
     // 上传：本机有新操作就马上传；只是并入了别人的改动就攒着，最多 10 分钟；云端没有自己的文件或内容不对也要传
     const st = this.host.state();
     const hash = docHash(st.doc);
-    const urgent = st.clock.counter > meta.uploadedCounter || !ownEntry || forceUpload;
+    // 和读取 st 在同一时刻记下请求号：上传成功才算处理过，上传途中又来的请求留到下一轮
+    const wanted = this.uploadWanted;
+    const urgent = st.clock.counter > meta.uploadedCounter || !ownEntry || forceUpload || wanted > this.uploadServed;
     const lazy = hash !== meta.lastUploadHash && now - (meta.lastUploadAt ?? 0) > LAZY_ECHO_MS;
     if (urgent || lazy) {
       const gap = this.minPutGapMs - (Date.now() - this.lastPutAt);
@@ -346,6 +362,7 @@ export class SyncEngine {
       }
       this.lastPutAt = Date.now();
       if ('error' in put) throw new Abort(put.error);
+      this.uploadServed = Math.max(this.uploadServed, wanted);
       const at = this.host.now();
       // 自己文件的修改时间要等下一次列目录才知道：先清掉，下一轮再记基准
       const files = { ...meta.files };

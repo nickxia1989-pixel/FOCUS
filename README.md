@@ -72,6 +72,25 @@
 
 设计与测试细节见 [docs/sync.md](docs/sync.md)。
 
+### 让 AI agent 操作（MCP）
+
+Claude Code、Claude 桌面版等 MCP 客户端可以直接读写 FOCUS：一次拿全量（各 profile、四个列表、子任务、待测、HISTORY、回收站），一次调用批量改多处。
+
+- 先 `npm run build:agent`，再接入：
+
+  ```bash
+  claude mcp add --scope user focus -- node /path/to/FOCUS/dist-agent/focus-mcp.mjs
+  ```
+
+  Claude 桌面版的配置写法见 [docs/agent-api.md](docs/agent-api.md#6-接入)。
+- 三个工具：`focus_read`（读，可按 profile / 分区 / 关键字过滤，或只拿某个 cursor 之后的变化）、`focus_apply`（批量写，整批原子：新增、改名、完成、移动、标待测、排序、删除恢复、profile 管理、处理冲突）、`focus_purge`（彻底删除，不可撤销）
+- 桌面开着时，改动经本机接口（只监听 127.0.0.1，令牌鉴权）交给桌面执行，界面立刻刷新，约 2 秒后同步，底部弹出提示条「AI：新增 2 · 完成 1」
+- 桌面没开时，改动先存在数据目录的 `agent/outbox.json`，桌面下次启动时并入并同步
+- agent 拿不到坚果云密码；所有写入都和界面操作一样经同步时钟打戳，多端合并和冲突规则不变
+- 不想开本机接口时，用环境变量 `FOCUS_AGENT=off` 启动桌面版
+
+设计、工具说明和测试见 [docs/agent-api.md](docs/agent-api.md)。
+
 ### 快捷键
 
 | 按键 | 作用 |
@@ -99,6 +118,8 @@
 | `sync-config.json` | 同步设置（服务器、账号、文件夹、本机名称），不含密码 |
 | `sync-secret.bin` / `device-id.bin` | 用系统钥匙串加密的应用密码 / 设备身份 |
 | `focus-doc.backup-*.json` | 选「以云端为准」时本机数据的备份 |
+| `agent-endpoint.json` | 桌面运行时给 AI agent 用的本机接口端口和令牌（只有本人可读，退出时删除） |
+| `agent/` | 桌面没开时 AI agent 写下的改动（`outbox.json`）和 agent 的身份、时钟 |
 
 每次读入时会把能正常读取的文件备份为同名的 `*.bak.json`；主文件损坏时自动用备份恢复。
 从旧版本升级时，原来的 `profiles.json` / `focus-data.json` / `profiles/*.json` 会自动迁移进 `focus-doc.json`，旧文件原样保留作备份。
@@ -113,7 +134,8 @@ npm install
 npm run dev        # Vite 开发服务器 + Electron 窗口，改代码热更新
 npm run dev:web    # 只在浏览器里跑界面（数据存 localStorage），方便调样式
 npm test           # 数据逻辑单元测试
-npm run build      # 类型检查 + 打包前端
+npm run build      # 类型检查 + 打包前端 + 打包 MCP
+npm run build:agent # 只打包 MCP：dist-agent/focus-mcp.mjs
 npm start          # 构建后用 Electron 运行
 npm run dev:webdav # 本机 WebDAV 测试服务器（http://127.0.0.1:8765/dav/，测试账号 focus-dev / focus-dev-pass），联调同步用
 ```
@@ -144,6 +166,8 @@ src/store.ts           zustand 状态（以可同步文档为准）、profile �
 src/actions.ts         带动画反馈的高层操作
 src/dnd.ts             拖拽排序 / 拖到页签
 src/effects.ts         粒子、飞行小球、提示音
+src/agent/             AI agent 接口：core.ts 核心（批量操作、快照、增量），bridge.ts 渲染进程接线，node/ MCP 服务端和命令行
+electron/agent.cjs     AI agent 本机接口（127.0.0.1 + 令牌），监听 outbox
 src/components/        界面组件（Sidebar 侧栏、ProfileMenu、HistoryView、SyncPanel、ConflictPanel…）
 src/mobile/            iOS 版界面（Capacitor），同步接线在 src/mobile/sync.ts
 scripts/dev-webdav.mjs 本机 WebDAV 测试服务器（可模拟断网、限流、慢网、随机失败）

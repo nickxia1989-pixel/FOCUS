@@ -41,6 +41,13 @@ interface FocusApi {
   getAlwaysOnTop(): Promise<boolean>;
   setAlwaysOnTop(flag: boolean): Promise<boolean>;
   onAlwaysOnTop(cb: (flag: boolean) => void): () => void;
+  /** AI agent 本地接口：渲染进程挂好处理函数后报到 */
+  agentReady(): void;
+  onAgentRequest(cb: (req: { id: number; method: string; params: unknown }) => void): () => void;
+  agentRespond(msg: { id: number; ok: boolean; value?: unknown; error?: string }): void;
+  /** 离线模式下 agent 写的 outbox（设备文件格式的文本），没有就是 null */
+  readAgentOutbox(): Promise<string | null>;
+  onAgentOutbox(cb: () => void): () => void;
   openDataDir(): Promise<string>;
   version(): Promise<string>;
 }

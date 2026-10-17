@@ -8,3 +8,4 @@ Thumbs.db
 .idea/
 dist-ios/
 .dev-webdav/
+dist-agent/

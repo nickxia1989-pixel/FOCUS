@@ -153,6 +153,27 @@ export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
 }
 
 /**
+ * 改挂到另一个父项下（AI agent 用，界面上没有这个操作）：子孙跟着走，列表跟随新父项，排在新兄弟的最前面。
+ * 挂到自己、自己的子孙下，或本来就在这个父项下时原样返回。
+ */
+export function reparentTodo(todos: Todo[], id: string, parentId: string): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  const parent = todos.find((t) => t.id === parentId);
+  if (!target || !parent || id === parentId || target.parentId === parentId) return todos;
+  const subtree = descendantIds(todos, id);
+  if (subtree.has(parentId)) return todos;
+  const maxOrder = todos.reduce((m, t) => (t.parentId === parentId ? Math.max(m, t.order) : m), -Infinity);
+  const order = Math.max(target.order, maxOrder + 1);
+  return todos.map((t) => {
+    if (t.id === id) return { ...t, parentId, list: parent.list, order };
+    if (subtree.has(t.id)) return { ...t, list: parent.list };
+    // 挂到折叠着的父项下时自动展开，免得它"消失"
+    if (t.id === parentId && t.collapsed) return { ...t, collapsed: false };
+    return t;
+  });
+}
+
+/**
  * 同层、同完成状态内的手动排序。
  * toIndex 是把该项从组里拿掉之后的插入位置。
  * 只改被拖的那一项：取新位置上下两个邻居 order 的中点（多端同步时，两台设备拖不同的项互不影响）。

@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, nativeTheme, shell, screen, Menu, safeStora
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
+const { startAgentServer } = require('./agent.cjs');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const isMac = process.platform === 'darwin';
@@ -13,6 +14,8 @@ if (process.env.FOCUS_USER_DATA) app.setPath('userData', path.resolve(process.en
 
 /** @type {BrowserWindow | null} */
 let win = null;
+/** AI agent 本地接口（electron/agent.cjs） */
+let agent = null;
 
 // ---------- 本地文件读写 ----------
 
@@ -474,6 +477,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     buildMenu();
+    // 先于窗口启动：要在窗口创建前挂上"页面重载时清掉就绪标记"的监听
+    agent = startAgentServer({ app, ipcMain, userDir: userDir(), getWin: () => win });
     createWindow();
     // 睡眠、锁屏前让渲染进程立即上传；唤醒、解锁后立即检查远端
     for (const ev of ['suspend', 'lock-screen']) powerMonitor.on(ev, () => win && win.webContents.send('sync:flush'));
@@ -486,6 +491,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => {
     if (!isMac) app.quit();
   });
+
+  app.on('will-quit', () => agent && agent.stop());
 
   // 退出前给渲染进程最多 3 秒把还没上传的改动传完
   let quitting = false;

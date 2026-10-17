@@ -9,6 +9,7 @@ import {
   moveTodo,
   openCount,
   reorderTodo,
+  reparentTodo,
   rootsOf,
   sanitize,
   uncompleteTodo,
@@ -107,6 +108,33 @@ describe('子 TODO', () => {
     s = uncompleteTodo(s, 'p');
     expect(s.find((t) => t.id === 'p')!.done).toBe(false);
     expect(s.find((t) => t.id === 'c1')!.done).toBe(true);
+  });
+
+  it('改挂父项：子孙跟着走，列表跟随新父项，排在最前，折叠的父项自动展开', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'goal');
+    s = add(s, 'old', 'goal', 'p');
+    s = add(s, 'x', 'inbox');
+    s = add(s, 'xc', 'inbox', 'x');
+    s = s.map((t) => (t.id === 'p' ? { ...t, collapsed: true } : t));
+    s = reparentTodo(s, 'x', 'p');
+    const idx = buildIndex(s);
+    expect(childrenOf(idx, 'p').map((t) => t.id)).toEqual(['x', 'old']);
+    expect(s.find((t) => t.id === 'x')!.list).toBe('goal');
+    expect(s.find((t) => t.id === 'xc')!.list).toBe('goal');
+    expect(s.find((t) => t.id === 'xc')!.parentId).toBe('x');
+    expect(s.find((t) => t.id === 'p')!.collapsed).toBe(false);
+    expect(titles(s, 'inbox')).toEqual([]);
+  });
+
+  it('改挂父项：不能挂到自己或自己的子孙下', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'goal');
+    s = add(s, 'c', 'goal', 'p');
+    s = add(s, 'g', 'goal', 'c');
+    expect(reparentTodo(s, 'p', 'g')).toBe(s);
+    expect(reparentTodo(s, 'p', 'p')).toBe(s);
+    expect(reparentTodo(s, 'c', 'p')).toBe(s);
   });
 
   it('删除父项会删掉整棵子树', () => {
