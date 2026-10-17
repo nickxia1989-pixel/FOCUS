@@ -208,6 +208,34 @@ describe('同步引擎', () => {
     expect(dav.puts('devB')).toBe(putsBefore + 1);
   });
 
+  it('并入本机 AI agent 的改动后 requestUpload：不攒 10 分钟，下一轮就上传', async () => {
+    const { dav, a, b } = setup();
+    a.add('x', '一');
+    await a.engine.syncOnce();
+    await b.engine.syncOnce();
+    const putsBefore = dav.puts('devB');
+    // agent 是 B 这台电脑上的另一个写入方：读 B 的文档，用自己的时钟写，再由 B 并入
+    let agent: O.DocState = O.mergeRemote({ doc: emptyDoc(), clock: newClock('agent1') }, b.st.doc, b.st.clock.knowledge, 5_000_000);
+    const r = O.addTodo(agent, { profileId: P, collapsed: {}, now: 5_000_001 }, { id: 'g', title: 'agent 加的', list: 'focus' });
+    agent = { doc: r.doc, clock: r.clock };
+    b.st = O.mergeRemote(b.st, agent.doc, agent.clock.knowledge, 5_000_002);
+    dav.now += 5000;
+    await b.engine.syncOnce();
+    expect(dav.puts('devB')).toBe(putsBefore);
+    b.engine.enabled = true;
+    b.engine.requestUpload();
+    expect(b.engine.status.pending).toBe(true);
+    b.engine.stop();
+    await b.engine.syncOnce();
+    expect(dav.puts('devB')).toBe(putsBefore + 1);
+    // 处理过一次就不再强制上传
+    dav.now += 5000;
+    await b.engine.syncOnce();
+    expect(dav.puts('devB')).toBe(putsBefore + 1);
+    await a.engine.syncOnce();
+    expect(a.titles()).toEqual(['agent 加的', '一'].sort());
+  });
+
   it('读到旧文件（缓存）：本轮跳过，下一轮读到新的', async () => {
     const { dav, a, b } = setup();
     a.add('x', '一');

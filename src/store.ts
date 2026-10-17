@@ -222,6 +222,14 @@ interface DataStore extends Derived {
   keepAllTitles(id: string, keep: string, others: string[]): void;
   resolveDelete(id: string, choice: 'restore' | 'delete'): void;
   resolveProfile(id: string, choice: 'restore' | 'delete'): void;
+  // ---- AI agent（src/agent/bridge.ts） ----
+  /**
+   * 实时模式下 agent 的一批改动：fn 在当前文档上执行（只经 sync/ops、sync/doc 打戳），
+   * 返回新状态就按本机改动提交（界面立刻刷新、照常上传），返回 null 表示整批没生效
+   */
+  applyExternal(fn: (st: O.DocState & { collapsed: O.Collapsed }) => (O.DocState & { collapsed: O.Collapsed }) | null): void;
+  /** 并入本机另一个写入方（agent 的 outbox）的文档；有变化时返回 true，调用方负责请求上传 */
+  mergePeer(doc: SyncDoc, knowledge: VV): boolean;
   // ---- 同步（由同步引擎调用） ----
   mergeRemote(doc: SyncDoc, knowledge: VV): void;
   setSyncMeta(meta: SyncMeta): void;
@@ -261,6 +269,16 @@ export const useData = create<DataStore>((set, get) => {
     const s = get();
     const e = fn(s.doc, s.clock, Date.now());
     commit(e.doc, e.clock, s.local, true);
+  };
+
+  /** 新出现的冲突自动弹出一次 */
+  const promptNewConflicts = () => {
+    const cur = get();
+    const fresh = cur.conflicts.map(conflictKey).filter((k) => !cur.local.prompted.includes(k));
+    if (fresh.length) {
+      set({ local: { ...cur.local, prompted: [...cur.local.prompted, ...fresh].slice(-200) } });
+      useUi.getState().set({ conflictsOpen: true });
+    }
   };
 
   /** 一个 profile 都不可见时（例如两台设备各删了一个），建一个空的"默认" */
@@ -405,13 +423,31 @@ export const useData = create<DataStore>((set, get) => {
       if (!replace && st.doc === s.doc && st.clock === s.clock) return;
       commit(st.doc, st.clock, replace ? { ...s.local, sync: { ...s.local.sync, replacePending: false } } : s.local, false);
       ensureProfile();
-      // 新出现的冲突自动弹出一次
-      const cur = get();
-      const fresh = cur.conflicts.map(conflictKey).filter((k) => !cur.local.prompted.includes(k));
-      if (fresh.length) {
-        set({ local: { ...cur.local, prompted: [...cur.local.prompted, ...fresh].slice(-200) } });
-        useUi.getState().set({ conflictsOpen: true });
+      promptNewConflicts();
+    },
+
+    applyExternal(fn) {
+      const s = get();
+      const next = fn({ doc: s.doc, clock: s.clock, collapsed: s.local.collapsed });
+      if (!next) return;
+      commit(next.doc, next.clock, next.collapsed === s.local.collapsed ? s.local : { ...s.local, collapsed: next.collapsed }, true);
+      ensureProfile();
+    },
+
+    mergePeer(remote, knowledge) {
+      const s = get();
+      // 选了「以云端为准」还没读到云端：先不并入，替换完成后 bridge 会再并入一次
+      if (s.local.sync.replacePending) return false;
+      const st = O.mergeRemote({ doc: s.doc, clock: s.clock }, remote, knowledge, Date.now());
+      if (st.doc === s.doc) {
+        if (st.clock !== s.clock) commit(s.doc, st.clock, s.local, false);
+        return false;
       }
+      // agent 的改动也是用户要的数据：本机不再算"只有上手示例"
+      commit(st.doc, st.clock, { ...s.local, pristine: false }, false);
+      ensureProfile();
+      promptNewConflicts();
+      return true;
     },
 
     setSyncMeta(meta) {

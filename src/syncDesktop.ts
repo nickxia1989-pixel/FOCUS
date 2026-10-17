@@ -41,6 +41,23 @@ function ensureEngine() {
   return engine;
 }
 
+/** 引擎还没启动时收到的上传请求，启动后补上 */
+let uploadOnStart = false;
+
+function startEngine() {
+  ensureEngine().start();
+  if (uploadOnStart) {
+    uploadOnStart = false;
+    engine!.requestUpload();
+  }
+}
+
+/** 并入了只在本机的改动（AI agent 的 outbox）：尽快上传，不按"并入别人的改动"攒着 */
+export function requestUpload() {
+  if (engine?.enabled) engine.requestUpload();
+  else uploadOnStart = true;
+}
+
 export async function loadSyncConfig(): Promise<SyncConfigView | null> {
   if (!api) return null;
   config = await api.getSyncConfig();
@@ -72,7 +89,7 @@ export async function enableSync(mode: 'merge' | 'cloud' = 'merge') {
   await loadSyncConfig();
   if (mode === 'cloud') await useData.getState().resetForCloud();
   useData.getState().setSyncEnabled(true);
-  ensureEngine().start();
+  startEngine();
 }
 
 export function disableSync() {
@@ -98,7 +115,7 @@ export async function initSync() {
   if (!api) return;
   await loadSyncConfig();
   setLocalChangeListener(() => engine?.notifyLocalChange());
-  if (useData.getState().local.sync.enabled && config?.hasPassword) ensureEngine().start();
+  if (useData.getState().local.sync.enabled && config?.hasPassword) startEngine();
 
   window.addEventListener('focus', () => engine?.requestSync());
   window.addEventListener('online', () => engine?.requestSync());

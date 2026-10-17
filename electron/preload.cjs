@@ -35,6 +35,20 @@ contextBridge.exposeInMainWorld('focusApi', {
     ipcRenderer.on('win:alwaysOnTop', listener);
     return () => ipcRenderer.removeListener('win:alwaysOnTop', listener);
   },
+  // AI agent 本地接口（见 electron/agent.cjs）
+  agentReady: () => ipcRenderer.send('agent:ready'),
+  onAgentRequest: (cb) => {
+    const listener = (_e, req) => cb(req);
+    ipcRenderer.on('agent:request', listener);
+    return () => ipcRenderer.removeListener('agent:request', listener);
+  },
+  agentRespond: (msg) => ipcRenderer.send('agent:response', msg),
+  readAgentOutbox: () => ipcRenderer.invoke('agent:readOutbox'),
+  onAgentOutbox: (cb) => {
+    const listener = () => cb();
+    ipcRenderer.on('agent:outbox', listener);
+    return () => ipcRenderer.removeListener('agent:outbox', listener);
+  },
   openDataDir: () => ipcRenderer.invoke('app:openDataDir'),
   version: () => ipcRenderer.invoke('app:version'),
 });

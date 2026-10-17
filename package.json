@@ -11,7 +11,8 @@
     "dev:web": "vite",
     "dev:webdav": "node scripts/dev-webdav.mjs",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && vite build --config vite.agent.config.mts",
+    "build:agent": "vite build --config vite.agent.config.mts",
     "start": "npm run build && electron .",
     "test": "vitest run",
     "icon": "electron scripts/make-icon.cjs",
@@ -33,6 +34,7 @@
     },
     "files": [
       "dist/**",
+      "dist-agent/**",
       "electron/**",
       "package.json"
     ],
