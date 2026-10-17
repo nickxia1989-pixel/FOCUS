@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as M from './model';
+import type { Placement } from './model';
 import { api, backupStore, loadLegacyData, loadLegacyProfiles, loadStore, saveStore, saveStoreSync } from './platform';
 import { newClock, type ClockState, type VV } from './sync/clock';
 import {
@@ -203,10 +204,15 @@ interface DataStore extends Derived {
   createProfile(name: string): Promise<string | null>;
   renameProfile(id: string, name: string): void;
   deleteProfile(id: string): Promise<void>;
-  add(title: string, list: ListId, parentId?: string | null): string | null;
+  /** placement 不传时 FOCUS 顶层排在 NOW 之后，其它排在最前；'top' = 新建并设为现在 */
+  add(title: string, list: ListId, parentId?: string | null, placement?: Placement): string | null;
   complete(id: string): ListId | null;
   uncomplete(id: string): void;
   move(id: string, list: ListId): void;
+  /** 送进 FOCUS，排在 NOW 之后 */
+  sendToFocus(id: string): void;
+  /** 设为现在：移到 FOCUS 第 1 位 */
+  setNow(id: string): void;
   markForTest(id: string): void;
   unmarkTest(id: string): void;
   reorder(id: string, toIndex: number): void;
@@ -393,10 +399,12 @@ export const useData = create<DataStore>((set, get) => {
       runDoc((doc, clock, now) => setProfileDeleted(doc, clock, id, true, now));
     },
 
-    add: (title, list, parentId = null) => run((st, ctx) => O.addTodo(st, ctx, { id: newId(), title, list, parentId })),
+    add: (title, list, parentId = null, placement) => run((st, ctx) => O.addTodo(st, ctx, { id: newId(), title, list, parentId, placement })),
     complete: (id) => run((st, ctx) => O.completeTodo(st, ctx, id)),
     uncomplete: (id) => run((st, ctx) => O.uncompleteTodo(st, ctx, id)),
     move: (id, list) => run((st, ctx) => O.moveTodo(st, ctx, id, list)),
+    sendToFocus: (id) => run((st, ctx) => O.sendToFocus(st, ctx, id)),
+    setNow: (id) => run((st, ctx) => O.setNow(st, ctx, id)),
     markForTest: (id) => run((st, ctx) => O.markForTest(st, ctx, id)),
     unmarkTest: (id) => run((st, ctx) => O.unmarkTest(st, ctx, id)),
     reorder: (id, toIndex) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex)),

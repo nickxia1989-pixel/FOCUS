@@ -1,6 +1,7 @@
 // iOS 版的状态：数据以可同步的文档为准（../sync），列表操作全部走 ../sync/ops，与桌面端同一条路径。
 // 对界面仍然暴露原来的形状：profiles（各自带可见 todos 与回收站）、activeId、prefs。
 import { create } from 'zustand';
+import type { Placement } from '../model';
 import { newClock, type ClockState, type VV } from '../sync/clock';
 import {
   createProfile as docCreateProfile,
@@ -129,10 +130,15 @@ interface DataState extends Derived {
   /** 至少保留一个 profile */
   deleteProfile(id: string): void;
 
-  add(title: string, list: ListId, parentId?: string | null): string | null;
+  /** placement 不传时 FOCUS 顶层排在 NOW 之后，其它排在最前；'top' = 新建并设为现在 */
+  add(title: string, list: ListId, parentId?: string | null, placement?: Placement): string | null;
   complete(id: string): ListId | null;
   uncomplete(id: string): void;
   move(id: string, list: ListId): void;
+  /** 送进 FOCUS，排在 NOW 之后 */
+  sendToFocus(id: string): void;
+  /** 设为现在：移到 FOCUS 第 1 位 */
+  setNow(id: string): void;
   markForTest(id: string): void;
   unmarkTest(id: string): void;
   /** base：开始编辑时的 clock.knowledge，编辑期间远端也改了标题时变成冲突 */
@@ -295,10 +301,12 @@ export const useData = create<DataState>((set, get) => {
       runDoc((doc, clock, now) => setProfileDeleted(doc, clock, id, true, now));
     },
 
-    add: (title, list, parentId = null) => run((st, ctx) => O.addTodo(st, ctx, { id: newId(), title, list, parentId })),
+    add: (title, list, parentId = null, placement) => run((st, ctx) => O.addTodo(st, ctx, { id: newId(), title, list, parentId, placement })),
     complete: (id) => run((st, ctx) => O.completeTodo(st, ctx, id)),
     uncomplete: (id) => run((st, ctx) => O.uncompleteTodo(st, ctx, id)),
     move: (id, list) => run((st, ctx) => O.moveTodo(st, ctx, id, list)),
+    sendToFocus: (id) => run((st, ctx) => O.sendToFocus(st, ctx, id)),
+    setNow: (id) => run((st, ctx) => O.setNow(st, ctx, id)),
     markForTest: (id) => run((st, ctx) => O.markForTest(st, ctx, id)),
     unmarkTest: (id) => run((st, ctx) => O.unmarkTest(st, ctx, id)),
     rename: (id, title, base = null) => run((st, ctx) => O.renameTodo(st, ctx, id, title, base)),

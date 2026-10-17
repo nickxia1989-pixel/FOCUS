@@ -7,11 +7,14 @@ import {
   deleteTodo,
   markForTest,
   moveTodo,
+  nowOf,
   openCount,
   reorderTodo,
   reparentTodo,
   rootsOf,
   sanitize,
+  sendToFocus,
+  setNow,
   uncompleteTodo,
   unmarkTest,
 } from './model';
@@ -62,6 +65,66 @@ describe('排序', () => {
     const before = titles(s, 'inbox');
     s = reorderTodo(s, before[2], 0);
     expect(titles(s, 'inbox')).toEqual([before[2], before[0], before[1]]);
+  });
+});
+
+describe('NOW：FOCUS 一次只做一件', () => {
+  const focus3 = () => {
+    let s: Todo[] = [];
+    s = add(s, 'c', 'focus', null, 1);
+    s = add(s, 'b', 'focus', null, 2);
+    s = add(s, 'a', 'focus', null, 3); // a b c，a 是 NOW
+    return s;
+  };
+
+  it('新建排在 NOW 之后，不抢掉正在做的那件', () => {
+    let s = focus3();
+    s = createTodo(s, { id: 'n', title: 'n', list: 'focus', now: 9, placement: 'afterNow' });
+    expect(titles(s, 'focus')).toEqual(['a', 'n', 'b', 'c']);
+    expect(nowOf(s)?.id).toBe('a');
+    // FOCUS 是空的时候直接成为 NOW
+    let e: Todo[] = [];
+    e = createTodo(e, { id: 'x', title: 'x', list: 'focus', now: 1, placement: 'afterNow' });
+    expect(nowOf(e)?.id).toBe('x');
+    // 子项不受影响
+    s = createTodo(s, { id: 'k', title: 'k', list: 'focus', parentId: 'b', now: 10, placement: 'afterNow' });
+    expect(s.find((t) => t.id === 'k')?.parentId).toBe('b');
+  });
+
+  it('完成的 NOW 不算：已完成的排在后面，下一件接替', () => {
+    let s = focus3();
+    s = completeTodo(s, 'a', 10).todos; // FOCUS 顶层完成后进 INBOX
+    expect(nowOf(s)?.id).toBe('b');
+    s = createTodo(s, { id: 'n', title: 'n', list: 'focus', now: 11, placement: 'afterNow' });
+    expect(titles(s, 'focus')).toEqual(['b', 'n', 'c']);
+  });
+
+  it('送进 FOCUS：整棵移过来，排在 NOW 之后', () => {
+    let s = focus3();
+    s = add(s, 'i', 'inbox', null, 50);
+    s = add(s, 'ic', 'inbox', 'i', 51);
+    s = sendToFocus(s, 'i');
+    expect(titles(s, 'focus')).toEqual(['a', 'i', 'b', 'c']);
+    expect(s.find((t) => t.id === 'ic')?.list).toBe('focus');
+    // 已经在 FOCUS 顶层的原样返回
+    expect(sendToFocus(s, 'b')).toBe(s);
+  });
+
+  it('设为现在：移到 FOCUS 第 1 位；别的列表、子项、已完成的都先归位', () => {
+    let s = focus3();
+    s = setNow(s, 'c');
+    expect(titles(s, 'focus')).toEqual(['c', 'a', 'b']);
+    s = add(s, 'g', 'goal', null, 60);
+    s = setNow(s, 'g');
+    expect(nowOf(s)?.id).toBe('g');
+    s = add(s, 'sub', 'focus', 'a', 61);
+    s = setNow(s, 'sub');
+    expect(nowOf(s)?.id).toBe('sub');
+    expect(s.find((t) => t.id === 'sub')?.parentId).toBeNull();
+    s = completeTodo(s, 'b', 70).todos;
+    s = setNow(s, 'b');
+    expect(nowOf(s)?.id).toBe('b');
+    expect(s.find((t) => t.id === 'b')?.done).toBe(false);
   });
 });
 

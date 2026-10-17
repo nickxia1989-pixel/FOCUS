@@ -62,9 +62,12 @@ export function descendantIds(todos: Todo[], id: string): Set<string> {
   return out;
 }
 
+/** 新建 / 移入时排在哪：最前（默认），或排在 NOW（第一件未完成的顶层项）之后 */
+export type Placement = 'top' | 'afterNow';
+
 export function createTodo(
   todos: Todo[],
-  input: { id: string; title: string; list: ListId; parentId?: string | null; now: number },
+  input: { id: string; title: string; list: ListId; parentId?: string | null; now: number; placement?: Placement },
 ): Todo[] {
   const parent = input.parentId ? todos.find((t) => t.id === input.parentId) : undefined;
   const list = parent ? parent.list : input.list;
@@ -84,7 +87,36 @@ export function createTodo(
   let next = [...todos, todo];
   // 给折叠着的父项加子项时自动展开，免得新项"消失"
   if (parent?.collapsed) next = next.map((t) => (t.id === parent.id ? { ...t, collapsed: false } : t));
+  if (input.placement === 'afterNow' && !parent) next = reorderTodo(next, todo.id, 1);
   return next;
+}
+
+/**
+ * 送进 FOCUS：整棵移到 FOCUS 顶层，排在 NOW 之后，不抢掉当前正在做的那件。
+ * 已经是 FOCUS 顶层项时原样返回。
+ */
+export function sendToFocus(todos: Todo[], id: string): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target || (target.list === 'focus' && target.parentId === null)) return todos;
+  const moved = moveTodo(todos, id, 'focus');
+  return target.done ? moved : reorderTodo(moved, id, 1);
+}
+
+/**
+ * 设为现在：移到 FOCUS 顶层第 1 位，成为新的 NOW。
+ * 从别的列表或父项下来的先整棵移进 FOCUS；已完成的先恢复为未完成。
+ */
+export function setNow(todos: Todo[], id: string): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target) return todos;
+  let next = target.done ? uncompleteTodo(todos, id) : todos;
+  next = moveTodo(next, id, 'focus');
+  return reorderTodo(next, id, 0);
+}
+
+/** FOCUS 里的 NOW：手动顺序排第一的未完成顶层项 */
+export function nowOf(todos: Todo[]): Todo | null {
+  return todos.filter((t) => t.list === 'focus' && t.parentId === null && !t.done).sort(compareTodos)[0] ?? null;
 }
 
 export interface CompleteResult {
