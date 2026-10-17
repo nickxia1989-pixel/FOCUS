@@ -167,3 +167,23 @@ export const SwapIcon = (p: P) => (
     <path d="M7 4.5 4 7.5l3 3M4 7.5h12.5M17 13.5l3 3-3 3M20 16.5H7.5" />
   </svg>
 );
+
+/** 云：同步状态 */
+export const CloudIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M7 18.5h10.6a4.2 4.2 0 0 0 .6-8.36A6 6 0 0 0 6.6 9.3 4.6 4.6 0 0 0 7 18.5z" />
+  </svg>
+);
+
+export const CloudOffIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9.4 6.4a6 6 0 0 1 8.8 3.74A4.2 4.2 0 0 1 20.6 17M16.4 18.5H7a4.6 4.6 0 0 1-.66-9.15" />
+    <path d="M3.5 3.5l17 17" />
+  </svg>
+);
+
+export const SyncIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M19.5 9.5A7.6 7.6 0 0 0 6 7l-1.6 1.7M4.4 4.6v4.1h4.1M4.5 14.5A7.6 7.6 0 0 0 18 17l1.6-1.7M19.6 19.4v-4.1h-4.1" />
+  </svg>
+);

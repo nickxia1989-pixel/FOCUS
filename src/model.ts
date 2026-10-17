@@ -155,7 +155,8 @@ export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
 /**
  * 同层、同完成状态内的手动排序。
  * toIndex 是把该项从组里拿掉之后的插入位置。
- * 只在组内重新分配原有的 order 值，不影响其它分组。
+ * 只改被拖的那一项：取新位置上下两个邻居 order 的中点（多端同步时，两台设备拖不同的项互不影响）。
+ * 邻居的 order 相同、插不进去时，才给整组重新分配。
  */
 export function reorderTodo(todos: Todo[], id: string, toIndex: number): Todo[] {
   const target = todos.find((t) => t.id === id);
@@ -165,13 +166,18 @@ export function reorderTodo(todos: Todo[], id: string, toIndex: number): Todo[] 
   const rest = group.filter((t) => t.id !== id);
   const to = Math.max(0, Math.min(toIndex, rest.length));
   if (to === from) return todos;
+  const above = rest[to - 1];
+  const below = rest[to];
+  let order: number | null;
+  if (!above && !below) order = null;
+  else if (!above) order = below.order + 1;
+  else if (!below) order = above.order - 1;
+  else order = above.order - below.order > 1e-6 ? (above.order + below.order) / 2 : null;
+  if (order !== null) return todos.map((t) => (t.id === id ? { ...t, order } : t));
+  // 插不进去：按新顺序给整组重新编号（保持在原来的最大值附近，新建项仍排在最前）
   const arranged = [...rest.slice(0, to), target, ...rest.slice(to)];
-  const orders = group.map((t) => t.order).sort((a, b) => b - a);
-  // 保证严格递减，否则相同 order 会让排序结果不稳定
-  for (let i = 1; i < orders.length; i++) {
-    if (orders[i] >= orders[i - 1]) orders[i] = orders[i - 1] - 0.001;
-  }
-  const newOrder = new Map(arranged.map((t, i) => [t.id, orders[i]]));
+  const top = Math.max(...group.map((t) => t.order));
+  const newOrder = new Map(arranged.map((t, i) => [t.id, top - i]));
   return todos.map((t) => (newOrder.has(t.id) && newOrder.get(t.id) !== t.order ? { ...t, order: newOrder.get(t.id)! } : t));
 }
 

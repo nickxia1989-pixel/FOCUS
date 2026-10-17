@@ -155,21 +155,22 @@ npm run icon:ios     # 重新生成 iOS 图标
 
 ## 数据与同步
 
-- 整份数据是一个快照：`{ version, activeProfileId, profiles: [{ id, name, tint, todos, trash }], prefs }`，存在 Capacitor Preferences 的 `focus-mobile-v1` 键里（iOS 上是 UserDefaults）。改动后 0.3 秒合并写入，切到后台时立即落盘。
-- 读写只经过 `src/mobile/storage.ts` 的 `SnapshotStorage` 接口（`load` / `save`），以后接同步时换掉实现即可；`profiles[].todos` 与桌面端的 `Todo` 完全同构。
-- 首次启动放两个示例空间「工作」「生活」和几条上手提示，删掉即可。
-- 和桌面端的数据目前互不相通。
+- 数据和桌面端是同一套可同步文档（`src/sync/`）：列表操作全部走 `src/sync/ops.ts`，与桌面端同一条代码路径。
+- 本机存储：文档存在 App 私有目录的 `focus-doc.json`（`@capacitor/filesystem`，先写临时文件再改名）；只属于本机的状态（当前空间、分区、提示音、触感、折叠、同步进度）存 Capacitor Preferences。改动后 0.3 秒合并写入，切到后台时立即落盘。
+- 从旧版原型升级时，原来 Preferences 里的整份快照会自动迁移。
+- 同步：`⋯` 菜单 →「同步」填坚果云账号和应用密码（存钥匙串），或点导航栏的云朵图标。WebDAV 请求走 `CapacitorHttp`（原生 URLSession）。打开 / 回到前台立即同步，前台每 15 秒轮询，切到后台时申请后台时间把改动传完。冲突发现时自动弹出底部面板。详见 [sync.md](sync.md)。
+- 原生插件（钥匙串、后台时间）写在 `ios/App/App/SceneDelegate.swift` 里的 `FocusNativePlugin`，由 `MainViewController` 注册。
+- `Info.plist` 只对本机地址放开了明文 HTTP（`NSAllowsLocalNetworking`），给联调用的本机 WebDAV 测试服务器；坚果云走 https。
 
 ## 已知问题
 
 - **拖拽排序没做**：长按已用于上下文菜单。可考虑在长按菜单里加「排序」模式，或长按后拖动（类似「提醒事项」）。
-- **HISTORY 看不出原来在哪个列表**：FOCUS / VERIFY 的顶层项完成后 `list` 会变成 `inbox`，模型里没有记录原列表，所以 HISTORY 只对 GOAL 等列表显示来源。需要的话可以在 `Todo` 上加 `completedFrom`。
 - **只在模拟器上验证过**：没有真机；模拟器用的是硬件键盘，软键盘弹出时新建卡片贴键盘的效果靠 `keyboardWillShow` 事件实现，还需要真机确认。
 - **真实折叠 / 展开没在模拟器里跑过**：见上面「关于实测方法」。真实设备上应用会从一块屏换到另一块屏，屏幕切换本身是系统动画；如果系统在切换时让输入框失焦，编辑会结束并保存已输入的内容，不会丢，但需要再点一次才能接着编辑。这些都要真机确认。
 - 「半开」姿态（像小笔记本那样立着）没有专门做上下分屏布局，按当前屏幕尺寸走页签或侧栏。
-- 桌面端的 profile、HISTORY 还在开发，数据结构定下来后需要对齐（见下）。
 
 ## 与桌面端的衔接
 
-- 移动端没有改动桌面端文件；`npm run build`、`npm test` 照常通过（`tsconfig.json` 包含 `src/`，所以桌面端类型检查也会检查 `src/mobile/`）。
-- 桌面端的 profile / HISTORY 落地后，建议把「profile 快照结构」和「HISTORY 按天分组」挪到共享的纯逻辑模块里，两端共用；移动端目前的实现在 `src/mobile/data.ts`，可以直接搬过去。
+- 两端共用 `src/model.ts`、`src/types.ts` 和整个 `src/sync/`；profile 和数据结构已经统一，桌面和手机的数据通过坚果云互通。
+- `tsconfig.json` 包含 `src/`，桌面端类型检查也会检查 `src/mobile/`。
+- 移动端的 HISTORY 按天分组仍在 `src/mobile/data.ts`，和桌面端的 `src/history.ts` 各有一份，以后可以合并。

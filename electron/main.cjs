@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, nativeTheme, shell, screen, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeTheme, shell, screen, Menu, safeStorage, powerMonitor } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const isMac = process.platform === 'darwin';
@@ -81,19 +82,118 @@ function loadJsonWithBackup(file) {
 
 const loadData = (profileId) => loadJsonWithBackup(dataFile(profileId));
 
-/** 删除 profile 时不真删数据，挪到 deleted-profiles/ 里，需要时可以手动找回 */
-function archiveProfileData(profileId) {
-  const file = dataFile(profileId);
-  const dir = path.join(userDir(), 'deleted-profiles');
-  const stamp = Date.now();
-  fs.mkdirSync(dir, { recursive: true });
-  for (const [src, suffix] of [
-    [file, ''],
-    [backupFile(file), '.bak'],
-  ]) {
-    try {
-      if (fs.existsSync(src)) fs.renameSync(src, path.join(dir, `${profileId}-${stamp}${suffix}.json`));
-    } catch {}
+// v2：所有 profile 的可同步数据在 focus-doc.json，只属于本机的状态在 focus-local.json。
+// v1 的 profiles.json / focus-data.json / profiles/*.json 只在第一次迁移时读取，原样留作备份。
+const STORE_FILES = { doc: 'focus-doc.json', local: 'focus-local.json' };
+
+function storeFile(name) {
+  const f = STORE_FILES[name];
+  if (!f) throw new Error(`unknown store: ${name}`);
+  return path.join(userDir(), f);
+}
+
+// ---------- 同步：配置、凭证、WebDAV 请求 ----------
+
+const syncConfigFile = () => path.join(userDir(), 'sync-config.json');
+const identityFile = () => path.join(userDir(), 'device-id.bin');
+
+/**
+ * 设备身份（设备 id + 本份安装的随机数）用系统钥匙串加密存放。
+ * 数据目录被整个拷到另一台电脑时，那边解不开这个文件，就会生成新的身份，两台电脑不会共用一个设备 id。
+ */
+function deviceIdentity() {
+  if (!safeStorage.isEncryptionAvailable()) return null;
+  try {
+    if (fs.existsSync(identityFile())) {
+      const v = JSON.parse(safeStorage.decryptString(fs.readFileSync(identityFile())));
+      if (typeof v.deviceId === 'string' && typeof v.nonce === 'string') return v;
+    }
+  } catch {}
+  const rand = (n) => require('node:crypto').randomBytes(n).toString('base64url').replace(/[^A-Za-z0-9]/g, '').slice(0, n);
+  const v = { deviceId: rand(10).toLowerCase(), nonce: rand(16) };
+  try {
+    fs.writeFileSync(identityFile(), safeStorage.encryptString(JSON.stringify(v)));
+  } catch {}
+  return v;
+}
+const syncSecretFile = () => path.join(userDir(), 'sync-secret.bin');
+let simOffline = false;
+
+function defaultDeviceName() {
+  return (os.hostname() || (isMac ? 'Mac' : 'PC')).replace(/\.local$/i, '');
+}
+
+function readSyncConfig() {
+  const c = readJson(syncConfigFile()) || {};
+  return {
+    baseUrl: typeof c.baseUrl === 'string' ? c.baseUrl : 'https://dav.jianguoyun.com/dav/',
+    user: typeof c.user === 'string' ? c.user : '',
+    folder: typeof c.folder === 'string' ? c.folder : 'FOCUS',
+    deviceName: typeof c.deviceName === 'string' && c.deviceName ? c.deviceName : defaultDeviceName(),
+  };
+}
+
+/** 应用密码只用系统钥匙串加密后存盘，渲染进程永远拿不到明文 */
+function readPassword() {
+  try {
+    if (!safeStorage.isEncryptionAvailable() || !fs.existsSync(syncSecretFile())) return '';
+    return safeStorage.decryptString(fs.readFileSync(syncSecretFile()));
+  } catch {
+    return '';
+  }
+}
+
+/** 只允许 https；明文 http 只给本机测试服务器用 */
+function checkBaseUrl(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) return null;
+  if (!u.pathname.endsWith('/')) u.pathname += '/';
+  return u;
+}
+
+/** 相对路径逐段编码；空路径就是 WebDAV 根目录本身（不能变成 "/"，否则会跑到主机根目录） */
+function encodePath(p) {
+  const segs = String(p)
+    .split('/')
+    .filter((seg) => seg && seg !== '.' && seg !== '..')
+    .map((seg) => encodeURIComponent(seg));
+  if (!segs.length) return '';
+  return segs.join('/') + (String(p).endsWith('/') ? '/' : '');
+}
+
+async function syncRequest(req) {
+  if (simOffline) return { ok: false, error: 'network', message: '模拟离线' };
+  const cfg = readSyncConfig();
+  const base = checkBaseUrl(cfg.baseUrl);
+  const password = readPassword();
+  if (!base || !cfg.user || !password) return { ok: false, error: 'config', message: '同步设置不完整' };
+  const url = new URL(encodePath(req.path), base);
+  const headers = {
+    Authorization: `Basic ${Buffer.from(`${cfg.user}:${password}`).toString('base64')}`,
+    ...(req.headers || {}),
+  };
+  if (req.deviceId) headers['X-Focus-Device'] = String(req.deviceId);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
+  try {
+    const res = await fetch(url, { method: req.method, headers, body: req.body ?? undefined, signal: ctrl.signal });
+    const body = await res.text();
+    return {
+      ok: true,
+      status: res.status,
+      body,
+      headers: { 'last-modified': res.headers.get('last-modified') || '', etag: res.headers.get('etag') || '' },
+    };
+  } catch (e) {
+    return { ok: false, error: ctrl.signal.aborted ? 'timeout' : 'network', message: String(e && e.message ? e.message : e) };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -287,29 +387,67 @@ function buildMenu() {
 
 // ---------- IPC ----------
 
-ipcMain.handle('profiles:load', () => loadJsonWithBackup(profilesFile()));
-ipcMain.handle('profiles:save', (_e, data) => {
-  writeJsonAtomic(profilesFile(), data);
-  return true;
-});
-ipcMain.handle('profiles:archive', (_e, profileId) => {
-  archiveProfileData(profileId);
-  return true;
-});
-ipcMain.handle('data:load', (_e, profileId) => ({ data: loadData(profileId), path: dataFile(profileId) }));
-ipcMain.handle('data:save', (_e, profileId, data) => {
-  writeJsonAtomic(dataFile(profileId), data);
+// v1 数据：只读，供第一次迁移
+ipcMain.handle('legacy:profiles', () => loadJsonWithBackup(profilesFile()));
+ipcMain.handle('legacy:data', (_e, profileId) => loadData(profileId));
+
+ipcMain.handle('store:load', (_e, name) => loadJsonWithBackup(storeFile(name)));
+ipcMain.handle('store:save', (_e, name, data) => {
+  writeJsonAtomic(storeFile(name), data);
   return true;
 });
 // 关闭窗口前同步落盘，保证最后一次修改不丢
-ipcMain.on('data:saveSync', (e, profileId, data) => {
+ipcMain.on('store:saveSync', (e, name, data) => {
   try {
-    writeJsonAtomic(dataFile(profileId), data);
+    writeJsonAtomic(storeFile(name), data);
     e.returnValue = true;
   } catch {
     e.returnValue = false;
   }
 });
+
+ipcMain.handle('sync:getConfig', () => ({
+  ...readSyncConfig(),
+  hasPassword: !!readPassword(),
+  encryptionAvailable: safeStorage.isEncryptionAvailable(),
+}));
+ipcMain.handle('sync:setConfig', (_e, input) => {
+  const cur = readSyncConfig();
+  const next = {
+    baseUrl: typeof input.baseUrl === 'string' ? input.baseUrl.trim() : cur.baseUrl,
+    user: typeof input.user === 'string' ? input.user.trim() : cur.user,
+    folder: typeof input.folder === 'string' ? input.folder.trim().replace(/^\/+|\/+$/g, '') || 'FOCUS' : cur.folder,
+    deviceName: typeof input.deviceName === 'string' ? input.deviceName.trim().slice(0, 40) || defaultDeviceName() : cur.deviceName,
+  };
+  if (!checkBaseUrl(next.baseUrl)) return { ok: false, message: '服务器地址必须是 https://（本机测试服务器可用 http://127.0.0.1）' };
+  if (typeof input.password === 'string') {
+    if (input.password === '') {
+      fs.rmSync(syncSecretFile(), { force: true });
+    } else {
+      if (!safeStorage.isEncryptionAvailable()) return { ok: false, message: '系统钥匙串不可用，无法安全保存密码' };
+      fs.writeFileSync(syncSecretFile(), safeStorage.encryptString(input.password));
+    }
+  }
+  writeJsonAtomic(syncConfigFile(), next);
+  return { ok: true };
+});
+ipcMain.handle('sync:request', (_e, req) => syncRequest(req));
+ipcMain.handle('sync:setSimOffline', (_e, flag) => {
+  simOffline = !!flag;
+  return simOffline;
+});
+ipcMain.handle('app:platform', () => ({ platform: process.platform, deviceName: defaultDeviceName() }));
+ipcMain.handle('sync:identity', () => deviceIdentity());
+ipcMain.handle('sync:resetIdentity', () => {
+  fs.rmSync(identityFile(), { force: true });
+  return deviceIdentity();
+});
+ipcMain.handle('store:backup', (_e, data) => {
+  const file = path.join(userDir(), `focus-doc.backup-${Date.now()}.json`);
+  writeJsonAtomic(file, data);
+  return file;
+});
+
 ipcMain.handle('win:minimize', () => win && win.minimize());
 ipcMain.handle('win:close', () => win && win.close());
 ipcMain.handle('win:getAlwaysOnTop', () => !!(win && win.isAlwaysOnTop()));
@@ -337,6 +475,9 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     buildMenu();
     createWindow();
+    // 睡眠、锁屏前让渲染进程立即上传；唤醒、解锁后立即检查远端
+    for (const ev of ['suspend', 'lock-screen']) powerMonitor.on(ev, () => win && win.webContents.send('sync:flush'));
+    for (const ev of ['resume', 'unlock-screen']) powerMonitor.on(ev, () => win && win.webContents.send('sync:wake'));
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
@@ -344,5 +485,20 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('window-all-closed', () => {
     if (!isMac) app.quit();
+  });
+
+  // 退出前给渲染进程最多 3 秒把还没上传的改动传完
+  let quitting = false;
+  app.on('before-quit', (e) => {
+    if (quitting || !win || win.isDestroyed()) return;
+    e.preventDefault();
+    quitting = true;
+    const done = () => app.quit();
+    const timer = setTimeout(done, 3000);
+    ipcMain.once('sync:flushed', () => {
+      clearTimeout(timer);
+      done();
+    });
+    win.webContents.send('sync:flush', { quitting: true });
   });
 }

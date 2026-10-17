@@ -94,6 +94,8 @@ export function TitleEditor({ todo }: { todo: Todo }) {
   const [text, setText] = useState(todo.title);
   const ref = useRef<HTMLTextAreaElement>(null);
   const done = useRef(false);
+  // 开始编辑时的知识：编辑期间远端改了这条标题，提交时会变成冲突而不是盖掉远端
+  const base = useRef(useData.getState().clock.knowledge);
 
   const fit = () => {
     const el = ref.current;
@@ -114,7 +116,7 @@ export function TitleEditor({ todo }: { todo: Todo }) {
   const finish = (save: boolean) => {
     if (done.current) return;
     done.current = true;
-    if (save) useData.getState().rename(todo.id, text);
+    if (save && text.trim() !== todo.title) useData.getState().rename(todo.id, text, base.current);
     useUi.getState().set({ editingId: null });
   };
 

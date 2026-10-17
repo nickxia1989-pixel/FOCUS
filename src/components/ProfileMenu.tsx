@@ -90,7 +90,7 @@ export function ProfileMenu({ anchor }: { anchor: RefObject<HTMLElement | null> 
   const remove = async (p: Profile) => {
     setArmed(null);
     await useData.getState().deleteProfile(p.id);
-    showToast(`已删除「${p.name}」，数据已存档`);
+    showToast(`已删除「${p.name}」`);
   };
 
   useLayoutEffect(() => {
@@ -176,7 +176,7 @@ export function ProfileMenu({ anchor }: { anchor: RefObject<HTMLElement | null> 
               {profiles.length > 1 && (
                 <button
                   className={`pf-tool pf-delete ${armed === p.id ? 'is-armed' : ''}`}
-                  title={armed === p.id ? '再点一次删除（数据会存档，不会真的删掉）' : '删除'}
+                  title={armed === p.id ? '再点一次删除' : '删除'}
                   onClick={() => (armed === p.id ? void remove(p) : setArmed(p.id))}
                 >
                   {armed === p.id ? '删除' : <TrashIcon width={13} height={13} />}

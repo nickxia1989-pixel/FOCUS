@@ -54,6 +54,24 @@
 - 窗口可置顶（标题栏图钉），位置、大小、置顶状态自动记住
 - 跟随系统浅色 / 深色模式
 
+### 多端同步（坚果云 WebDAV）
+
+桌面版和 iOS 版都直接通过坚果云 WebDAV 同步，不需要开着坚果云客户端。
+
+- 设置：桌面 `⋯` 菜单 →「同步设置」，iOS `⋯` 菜单 →「同步」。填坚果云账号和**应用密码**（坚果云网页「账户信息 → 安全选项 → 第三方应用管理」生成），同步文件夹默认 `FOCUS`，不存在会自动创建。密码只加密存在本机钥匙串里
+- 时机：打开时同步；增删改后约 2 秒上传；在线时每 15 秒检查远端，有新改动就自动拉下来合并；窗口获得焦点、App 回到前台、网络恢复、电脑唤醒时立即检查；退出、睡眠、切到后台前先把改动传完
+- 离线：改动照常存在本机，联网后自动补传；坚果云限流时自动退避重试
+- 合并：每条待办按"标题 / 完成状态 / 位置 / 排序 / 删除"分开合并，两边改的不是同一处就都保留；同一处的改动自动取后改的那个
+- 需要你决定的冲突（发现时自动弹出，也可以点标题栏的云朵图标打开）：
+  - 同一条的标题被两台设备同时改成了不同内容：选一个，或都保留
+  - 一边删除了、另一边同时改过（或在它下面加了子项）：恢复，或保持删除
+  - 一边删除了整个 profile、另一边同时在里面改过：恢复，或确认删除
+  - 在任何一台设备上做了决定，其它设备上的同一个冲突会自动消失
+- 第一次在已有数据的设备上开启同步时，可以选「合并本机数据」或「以云端为准（本机先备份）」；本机只有上手示例时直接以云端为准
+- 状态：标题栏的云朵图标（已同步 / 同步中 / 离线 / 出错），同步设置里能看到各设备最后更新时间
+
+设计与测试细节见 [docs/sync.md](docs/sync.md)。
+
 ### 快捷键
 
 | 按键 | 作用 |
@@ -76,12 +94,14 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `profiles.json` | profile 列表、当前 profile、全局设置（提示音） |
-| `focus-data.json` | 「默认」profile 的数据（升级前的数据就在这里，位置不变） |
-| `profiles/<id>.json` | 其它 profile 的数据，每个一个文件 |
-| `deleted-profiles/` | 删除的 profile 的数据存档 |
+| `focus-doc.json` | 所有 profile 的数据（可同步的文档：每条待办带合并用的时间戳，删除的条目留在里面当回收站和墓碑） |
+| `focus-local.json` | 只属于本机的状态：当前 profile、界面偏好、折叠状态、提示音、同步进度 |
+| `sync-config.json` | 同步设置（服务器、账号、文件夹、本机名称），不含密码 |
+| `sync-secret.bin` / `device-id.bin` | 用系统钥匙串加密的应用密码 / 设备身份 |
+| `focus-doc.backup-*.json` | 选「以云端为准」时本机数据的备份 |
 
-每次读入时会把能正常读取的文件备份为同名的 `*.bak.json`；主文件损坏时自动用备份恢复。第一次打开带 profile 的版本时，原有数据自动成为「默认」profile。
+每次读入时会把能正常读取的文件备份为同名的 `*.bak.json`；主文件损坏时自动用备份恢复。
+从旧版本升级时，原来的 `profiles.json` / `focus-data.json` / `profiles/*.json` 会自动迁移进 `focus-doc.json`，旧文件原样保留作备份。
 `⋯` 菜单里的「打开数据文件夹」可直接打开该目录。设置环境变量 `FOCUS_USER_DATA` 可改用其它目录。
 
 ## 开发
@@ -95,7 +115,10 @@ npm run dev:web    # 只在浏览器里跑界面（数据存 localStorage），�
 npm test           # 数据逻辑单元测试
 npm run build      # 类型检查 + 打包前端
 npm start          # 构建后用 Electron 运行
+npm run dev:webdav # 本机 WebDAV 测试服务器（http://127.0.0.1:8765/dav/，测试账号 focus-dev / focus-dev-pass），联调同步用
 ```
+
+iOS 版见 [docs/ios.md](docs/ios.md)。联调同步时可以用 `VITE_FOCUS_E2E=1 npm run ios:build` 构建带测试遥控的 iOS 测试包（正式构建不含这段代码），详见 [docs/sync.md](docs/sync.md)。
 
 ## 打包
 
@@ -113,11 +136,15 @@ npm run dist:mac   # 在 macOS 上：生成 dmg 和 zip
 electron/main.cjs      主进程：窗口、文件读写、IPC
 electron/preload.cjs   向页面暴露 window.focusApi
 src/model.ts           纯数据操作（排序、移动、完成、子树…），有单元测试
-src/trash.ts           回收站：删除入站、恢复到原处、过期清理，有单元测试
+src/trash.ts           旧版回收站格式（迁移时读取）
+src/sync/              多端同步：时钟、可同步文档与合并、冲突、迁移、设备文件、WebDAV、同步引擎，有单元测试和随机收敛测试
+src/syncDesktop.ts     桌面端同步接线（WebDAV 请求走主进程，凭证只在主进程）
 src/history.ts         完成记录：按天分组、热力图、连续天数，有单元测试
-src/store.ts           zustand 状态、profile 切换与持久化
+src/store.ts           zustand 状态（以可同步文档为准）、profile 与持久化
 src/actions.ts         带动画反馈的高层操作
 src/dnd.ts             拖拽排序 / 拖到页签
 src/effects.ts         粒子、飞行小球、提示音
-src/components/        界面组件（Sidebar 侧栏、ProfileMenu、HistoryView…）
+src/components/        界面组件（Sidebar 侧栏、ProfileMenu、HistoryView、SyncPanel、ConflictPanel…）
+src/mobile/            iOS 版界面（Capacitor），同步接线在 src/mobile/sync.ts
+scripts/dev-webdav.mjs 本机 WebDAV 测试服务器（可模拟断网、限流、慢网、随机失败）
 ```

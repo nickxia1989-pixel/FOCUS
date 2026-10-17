@@ -9,6 +9,7 @@ import { MoreIcon, PlusIcon, SectionIcons, SwapIcon, TrashIcon } from '../icons'
 import { activeOf, useData, useTodos } from '../store';
 import { restored, saveTransient } from '../transient';
 import { rectOf, useUi } from '../ui';
+import { SyncButton } from './SyncSheets';
 
 export const SECTION_META: Record<Section, { label: string; hint: string }> = {
   ...(Object.fromEntries(LISTS.map((l) => [l.id, { label: l.label, hint: l.hint }])) as Record<
@@ -192,6 +193,7 @@ export function Screen({ section, wide, children }: { section: Section; wide: bo
                 <PlusIcon />
               </button>
             )}
+            <SyncButton />
             <button className="glass-btn" aria-label="更多" onClick={openMore}>
               <MoreIcon />
             </button>

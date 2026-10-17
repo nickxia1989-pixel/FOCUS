@@ -5,7 +5,9 @@ import { HistoryContent } from './components/HistoryContent';
 import { ListContent } from './components/ListContent';
 import { ContextMenu, MoreMenu, Toast } from './components/Overlays';
 import { ProfileSheet, TrashSheet } from './components/Sheets';
-import { activeOf, useData } from './store';
+import { ConflictSheet, SyncSheet } from './components/SyncSheets';
+import { activeOf, setNewConflictListener, useData } from './store';
+import { initSync } from './sync';
 import { restored, takeTransient } from './transient';
 import { useUi } from './ui';
 
@@ -47,6 +49,9 @@ export function MobileApp() {
         else restored.editing = undefined;
         const c = restored.composer;
         if (c) useUi.getState().set({ composer: { open: false, list: c.list, parentId: c.parentId } });
+        // 同步发现新冲突时弹出冲突面板
+        setNewConflictListener(() => useUi.getState().set({ sheet: 'conflicts', menu: null, more: null }));
+        return initSync();
       });
   }, []);
 
@@ -77,7 +82,8 @@ export function MobileApp() {
     return () => document.removeEventListener('pointerdown', onDown, true);
   }, []);
 
-  if (!loaded) return null;
+  const hasProfile = useData((s) => s.profiles.length > 0);
+  if (!loaded || !hasProfile) return null;
 
   return (
     <div className={`app ${wide ? 'is-wide' : 'is-compact'}`}>
@@ -96,6 +102,8 @@ export function MobileApp() {
       <MoreMenu />
       <ProfileSheet wide={wide} />
       <TrashSheet wide={wide} />
+      <SyncSheet wide={wide} />
+      <ConflictSheet wide={wide} />
       <Toast />
     </div>
   );

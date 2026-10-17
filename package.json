@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:web": "vite",
+    "dev:webdav": "node scripts/dev-webdav.mjs",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "start": "npm run build && electron .",
@@ -62,8 +63,10 @@
     }
   },
   "devDependencies": {
+    "@capacitor/app": "^8.1.2",
     "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.3",
     "@capacitor/keyboard": "^8.0.6",

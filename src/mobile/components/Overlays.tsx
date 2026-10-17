@@ -25,6 +25,7 @@ import {
   SoundIcon,
   SubtaskIcon,
   SwapIcon,
+  CloudIcon,
   TargetIcon,
   TrashIcon,
   UncheckIcon,
@@ -309,6 +310,12 @@ export function MoreMenu() {
                 <span className="menu-label">切换空间</span>
                 <span className="menu-icon">
                   <SwapIcon />
+                </span>
+              </button>
+              <button className="menu-item" onClick={() => useUi.getState().set({ more: null, sheet: 'sync' })}>
+                <span className="menu-label">同步</span>
+                <span className="menu-icon">
+                  <CloudIcon />
                 </span>
               </button>
             </div>

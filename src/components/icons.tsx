@@ -134,3 +134,30 @@ export const HistoryIcon = (p: P) => (
     <path d="M6 10.1l1.4 1.3 2.7-2.8" />
   </svg>
 );
+
+/** 云：同步状态 */
+export const CloudIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4.6 12.6h7.2a2.9 2.9 0 0 0 .4-5.77 4.1 4.1 0 0 0-7.9-.6A3.2 3.2 0 0 0 4.6 12.6z" />
+  </svg>
+);
+
+export const CloudOffIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M6.2 4.4a4.1 4.1 0 0 1 6 2.43 2.9 2.9 0 0 1 1.6 4.9M11 12.6H4.6a3.2 3.2 0 0 1-.42-6.37" />
+    <path d="M2.5 2.5l11 11" />
+  </svg>
+);
+
+export const SyncIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M13 6.5A5 5 0 0 0 4.1 4.6L3 5.8M3 2.8v3h3M3 9.5a5 5 0 0 0 8.9 1.9l1.1-1.2M13 13.2v-3h-3" />
+  </svg>
+);
+
+export const AlertIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M8 2.5l6 10.5H2z" />
+    <path d="M8 6.6v3M8 11.4v.1" />
+  </svg>
+);

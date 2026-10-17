@@ -1924,6 +1924,342 @@ body.dragging * {
   color: var(--danger);
 }
 
+/* ============ 同步设置与冲突 ============ */
+
+.sync-indicator {
+  position: relative;
+}
+
+.sync-indicator.tone-ok {
+  color: var(--c-verify);
+}
+.sync-indicator.tone-warn {
+  color: #d99a00;
+}
+.sync-indicator.tone-bad,
+.sync-indicator.tone-conflict {
+  color: var(--danger);
+}
+
+.sync-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sync-scroll {
+  padding: 4px 14px 28px;
+}
+
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.sync-status-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--muted);
+}
+
+.sync-status.tone-ok .sync-status-icon {
+  background: var(--c-verify);
+}
+.sync-status.tone-busy .sync-status-icon {
+  background: var(--c-inbox);
+}
+.sync-status.tone-warn .sync-status-icon {
+  background: #d99a00;
+}
+.sync-status.tone-bad .sync-status-icon {
+  background: var(--danger);
+}
+
+.sync-status-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.sync-status-text {
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.sync-status-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sync-icon-btn {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+}
+
+.sync-icon-btn:hover {
+  background: var(--hover-2);
+}
+
+.sync-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.sync-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--hover-2);
+  transition: background 0.15s, transform 0.1s;
+}
+
+.sync-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.sync-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.sync-btn:disabled {
+  opacity: 0.5;
+}
+
+.sync-btn.primary {
+  color: #fff;
+  background: var(--c-inbox);
+}
+
+.sync-btn.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--c-inbox) 85%, #000);
+}
+
+.sync-btn.ghost {
+  background: transparent;
+  color: var(--text-2);
+}
+
+.sync-join {
+  margin: 10px 0 4px;
+  padding: 12px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: color-mix(in srgb, var(--c-inbox) 9%, var(--bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-inbox) 30%, transparent);
+}
+
+.sync-join p {
+  margin: 0 0 4px;
+  line-height: 1.5;
+}
+
+.sync-section {
+  margin: 18px 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.sync-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 9px;
+}
+
+.sync-label {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.sync-input {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  outline: 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  background: var(--bg-elev);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.sync-input:focus {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c-inbox) 65%, transparent);
+}
+
+.sync-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.sync-note {
+  margin: 6px 2px 0;
+  font-size: 12px;
+}
+
+.sync-note.tone-ok {
+  color: var(--c-verify);
+}
+.sync-note.tone-bad {
+  color: var(--danger);
+}
+
+.sync-devices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sync-devices li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sync-device-time {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sync-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.conflict-count {
+  background: var(--danger) !important;
+  color: #fff !important;
+}
+
+.conflict-profile {
+  margin: 10px 4px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.conflict-card {
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.conflict-head {
+  line-height: 1.55;
+}
+
+.conflict-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.conflict-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  text-align: left;
+  background: var(--bg-elev);
+  box-shadow: 0 0 0 1px var(--line);
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+.conflict-option:hover {
+  box-shadow: 0 0 0 1.5px var(--c-inbox);
+}
+
+.conflict-option:active {
+  transform: scale(0.99);
+}
+
+.conflict-option-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.conflict-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.conflict-both {
+  margin-top: 6px;
+  padding: 0 6px;
+}
+
+.conflict-edits {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 /* ============ 提示条 ============ */
 
 .toast {

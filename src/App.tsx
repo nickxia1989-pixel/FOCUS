@@ -6,6 +6,9 @@ import { ContextMenu, Footer, Toast } from './components/Overlays';
 import { Sidebar } from './components/Sidebar';
 import { TitleBar } from './components/TitleBar';
 import { TrashPanel } from './components/TrashPanel';
+import { ConflictPanel } from './components/ConflictPanel';
+import { SyncPanel } from './components/SyncPanel';
+import { initSync } from './syncDesktop';
 import { isMac, platform } from './platform';
 import { useData, useUi } from './store';
 import { VIEW_IDS } from './types';
@@ -66,7 +69,10 @@ export default function App() {
   }, [active]);
 
   useEffect(() => {
-    void useData.getState().init();
+    void useData
+      .getState()
+      .init()
+      .then(() => initSync());
   }, []);
 
   useShortcuts();
@@ -88,6 +94,8 @@ export default function App() {
         </div>
       </div>
       <TrashPanel />
+      <SyncPanel />
+      <ConflictPanel />
       <ContextMenu />
       <Toast />
     </div>

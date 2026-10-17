@@ -42,7 +42,7 @@ interface UiState {
   swipedId: string | null;
   menu: TodoMenu | null;
   composer: ComposerState;
-  sheet: null | 'profiles' | 'trash';
+  sheet: null | 'profiles' | 'trash' | 'sync' | 'conflicts';
   /** 右上角 ⋯ 下拉菜单的锚点 */
   more: Rect | null;
   toast: ToastState | null;

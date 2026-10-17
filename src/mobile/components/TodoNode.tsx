@@ -173,6 +173,8 @@ export function TodoNode({ todo, depth, index }: Props) {
 function TitleEditor({ todo }: { todo: Todo }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const cancelled = useRef(false);
+  // 开始编辑时的知识：编辑期间远端也改了这条标题，提交时会变成冲突，不会悄悄盖掉远端
+  const base = useRef(useData.getState().clock.knowledge);
 
   const fit = useCallback(() => {
     const el = ref.current;
@@ -192,7 +194,8 @@ function TitleEditor({ todo }: { todo: Todo }) {
 
   const commit = () => {
     saveTransient({ editing: undefined });
-    if (!cancelled.current && ref.current) useData.getState().rename(todo.id, ref.current.value);
+    if (!cancelled.current && ref.current && ref.current.value.trim() !== todo.title)
+      useData.getState().rename(todo.id, ref.current.value, base.current);
     if (useUi.getState().editingId === todo.id) useUi.getState().set({ editingId: null });
   };
 
