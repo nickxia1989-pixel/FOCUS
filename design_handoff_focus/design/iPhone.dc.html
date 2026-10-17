@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>iPhone · 全部状态</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ib{width:2400px;box-sizing:border-box;padding:44px 56px 64px;background:#E8E8E3;color:#0B0B0C;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;gap:40px}
+.ib-h{display:flex;align-items:baseline;gap:18px}
+.ib-h h1{margin:0;font:800 40px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.ib-h p{margin:0;font-size:14px;color:#55554F;max-width:1300px;line-height:1.6}
+.ib-sec{display:flex;flex-direction:column;gap:18px}
+.ib-st{font:800 13px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#55554F}
+.ib-row{display:flex;gap:56px;align-items:flex-start;flex-wrap:wrap}
+.ib-it{display:flex;flex-direction:column;gap:18px}
+.ib-lb{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:#55554F;max-width:402px}
+.ib-lb b{font:800 11px/1 'Bricolage Grotesque',sans-serif;padding:4px 7px;border-radius:6px;background:#0B0B0C;color:#D6FF3D;flex:none}
+</style>
+</helmet>
+<div class="ib">
+  <div class="ib-h"><h1>iPhone · 竖屏</h1><p>以 iPhone 17 Pro（402×874pt）为基准。导航栏：左边空间头像，标题跟在后面；右边一枚玻璃胶囊放云朵和 ⋯。底部是 iOS 26 原生液态玻璃页签栏，加一颗独立的玻璃 + 钮（荧光绿着色）。列表内容可以滚到玻璃下面，底部有一层渐隐。</p></div>
+  <sc-for list="{{secs}}" as="s" hint-placeholder-count="3">
+    <div class="ib-sec">
+      <div class="ib-st">{{s.t}}</div>
+      <div class="ib-row">
+        <sc-for list="{{s.items}}" as="it" hint-placeholder-count="5">
+          <div class="ib-it">
+            <div class="ib-lb"><b>{{it.k}}</b><span>{{it.l}}</span></div>
+            <dc-import name="FPhone" form="phone" theme="{{it.theme}}" view="{{it.view}}" overlay="{{it.ov}}" hint-size="402px,874px"></dc-import>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2400,"height":4110}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const it = (k, l, view, ov, theme) => ({ k, l, view, ov: ov || 'none', theme: theme || 'light' });
+    return {
+      secs: [
+        { t: 'FOCUS 与交互', items: [
+          it('P1', 'FOCUS · 浅色。选中的页签是荧光绿玻璃', 'focus'),
+          it('P2', 'FOCUS · 深色。选中页签是 17% 荧光绿 + 荧光绿图标', 'focus', 'none', 'dark'),
+          it('P3', '新建：+ 弹出贴着键盘的玻璃输入卡，选列表；默认排在「现在」之后', 'focus', 'add', 'dark'),
+          it('P4', '长按：行浮起，背景模糊，iOS 玻璃上下文菜单', 'focus', 'menu'),
+          it('P5', '左滑：设为现在 / 送去验证 / 移动 / 删除；右滑：完成', 'focus', 'swipe')
+        ] },
+        { t: '其它列表与空状态', items: [
+          it('P6', 'VERIFY · 星芒按钮退回 FOCUS', 'verify'),
+          it('P7', 'INBOX · 深色 · 星芒按钮送进 FOCUS', 'inbox', 'none', 'dark'),
+          it('P8', 'GOAL · 自我提醒卡片，不显示进度', 'goal'),
+          it('P9', 'HISTORY · 深色 · 今天 / 近 7 天 / 连续，柱子点了跳到那天', 'history', 'none', 'dark'),
+          it('P10', 'FOCUS 空了', 'empty')
+        ] },
+        { t: '菜单、空间、同步与回收站', items: [
+          it('P11', '⋯ 菜单：回收站、同步、空间、提示音、触感', 'focus', 'more'),
+          it('P12', '空间面板（深色）：切换、新建；左滑改名 / 删除', 'focus', 'space', 'dark'),
+          it('P13', '同步面板', 'focus', 'sync'),
+          it('P14', '冲突面板（深色）：发现冲突时自动弹出', 'focus', 'conflict', 'dark'),
+          it('P15', '第一次加入云端', 'focus', 'join'),
+          it('P16', '删除后的撤销提示条', 'focus', 'toast', 'dark'),
+          it('P17', '回收站', 'focus', 'trash')
+        ] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

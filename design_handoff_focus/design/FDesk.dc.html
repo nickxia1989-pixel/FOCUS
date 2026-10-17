@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FOCUS 桌面窗口组件</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.d-root{--disp:'Bricolage Grotesque',-apple-system,'PingFang SC',sans-serif;position:relative;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:var(--sys);-webkit-font-smoothing:antialiased;box-sizing:border-box;text-align:left}
+.d-root *{box-sizing:border-box}
+.d-mac{--sys:-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC','Noto Sans SC',sans-serif;border-radius:16px;box-shadow:0 0 0 .5px rgba(0,0,0,.3),0 24px 60px rgba(0,0,0,.22),0 4px 12px rgba(0,0,0,.08)}
+.d-win{--sys:'Segoe UI Variable Text','Segoe UI','Microsoft YaHei UI','Noto Sans SC',sans-serif;border-radius:8px;box-shadow:0 0 0 1px rgba(0,0,0,.14),0 26px 56px rgba(0,0,0,.26),0 2px 6px rgba(0,0,0,.08)}
+.d-root{--now:#D6FF3D;--nowT:#0B0B0C;--nowSub:rgba(11,11,12,.1);--nowLine:rgba(11,11,12,.16);--nowBtn:#0B0B0C;--nowBtnT:#D6FF3D;--nowV:#4A3BB0;--hi:#D6FF3D;--hiT:#0B0B0C;--hiIcon:#0B0B0C;--accOnInk:#D6FF3D;--emBg:#0B0B0C;--emT:#D6FF3D;--h1:#EEFFC2;--h2:#E2FF85;--h3:#D6FF3D;--h4:#A9D400;--fab:rgba(214,255,61,.88);--fabT:#0B0B0C;--fabSh:rgba(120,160,0,.28)}
+.d-light.s-ink{--now:#141416;--nowT:#F4F4EF;--nowSub:rgba(255,255,255,.12);--nowLine:rgba(255,255,255,.24);--nowBtn:#D6FF3D;--nowBtnT:#0B0B0C;--nowV:#B8A6FF;--hi:#141416;--hiT:#F4F4EF;--hiIcon:#D6FF3D;--accOnInk:#D6FF3D;--emBg:#D6FF3D;--emT:#0B0B0C;--h1:#DEDED7;--h2:#ADADA5;--h3:#64645E;--h4:#141416;--tabOn:#141416;--tabOnT:#D6FF3D;--fab:rgba(20,20,22,.88);--fabT:#D6FF3D;--fabSh:rgba(0,0,0,.28)}
+.d-light.s-blue{--now:#2F5BFF;--nowT:#FFFFFF;--nowSub:rgba(255,255,255,.16);--nowLine:rgba(255,255,255,.32);--nowBtn:#FFFFFF;--nowBtnT:#2F5BFF;--nowV:#E3DDFF;--hi:#2F5BFF;--hiT:#FFFFFF;--hiIcon:#FFFFFF;--accOnInk:#9DB5FF;--emBg:#FFFFFF;--emT:#2F5BFF;--h1:#DDE5FF;--h2:#AFC1FF;--h3:#7393FF;--h4:#2F5BFF;--tabOn:#2F5BFF;--tabOnT:#FFFFFF;--fab:rgba(47,91,255,.9);--fabT:#FFFFFF;--fabSh:rgba(47,91,255,.35)}
+.d-light.s-matcha{--now:#E3F0B5;--nowT:#1F2A05;--nowSub:rgba(31,42,5,.08);--nowLine:rgba(31,42,5,.18);--nowBtn:#33470A;--nowBtnT:#E3F0B5;--nowV:#4A3BB0;--hi:#33470A;--hiT:#EEF7D2;--hiIcon:#D9EE8F;--accOnInk:#CFEA7A;--emBg:#E3F0B5;--emT:#33470A;--h1:#EEF5D6;--h2:#D2E69A;--h3:#9CBE45;--h4:#4E6912;--tabOn:#33470A;--tabOnT:#E3F0B5;--fab:rgba(51,71,10,.9);--fabT:#E3F0B5;--fabSh:rgba(51,71,10,.3)}
+.d-light{--bg:#F6F6F2;--sf:#FFFFFF;--sf2:#EEEEE9;--sf3:#E4E4DE;--tx:#0B0B0C;--mu:#66665F;--fa:#A3A39B;--ln:rgba(11,11,12,.08);--lime:#D6FF3D;--limeT:#0B0B0C;--verify:#6C55E0;--verifyS:#E8E3FF;--inbox:#1F7FBF;--inboxS:#DDF1FF;--goal:#D4552E;--goalS:#FFE4DA;--hist:#97782C;--histS:#F5EBCF;--ok:#2E9E5B;--warn:#C98204;--bad:#D93A3F;--scrim:rgba(11,11,12,.28);--pop:#FFFFFF;--popLn:rgba(11,11,12,.1);--shadow:0 12px 32px rgba(0,0,0,.16),0 2px 6px rgba(0,0,0,.06)}
+.d-dark{--bg:#0B0B0C;--sf:#18181A;--sf2:#222225;--sf3:#2C2C30;--tx:#F4F4EF;--mu:#8E8E88;--fa:#55554F;--ln:rgba(255,255,255,.07);--lime:#D6FF3D;--limeT:#D6FF3D;--verify:#B8A6FF;--verifyS:rgba(184,166,255,.16);--inbox:#8FD3FF;--inboxS:rgba(143,211,255,.14);--goal:#FF8A65;--goalS:rgba(255,138,101,.15);--hist:#F2E2B8;--histS:rgba(242,226,184,.13);--ok:#7EE2A0;--warn:#FFC53D;--bad:#FF6369;--scrim:rgba(0,0,0,.5);--pop:#232326;--popLn:rgba(255,255,255,.1);--shadow:0 14px 36px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.06)}
+.d-win.d-light{--bg:#F3F3EF}
+.d-win.d-dark{--bg:#121213}
+.d-tb{height:40px;flex:none;display:flex;align-items:center;padding:0 8px 0 12px;position:relative;z-index:3}
+.d-win .d-tb{height:36px;padding:0 0 0 12px}
+.d-lights{display:flex;gap:8px}
+.d-lights i{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.2)}
+.d-lights i:nth-child(1){background:#FF5F57}.d-lights i:nth-child(2){background:#FEBC2E}.d-lights i:nth-child(3){background:#28C840}
+.d-wapp{display:flex;align-items:center;gap:8px;font:600 12px/1 var(--sys);color:var(--mu)}
+.d-wapp svg{width:16px;height:16px;border-radius:4px}
+.d-tbr{margin-left:auto;display:flex;align-items:center;gap:2px}
+.d-ib{position:relative;width:30px;height:30px;border-radius:9px;border:0;background:transparent;color:var(--mu);display:grid;place-items:center;padding:0}
+.d-win .d-ib{border-radius:5px;width:32px}
+.d-ib svg{width:17px;height:17px}
+.d-ib.on{background:var(--sf2);color:var(--tx)}
+.d-sync.ok{color:var(--ok)}.d-sync.syncing{color:var(--tx)}.d-sync.offline{color:var(--fa)}.d-sync.error{color:var(--bad)}.d-sync.conflict{color:var(--tx)}
+.d-sync.syncing svg{animation:dSpin 1.1s linear infinite}
+.d-sbdg{position:absolute;top:1px;right:0;min-width:15px;height:15px;border-radius:8px;padding:0 4px;background:var(--bad);color:#fff;font:800 9.5px/15px var(--disp);text-align:center;box-shadow:0 0 0 2px var(--bg)}
+.d-cap{display:flex;margin-left:6px}
+.d-cap button{width:46px;height:36px;border:0;background:transparent;color:var(--tx);display:grid;place-items:center;padding:0}
+.d-cap button svg{width:10px;height:10px}
+.d-cap button.x:hover{background:#C42B1C;color:#fff}
+.d-body{flex:1;display:flex;min-height:0}
+.d-side{width:200px;flex:none;display:flex;flex-direction:column;gap:4px;padding:4px 10px 12px 12px}
+.d-pc{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:var(--sf);box-shadow:0 0 0 1px var(--ln);margin-bottom:10px}
+.d-pc b{display:block;font-size:14px;font-weight:600}
+.d-pc span{display:block;font-size:11.5px;color:var(--mu);margin-top:2px}
+.d-pc svg{width:15px;height:15px;color:var(--mu);margin-left:auto}
+.d-nav{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px;border-radius:12px;color:var(--tx);font-size:12px}
+.d-nav svg{width:18px;height:18px;color:var(--c)}
+.d-nav b{font:800 13px/1 var(--disp);letter-spacing:.02em}
+.d-nav>span{color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.d-nav em{margin-left:auto;font:700 12px/1 var(--disp);font-style:normal;color:var(--mu)}
+.d-nav.on{background:var(--cs);}
+.d-nav.on.f{background:var(--hi);color:var(--hiT)}
+.d-nav.on.f span,.d-nav.on.f em{color:var(--hiT)}.d-nav.on.f svg{color:var(--hiIcon)}
+.d-sdiv{height:1px;background:var(--ln);margin:6px 8px}
+.d-sfoot{margin-top:auto;display:flex;flex-direction:column;gap:2px}
+.d-main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.d-pills{display:flex;gap:6px;padding:0 12px 10px;align-items:center;flex:none}
+.d-av{width:30px;height:30px;border-radius:50%;border:0;background:#0B0B0C;color:#D6FF3D;font:700 13px/30px var(--sys);text-align:center;flex:none;padding:0;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.d-dark .d-av{background:#F4F4EF;color:#0B0B0C}
+.d-av.big{width:34px;height:34px;line-height:34px;font-size:14px}
+.d-pl{position:relative;height:30px;border-radius:15px;border:0;padding:0 9px 0 8px;display:flex;align-items:center;gap:4px;background:var(--sf2);color:var(--tx);font:700 11.5px/1 var(--disp)}
+.d-pl svg{width:16px;height:16px;color:var(--c)}
+.d-pl em{font-style:normal;font-weight:700;color:var(--mu)}
+.d-pl.on{background:var(--tx);color:var(--bg);padding-right:11px}
+.d-pl.on svg{color:var(--cOn)}
+.d-pl.on em{color:var(--bg);opacity:.6}
+.d-dark .d-pl.on{background:var(--cOn);color:#0B0B0C}.d-dark .d-pl.on svg,.d-dark .d-pl.on em{color:#0B0B0C}
+.d-pl.drop{background:var(--cs);box-shadow:0 0 0 2px var(--c);transform:scale(1.08)}
+.d-scroll{flex:1;min-height:0;overflow:hidden;position:relative}
+.d-now{margin:0 12px;border-radius:22px;background:var(--now);color:var(--nowT);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.d-reg .d-now{margin:4px 16px 0 4px;padding:18px 20px;gap:12px}
+.d-now .top{display:flex;justify-content:space-between;font:800 11px/1 var(--disp);letter-spacing:.08em}
+.d-now h2{margin:0;font:600 20px/1.32 var(--sys);letter-spacing:-.01em}
+.d-reg .d-now h2{font-size:24px}
+.d-subs{display:flex;flex-direction:column;gap:6px}
+.d-sub{display:flex;align-items:center;gap:8px;font-size:12.5px;line-height:1.35}
+.d-sub i{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1.5px currentColor;flex:none}
+.d-sub i.d{background:currentColor}
+.d-sub i.v{box-shadow:none;border:1.5px dashed var(--nowV)}
+.d-sub s{opacity:.45}
+.d-sub em{font:700 10px/1 var(--sys);font-style:normal;padding:3px 6px;border-radius:999px;background:var(--nowSub)}
+.d-hact{display:flex;align-items:center;gap:10px}
+.d-done{width:42px;height:42px;border-radius:50%;border:0;padding:0;background:var(--nowBtn);color:var(--nowBtnT);display:grid;place-items:center}
+.d-done svg{width:20px;height:20px}
+.d-hact b{font:700 13px/1 var(--sys)}
+.d-vb{margin-left:auto;height:32px;border-radius:16px;border:0;padding:0 12px 0 10px;background:var(--nowSub);color:inherit;display:flex;align-items:center;gap:5px;font:600 12px/1 var(--sys);box-shadow:inset 0 0 0 1.5px var(--nowLine)}
+.d-vb svg{width:16px;height:16px}
+.d-add{margin:10px 12px 0;height:38px;border-radius:12px;background:var(--sf);box-shadow:0 0 0 1px var(--ln);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--fa);font-size:13px}
+.d-reg .d-add{margin:12px 16px 0 4px}
+.d-add svg{width:15px;height:15px;color:var(--tx)}
+.d-add.focus{box-shadow:0 0 0 2px var(--tx);color:var(--tx)}
+.d-caret{display:inline-block;width:1.5px;height:16px;background:var(--tx);margin-left:1px;vertical-align:-3px;animation:dBlink 1s steps(1) infinite}
+.d-qh{display:flex;justify-content:space-between;align-items:baseline;padding:14px 18px 6px 18px;font:700 11.5px/1 var(--sys);color:var(--mu)}
+.d-reg .d-qh{padding-left:10px;padding-right:20px}
+.d-qh b{font:800 12px/1 var(--disp);letter-spacing:.06em;color:var(--tx)}
+.d-q{padding:0 12px 0 14px}
+.d-reg .d-q{padding:0 16px 0 4px}
+.d-row{position:relative;display:flex;align-items:flex-start;gap:10px;padding:8px 6px 8px 6px;font-size:13.5px;line-height:1.45;border-radius:12px}
+.d-q .d-row{border-top:1px solid var(--ln);border-radius:0}
+.d-q .d-row.hov,.d-q .d-row.edit{border-radius:12px;border-color:transparent}
+.d-row.hov{background:var(--sf);box-shadow:0 0 0 1px var(--ln)}
+.d-row.sub{margin-left:26px}
+.d-row.sub::before{content:'';position:absolute;left:-13px;top:4px;bottom:4px;width:1.5px;border-radius:1px;background:var(--ln)}
+.d-row.ghost{opacity:.35}
+.d-row.edit{background:var(--sf);box-shadow:0 0 0 2px var(--tx)}
+.d-no{font:700 12px/20px var(--disp);color:var(--mu);width:20px;flex:none}
+.d-cb{width:19px;height:19px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1.6px var(--fa);margin-top:1px;display:grid;place-items:center;color:#0B0B0C}
+.d-cb svg{width:12px;height:12px;opacity:0}
+.d-cb.c{box-shadow:inset 0 0 0 1.6px var(--c)}
+.d-cb.done{background:var(--c);box-shadow:none;opacity:.7}
+.d-cb.done svg{opacity:1}
+.d-cb.vf{box-shadow:none;border:1.6px dashed var(--verify)}
+.d-dark .d-cb.done{color:#0B0B0C}
+.d-tt{flex:1;min-width:0}
+.d-tt.done{color:var(--fa);text-decoration:line-through}
+.d-tag{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:700;color:var(--verify);background:var(--verifyS);vertical-align:1px}
+.d-acts{display:flex;gap:2px;align-items:center;flex:none;margin-top:-3px}
+.d-prog{display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 6px 0 8px;border-radius:999px;background:var(--sf2);color:var(--mu);font:700 11px/1 var(--disp);margin-top:2px}
+.d-prog svg{width:12px;height:12px}
+.d-mini{width:24px;height:24px;border-radius:7px;border:0;background:transparent;color:var(--mu);display:grid;place-items:center;padding:0}
+.d-mini svg{width:15px;height:15px}
+.d-act{width:26px;height:26px;border-radius:50%;border:0;display:grid;place-items:center;padding:0;color:var(--c);background:var(--cs)}
+.d-act svg{width:15px;height:15px}
+.d-act.spark{background:var(--hi);color:var(--hiIcon)}
+.d-grip{position:absolute;left:-11px;top:11px;width:8px;height:14px;color:var(--fa)}
+.d-drop{height:2px;border-radius:1px;background:var(--tx);margin:-1px 6px;position:relative}
+.d-drop::before{content:'';position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--tx)}
+.d-fly{position:absolute;left:96px;top:66px;width:236px;z-index:6;background:var(--sf);border-radius:12px;box-shadow:var(--shadow);padding:9px 12px;display:flex;gap:10px;font-size:13.5px;line-height:1.45;transform:rotate(-2deg)}
+.d-lh{padding:6px 18px 4px;display:flex;align-items:baseline;gap:10px}
+.d-reg .d-lh{padding-left:10px}
+.d-lh b{font:800 28px/1 var(--disp);letter-spacing:-.02em;color:var(--tx)}
+.d-lh>span{font-size:12.5px;color:var(--mu)}
+.d-lh i{width:9px;height:9px;border-radius:50%;background:var(--c);align-self:center;font-style:normal}
+.d-grp{display:flex;align-items:center;gap:6px;padding:12px 8px 6px;font:700 11.5px/1 var(--sys);color:var(--mu)}
+.d-grp svg{width:13px;height:13px}
+.d-goal{margin:0 0 8px;padding:12px 12px 10px;border-radius:16px;background:var(--sf);box-shadow:0 0 0 1px var(--ln);display:flex;flex-direction:column;gap:8px}
+.d-goal .h{display:flex;gap:10px;align-items:flex-start;font-size:14px;font-weight:600;line-height:1.4}
+.d-goal .h em{margin-left:auto;font:800 12px/1.6 var(--disp);font-style:normal;color:var(--goal)}
+.d-goal .bar{height:6px;border-radius:3px;background:var(--sf2);overflow:hidden}
+.d-goal .bar i{display:block;height:100%;border-radius:3px;background:var(--goal)}
+.d-goal .m{font-size:11.5px;color:var(--mu);padding-left:29px;margin-top:-4px}
+.d-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:2px 12px 0}
+.d-reg .d-stats{padding:2px 16px 0 4px}
+.d-st{border-radius:16px;background:var(--sf);box-shadow:0 0 0 1px var(--ln);padding:10px 12px}
+.d-st b{display:block;font:800 26px/1 var(--disp);letter-spacing:-.02em}
+.d-st>span{display:block;font-size:11px;color:var(--mu);margin-top:5px}
+.d-st.f{background:var(--hi);color:var(--hiT);box-shadow:none}
+.d-st.f>span{color:var(--hiT);opacity:.65}
+.d-heat{margin:10px 12px 0;padding:12px;border-radius:16px;background:var(--sf);box-shadow:0 0 0 1px var(--ln)}
+.d-reg .d-heat{margin:10px 16px 0 4px}
+.d-heat .hd{display:flex;justify-content:space-between;font-size:11px;color:var(--mu);margin-bottom:8px}
+.d-hm{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,minmax(0,1fr));gap:3px}
+.d-hm i{aspect-ratio:1;border-radius:4px;background:var(--sf2)}
+.d-hm i.l1{background:var(--h1)}.d-hm i.l2{background:var(--h2)}.d-hm i.l3{background:var(--h3)}.d-hm i.l4{background:var(--h4)}
+.d-dark .d-hm i.l1{background:#2E3A10}.d-dark .d-hm i.l2{background:#56701A}.d-dark .d-hm i.l3{background:#9DC22A}.d-dark .d-hm i.l4{background:#D6FF3D}
+.d-hm i.t{box-shadow:0 0 0 1.5px var(--tx)}
+.d-day{display:flex;align-items:baseline;gap:8px;padding:14px 18px 4px;font-size:12px;color:var(--mu)}
+.d-reg .d-day{padding-left:10px}
+.d-day b{font:800 13px/1 var(--disp);color:var(--tx)}
+.d-hr{display:flex;align-items:flex-start;gap:10px;padding:7px 18px;font-size:13px;line-height:1.45}
+.d-reg .d-hr{padding-left:10px}
+.d-hr time{font:700 11.5px/19px var(--disp);color:var(--mu);width:34px;flex:none}
+.d-hr i{width:8px;height:8px;border-radius:50%;background:var(--c);margin-top:6px;flex:none}
+.d-hr span small{display:block;font-size:11px;color:var(--mu);margin-top:1px}
+.d-tr{margin:0 12px 8px;padding:11px 12px;border-radius:14px;background:var(--sf);box-shadow:0 0 0 1px var(--ln);display:flex;flex-direction:column;gap:6px}
+.d-reg .d-tr{margin:0 16px 8px 4px}
+.d-tr b{font-size:13.5px;font-weight:600}
+.d-tr .m{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--mu)}
+.d-tr .m i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.d-tr .k{font-size:11.5px;color:var(--mu);padding-left:10px;border-left:1.5px solid var(--ln)}
+.d-tr .a{display:flex;gap:6px;margin-top:2px}
+.d-btn{height:28px;border-radius:14px;border:0;padding:0 12px;background:var(--sf2);color:var(--tx);font:600 12px/1 var(--sys);display:inline-flex;align-items:center;gap:5px}
+.d-btn svg{width:14px;height:14px}
+.d-btn.pri{background:var(--tx);color:var(--bg)}
+.d-btn.lime{background:var(--hi);color:var(--hiT)}
+.d-btn.bad{color:var(--bad);background:transparent;box-shadow:inset 0 0 0 1px var(--ln)}
+.d-btn.conf{background:var(--bad);color:#fff}
+.d-empty{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:26px 22px 0}
+.d-empty .art{width:110px;height:84px;position:relative}
+.d-empty b{font:800 34px/1 var(--disp);letter-spacing:-.03em}
+.d-empty p{margin:0;font-size:13px;line-height:1.6;color:var(--mu);max-width:280px}
+.d-ft{height:40px;flex:none;border-top:1px solid var(--ln);display:flex;align-items:center;gap:7px;padding:0 16px;font-size:12px;color:var(--mu)}
+.d-ft b{color:var(--tx);font:800 13px/1 var(--disp)}
+.d-ft svg{width:14px;height:14px;color:var(--tx)}
+.d-dots{margin-left:auto;display:flex;gap:3px}
+.d-dots i{width:14px;height:6px;border-radius:3px;background:var(--sf3)}
+.d-dots i.on{background:var(--tx)}
+.d-pop{position:absolute;z-index:8;background:var(--pop);border-radius:14px;box-shadow:var(--shadow);padding:6px;min-width:200px;font-size:13px}
+.d-win .d-pop{border-radius:8px}
+.d-mi{display:flex;align-items:center;gap:9px;height:32px;padding:0 10px;border-radius:8px;color:var(--tx)}
+.d-mi svg{width:16px;height:16px;color:var(--mu)}
+.d-mi.hl{background:var(--sf2)}
+.d-mi.bad,.d-mi.bad svg{color:var(--bad)}
+.d-mi em{margin-left:auto;font-style:normal;font-size:11.5px;color:var(--mu)}
+.d-mi kbd{margin-left:auto;font:600 11px/1 var(--disp);color:var(--fa)}
+.d-mi .tg{margin-left:auto;width:30px;height:18px;border-radius:9px;background:var(--tx);position:relative}
+.d-mi .tg::after{content:'';position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:var(--accOnInk)}
+.d-msep{height:1px;background:var(--popLn);margin:5px 6px}
+.d-mcap{padding:6px 10px 4px;font-size:11px;color:var(--fa)}
+.d-pf{display:flex;align-items:center;gap:9px;height:38px;padding:0 8px;border-radius:9px}
+.d-pf .a{width:24px;height:24px;border-radius:50%;font:700 11px/24px var(--sys);text-align:center;color:#fff;flex:none}
+.d-pf b{font-weight:600;font-size:13px}
+.d-pf em{margin-left:auto;font:700 11px/1 var(--disp);font-style:normal;color:var(--fa)}
+.d-pf.on{background:var(--sf2)}
+.d-pf .ck{width:15px;height:15px;color:var(--tx)}
+.d-pf .ed{display:flex;gap:2px;margin-left:auto}
+.d-sheet{position:absolute;left:0;right:0;bottom:0;top:40px;z-index:7;background:var(--bg);display:flex;flex-direction:column}
+.d-win .d-sheet{top:36px}
+.d-shh{display:flex;align-items:center;gap:8px;padding:2px 12px 10px 8px}
+.d-shh b{font:800 20px/1 var(--disp);letter-spacing:-.01em}
+.d-shh .bk{width:30px;height:30px;border-radius:9px;border:0;background:transparent;color:var(--tx);display:grid;place-items:center;padding:0}
+.d-shh .bk svg{width:18px;height:18px}
+.d-shh span{margin-left:auto;font-size:11.5px;color:var(--mu)}
+.d-shb{flex:1;overflow:hidden;padding:0 12px;display:flex;flex-direction:column;gap:10px}
+.d-card{border-radius:16px;background:var(--sf);box-shadow:0 0 0 1px var(--ln);padding:12px}
+.d-ss{display:flex;align-items:center;gap:12px}
+.d-ss .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--sf2);color:var(--ok)}
+.d-ss .ic svg{width:22px;height:22px}
+.d-ss b{display:block;font-size:14px;font-weight:600}
+.d-ss span{display:block;font-size:11.5px;color:var(--mu);margin-top:2px}
+.d-ss .d-btn{margin-left:auto}
+.d-fl{display:flex;flex-direction:column;gap:0}
+.d-fr{display:flex;align-items:center;gap:10px;height:38px;border-bottom:1px solid var(--ln);font-size:12.5px}
+.d-fr:last-child{border-bottom:0}
+.d-fr span{width:72px;color:var(--mu);flex:none}
+.d-fr b{font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-fr b.ph{color:var(--fa);letter-spacing:.2em}
+.d-dv{display:flex;align-items:center;gap:10px;height:34px;font-size:12.5px}
+.d-dv svg{width:16px;height:16px;color:var(--mu)}
+.d-dv em{margin-left:auto;font-style:normal;font-size:11.5px;color:var(--mu)}
+.d-cap2{font-size:11px;color:var(--mu);line-height:1.5;padding:0 4px}
+.d-cf{display:flex;flex-direction:column;gap:9px}
+.d-cf .q{font-size:12.5px;line-height:1.5}
+.d-cf .q b{font-weight:600}
+.d-opt{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:12px;background:var(--sf2);font-size:12.5px;line-height:1.45}
+.d-opt.sel{background:var(--hi);color:var(--hiT)}
+.d-opt .r{width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.6px currentColor;flex:none;margin-top:1px;opacity:.6}
+.d-opt.sel .r{box-shadow:inset 0 0 0 5px currentColor;opacity:1}
+.d-opt small{display:block;font-size:10.5px;opacity:.65;margin-bottom:2px}
+.d-cf .a{display:flex;gap:6px;flex-wrap:wrap}
+.d-scrim{position:absolute;inset:0;z-index:7;background:var(--scrim)}
+.d-modal{position:absolute;left:16px;right:16px;top:118px;z-index:8;background:var(--pop);border-radius:22px;box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:12px}
+.d-win .d-modal{border-radius:10px}
+.d-modal h3{margin:0;font:800 19px/1.25 var(--disp);letter-spacing:-.01em}
+.d-modal p{margin:0;font-size:12.5px;line-height:1.55;color:var(--mu)}
+.d-ch{border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;box-shadow:inset 0 0 0 1.5px var(--ln)}
+.d-ch b{font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.d-ch b em{font:700 10px/1 var(--sys);font-style:normal;padding:3px 7px;border-radius:999px;background:var(--emBg);color:var(--emT)}
+.d-ch span{font-size:12px;line-height:1.5;color:var(--mu)}
+.d-ch.sel{background:var(--hi);box-shadow:none;color:var(--hiT)}
+.d-ch.sel span{color:var(--hiT);opacity:.7}
+.d-toast{position:absolute;left:12px;right:12px;bottom:52px;z-index:6;height:44px;border-radius:14px;background:#0B0B0C;color:#F4F4EF;display:flex;align-items:center;gap:10px;padding:0 8px 0 14px;font-size:12.5px;box-shadow:0 10px 26px rgba(0,0,0,.3)}
+.d-dark .d-toast{background:#2A2A2E;color:#F4F4EF}
+.d-toast span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-toast button{height:30px;border-radius:15px;border:0;background:var(--lime);color:#0B0B0C;font:700 12px/1 var(--sys);padding:0 12px}
+.d-toast i{width:22px;height:22px;flex:none;font-style:normal;position:relative}
+.d-toast i::before{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(214,255,61,.3)}
+.d-toast i::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid #D6FF3D;border-left-color:transparent;border-bottom-color:transparent;transform:rotate(30deg)}
+@keyframes dSpin{to{transform:rotate(360deg)}}
+@keyframes dBlink{50%{opacity:0}}
+</style>
+</helmet>
+<div class="d-root {{rootCls}}" style="width:{{w}}px;height:{{h}}px">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="d-i-focus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+<symbol id="d-i-focusF" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+<symbol id="d-i-verify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.4 12S6 5.4 12 5.4 21.6 12 21.6 12 18 18.6 12 18.6 2.4 12 2.4 12z"></path><path d="m9.4 12.1 1.8 1.8 3.4-3.6"></path></symbol>
+<symbol id="d-i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5 6 6a2 2 0 0 1 1.9-1.4h8.2A2 2 0 0 1 18 6l2.5 7.5V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><path d="M3.5 13.5h4.6l1.4 2.4h5l1.4-2.4h4.6"></path></symbol>
+<symbol id="d-i-goal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 19.6 9.4 7.8l3.9 6.4 2.4-3.3 5.5 8.7z"></path></symbol>
+<symbol id="d-i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.8" y="5" width="16.4" height="15.2" rx="3.2"></rect><path d="M8 3v4M16 3v4M3.8 10h16.4M9 15l2 2 4-4"></path></symbol>
+<symbol id="d-i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></symbol>
+<symbol id="d-i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="18.5" cy="12" r="1.8"></circle></symbol>
+<symbol id="d-i-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.9a4 4 0 0 0 .5-7.97 5.6 5.6 0 0 0-10.8-1A4.5 4.5 0 0 0 7.2 18.5z"></path><path d="m9.6 13.9 1.8 1.8 3.2-3.4"></path></symbol>
+<symbol id="d-i-syncing" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1"></path><path d="M17.8 3.6v3.6h-3.6M6.2 20.4v-3.6h3.6"></path></symbol>
+<symbol id="d-i-offline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.9a4 4 0 0 0 1.6-.33M20.4 15a4 4 0 0 0-2.8-4.47 5.6 5.6 0 0 0-8.3-3.9M6.2 9.2A4.5 4.5 0 0 0 7.2 18.5"></path><path d="M3.5 3.5l17 17"></path></symbol>
+<symbol id="d-i-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.9a4 4 0 0 0 .5-7.97 5.6 5.6 0 0 0-10.8-1A4.5 4.5 0 0 0 7.2 18.5z"></path><path d="M12 10.5v3.2"></path><circle cx="12" cy="16" r=".5" fill="currentColor"></circle></symbol>
+<symbol id="d-i-conflict" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.9a4 4 0 0 0 .5-7.97 5.6 5.6 0 0 0-10.8-1A4.5 4.5 0 0 0 7.2 18.5z"></path><path d="M10 12.2l1.4 1.4-1.4 1.4M14 12.2l-1.4 1.4 1.4 1.4"></path></symbol>
+<symbol id="d-i-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.9a4 4 0 0 0 .5-7.97 5.6 5.6 0 0 0-10.8-1A4.5 4.5 0 0 0 7.2 18.5z" stroke-dasharray="2.4 2.6"></path></symbol>
+<symbol id="d-i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5h6l-1 5.2 3 3.1v1.7H7v-1.7l3-3.1z"></path><path d="M12 13.5V20.5"></path></symbol>
+<symbol id="d-i-pinF" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5h6l-1 5.2 3 3.1v1.7H7v-1.7l3-3.1z"></path><path d="M12 13.5V20.5" fill="none"></path></symbol>
+<symbol id="d-i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.3 4.3L19 7.2"></path></symbol>
+<symbol id="d-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"></path></symbol>
+<symbol id="d-i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 7 5 5-5 5"></path></symbol>
+<symbol id="d-i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 6-6 6 6 6"></path></symbol>
+<symbol id="d-i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"></path></symbol>
+<symbol id="d-i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2A1.8 1.8 0 0 0 9.2 21h5.6a1.8 1.8 0 0 0 1.8-1.8L17.5 7"></path></symbol>
+<symbol id="d-i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></symbol>
+<symbol id="d-i-sub" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v9a3 3 0 0 0 3 3h9M15 13l3 3-3 3"></path></symbol>
+<symbol id="d-i-move" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"></path></symbol>
+<symbol id="d-i-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"></path><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"></path></symbol>
+<symbol id="d-i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path></symbol>
+<symbol id="d-i-swap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 4 7l3 3M4 7h12M17 20l3-3-3-3M20 17H8"></path></symbol>
+<symbol id="d-i-grip" viewBox="0 0 8 14" fill="currentColor"><circle cx="2" cy="2" r="1.3"></circle><circle cx="6" cy="2" r="1.3"></circle><circle cx="2" cy="7" r="1.3"></circle><circle cx="6" cy="7" r="1.3"></circle><circle cx="2" cy="12" r="1.3"></circle><circle cx="6" cy="12" r="1.3"></circle></symbol>
+<symbol id="d-i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6"></rect><path d="M2.5 19h19"></path></symbol>
+<symbol id="d-i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2.4"></rect><path d="M11 18h2"></path></symbol>
+<symbol id="d-i-min" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><path d="M0 5h10"></path></symbol>
+<symbol id="d-i-x" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><path d="M0 0l10 10M10 0 0 10"></path></symbol>
+</svg>
+
+<div class="d-tb">
+  <sc-if value="{{isMac}}" hint-placeholder-val="{{ true }}"><div class="d-lights"><i></i><i></i><i></i></div></sc-if>
+  <sc-if value="{{isWin}}" hint-placeholder-val="{{ false }}"><div class="d-wapp"><svg viewBox="0 0 132 132" aria-hidden="true"><rect width="132" height="132" fill="#0B0B0C"></rect><rect x="22" y="22" width="88" height="68" rx="16" fill="#D6FF3D"></rect><path d="M66 34c1.6 10 6.8 15.2 16.8 16.8-10 1.6-15.2 6.8-16.8 16.8-1.6-10-6.8-15.2-16.8-16.8 10-1.6 15.2-6.8 16.8-16.8z" fill="#0B0B0C"></path><rect x="28" y="82" width="76" height="18" rx="8" fill="#3D3D41"></rect></svg>FOCUS</div></sc-if>
+  <div class="d-tbr">
+    <button class="d-ib d-sync {{sync}}" aria-label="{{syncLabel}}"><svg><use href="#d-i-{{syncIcon}}"></use></svg><sc-if value="{{isConflict}}" hint-placeholder-val="{{ false }}"><span class="d-sbdg">3</span></sc-if></button>
+    <button class="d-ib {{pinCls}}" aria-label="窗口置顶"><svg><use href="#d-i-{{pinIcon}}"></use></svg></button>
+    <button class="d-ib {{menuBtn}}" aria-label="更多"><svg><use href="#d-i-more"></use></svg></button>
+    <sc-if value="{{isWin}}" hint-placeholder-val="{{ false }}"><span class="d-cap"><button aria-label="最小化"><svg><use href="#d-i-min"></use></svg></button><button class="x" aria-label="关闭"><svg><use href="#d-i-x"></use></svg></button></span></sc-if>
+  </div>
+</div>
+
+<div class="d-body">
+  <sc-if value="{{regular}}" hint-placeholder-val="{{ false }}">
+    <nav class="d-side">
+      <div class="d-pc"><span class="d-av big">工</span><div><b>工作</b><span>共 3 个空间</span></div><svg><use href="#d-i-swap"></use></svg></div>
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+        <div class="d-nav {{n.cls}}" style="--c:{{n.c}};--cs:{{n.cs}}"><svg><use href="#d-i-{{n.icon}}"></use></svg><b>{{n.en}}</b><span>{{n.cn}}</span><em>{{n.n}}</em></div>
+      </sc-for>
+      <div class="d-sdiv"></div>
+      <div class="d-nav {{histNav}}" style="--c:var(--hist);--cs:var(--histS)"><svg><use href="#d-i-history"></use></svg><b>HISTORY</b><span>完成记录</span><em>+4</em></div>
+      <div class="d-sfoot">
+        <div class="d-nav {{trashNav}}" style="--c:var(--mu);--cs:var(--sf2)"><svg><use href="#d-i-trash"></use></svg><span style="color:var(--tx)">回收站</span><em>3</em></div>
+      </div>
+    </nav>
+  </sc-if>
+  <div class="d-main {{regCls}}">
+    <sc-if value="{{compact}}" hint-placeholder-val="{{ true }}">
+      <div class="d-pills">
+        <button class="d-av" aria-label="切换 profile：工作">工</button>
+        <sc-for list="{{pills}}" as="p" hint-placeholder-count="5">
+          <button class="d-pl {{p.cls}}" style="--c:{{p.c}};--cs:{{p.cs}};--cOn:{{p.cOn}}" aria-label="{{p.en}}"><svg><use href="#d-i-{{p.icon}}"></use></svg><sc-if value="{{p.on}}" hint-placeholder-val="{{ false }}">{{p.en}}</sc-if><em>{{p.n}}</em></button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div class="d-scroll">
+      <sc-if value="{{vFocus}}" hint-placeholder-val="{{ true }}">
+        <div class="d-now">
+          <div class="top"><span>NOW · 现在就做这件</span><span>01/05</span></div>
+          <h2>整理多端同步的冲突规则，写成可以直接实现的清单</h2>
+          <div class="d-subs">
+            <div class="d-sub"><i class="v"></i>完成 / 待测与删除墓碑<em>待验证</em></div>
+            <div class="d-sub"><i></i>离线一周后的合并</div>
+            <div class="d-sub"><i class="d"></i><s>排序与父子移动</s></div>
+          </div>
+          <div class="d-hact"><button class="d-done" aria-label="完成"><svg><use href="#d-i-check"></use></svg></button><b>完成</b><button class="d-vb"><svg><use href="#d-i-verify"></use></svg>送去验证</button></div>
+        </div>
+        <div class="d-add {{addCls}}"><svg><use href="#d-i-plus"></use></svg><sc-if value="{{addTyping}}" hint-placeholder-val="{{ false }}"><span>修一下 Windows 标题栏按钮间距<i class="d-caret"></i></span></sc-if><sc-if value="{{addIdle}}" hint-placeholder-val="{{ true }}">接下来要做…</sc-if></div>
+        <div class="d-qh"><span><b>接下来</b> · 4</span><span>拖到顶上 = 换成现在</span></div>
+        <div class="d-q">
+          <sc-for list="{{queue}}" as="r" hint-placeholder-count="4">
+            <div>
+              <sc-if value="{{r.dropBefore}}" hint-placeholder-val="{{ false }}"><div class="d-drop"></div></sc-if>
+              <div class="d-row {{r.cls}}" style="opacity:{{r.o}};--c:var(--tx);--cs:var(--sf2)">
+                <sc-if value="{{r.grip}}" hint-placeholder-val="{{ false }}"><svg class="d-grip"><use href="#d-i-grip"></use></svg></sc-if>
+                <sc-if value="{{r.showNo}}" hint-placeholder-val="{{ true }}"><span class="d-no">{{r.no}}</span></sc-if>
+                <sc-if value="{{r.showCb}}" hint-placeholder-val="{{ false }}"><span class="d-cb"><svg><use href="#d-i-check"></use></svg></span></sc-if>
+                <span class="d-tt">{{r.t}}<sc-if value="{{r.editing}}" hint-placeholder-val="{{ false }}"><i class="d-caret"></i></sc-if></span>
+                <span class="d-acts">
+                  <sc-if value="{{r.hov}}" hint-placeholder-val="{{ false }}"><button class="d-mini" aria-label="设为现在"><svg><use href="#d-i-up"></use></svg></button><button class="d-mini" aria-label="送去验证"><svg><use href="#d-i-verify"></use></svg></button><button class="d-mini" aria-label="更多操作"><svg><use href="#d-i-more"></use></svg></button></sc-if>
+                  <sc-if value="{{r.prog}}" hint-placeholder-val="{{ false }}"><span class="d-prog">{{r.prog}}<svg><use href="#d-i-chev"></use></svg></span></sc-if>
+                </span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{vList}}" hint-placeholder-val="{{ false }}">
+        <div class="d-lh" style="--c:{{lc}}"><i></i><b>{{lEn}}</b><span>{{lCn}} · {{lN}}</span></div>
+        <div class="d-add"><svg><use href="#d-i-plus"></use></svg>{{lPh}}</div>
+        <div class="d-q" style="margin-top:8px">
+          <sc-if value="{{isGoal}}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{goals}}" as="g" hint-placeholder-count="3">
+              <div class="d-goal"><div class="h"><span class="d-cb c" style="--c:var(--goal)"><svg><use href="#d-i-check"></use></svg></span><span>{{g.t}}</span></div><div class="m">{{g.m}}</div></div>
+            </sc-for>
+          </sc-if>
+          <sc-for list="{{lrows}}" as="r" hint-placeholder-count="3">
+            <div class="d-row {{r.cls}}" style="--c:{{lc}};--cs:{{lcs}}">
+              <span class="d-cb {{r.cb}}"><svg><use href="#d-i-check"></use></svg></span>
+              <span class="d-tt {{r.tt}}">{{r.t}}<sc-if value="{{r.tag}}" hint-placeholder-val="{{ false }}"><span class="d-tag">{{r.tag}}</span></sc-if></span>
+              <span class="d-acts">
+                <sc-if value="{{r.hov}}" hint-placeholder-val="{{ false }}"><button class="d-mini" aria-label="添加子任务"><svg><use href="#d-i-plus"></use></svg></button><button class="d-mini" aria-label="更多操作"><svg><use href="#d-i-more"></use></svg></button></sc-if>
+                <sc-if value="{{r.prog}}" hint-placeholder-val="{{ false }}"><span class="d-prog">{{r.prog}}<svg><use href="#d-i-chev"></use></svg></span></sc-if>
+                <sc-if value="{{r.act}}" hint-placeholder-val="{{ false }}"><button class="d-act {{r.actCls}}" aria-label="{{r.actLabel}}"><svg><use href="#d-i-{{r.act}}"></use></svg></button></sc-if>
+              </span>
+            </div>
+          </sc-for>
+          <sc-if value="{{isInbox}}" hint-placeholder-val="{{ false }}">
+            <div class="d-grp"><svg><use href="#d-i-chev"></use></svg>已完成 · 12</div>
+            <div class="d-row" style="--c:var(--inbox)"><span class="d-cb done"><svg><use href="#d-i-check"></use></svg></span><span class="d-tt done">给图标做 13px 版本</span></div>
+            <div class="d-row" style="--c:var(--inbox)"><span class="d-cb done"><svg><use href="#d-i-check"></use></svg></span><span class="d-tt done">整理第一轮设计的反馈</span></div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{vHistory}}" hint-placeholder-val="{{ false }}">
+        <div class="d-lh" style="--c:var(--hist)"><i></i><b>HISTORY</b><span>完成记录</span></div>
+        <div class="d-stats"><div class="d-st f"><b>4</b><span>今天</span></div><div class="d-st"><b>23</b><span>本周</span></div><div class="d-st"><b>6</b><span>连续天数</span></div></div>
+        <div class="d-heat"><div class="hd"><span>最近 16 周</span><span>点一天看那天</span></div><div class="d-hm"><sc-for list="{{heat}}" as="c" hint-placeholder-count="112"><i class="{{c}}"></i></sc-for></div></div>
+        <div class="d-day"><b>今天</b>10月17日 周六 · 4 件</div>
+        <sc-for list="{{hist}}" as="h" hint-placeholder-count="4">
+          <div class="d-hr" style="--c:{{h.c}}"><time>{{h.time}}</time><i></i><span>{{h.t}}<sc-if value="{{h.sub}}" hint-placeholder-val="{{ false }}"><small>{{h.sub}}</small></sc-if></span></div>
+        </sc-for>
+        <div class="d-day"><b>昨天</b>10月16日 周五 · 6 件</div>
+        <div class="d-hr" style="--c:var(--tx)"><time>22:14</time><i></i><span>同步设置里显示各设备最后更新时间</span></div>
+      </sc-if>
+
+      <sc-if value="{{vTrash}}" hint-placeholder-val="{{ false }}">
+        <div class="d-lh" style="--c:var(--mu);justify-content:space-between"><b>回收站</b><button class="d-btn bad" style="margin-left:auto">清空</button></div>
+        <p class="d-cap2" style="margin:0 14px 10px">删除的条目连同子项保留 30 天，可以恢复到原来的位置。</p>
+        <sc-for list="{{trash}}" as="x" hint-placeholder-count="3">
+          <div class="d-tr" style="--c:{{x.c}}">
+            <b>{{x.t}}</b>
+            <div class="m"><i></i>{{x.m}}</div>
+            <sc-if value="{{x.k}}" hint-placeholder-val="{{ false }}"><div class="k">{{x.k}}</div></sc-if>
+            <div class="a"><button class="d-btn pri">恢复</button><button class="d-btn {{x.delCls}}">{{x.del}}</button></div>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{vEmpty}}" hint-placeholder-val="{{ false }}">
+        <div class="d-empty">
+          <div class="art">
+            <div style="position:absolute;left:10px;top:44px;width:96px;height:30px;border-radius:10px;background:var(--sf2)"></div>
+            <div style="position:absolute;left:4px;top:34px;width:104px;height:30px;border-radius:10px;background:var(--sf3)"></div>
+            <div style="position:absolute;left:0;top:0;width:110px;height:56px;border-radius:16px;box-shadow:inset 0 0 0 2px var(--tx);background:repeating-linear-gradient(135deg,transparent 0 6px,var(--ln) 6px 7px)"></div>
+            <svg style="position:absolute;left:43px;top:13px;width:26px;height:26px;color:var(--tx)"><use href="#d-i-focus"></use></svg>
+          </div>
+          <b>Nothing now.</b>
+          <p>FOCUS 空了。从 INBOX 挑一件当「现在」，或者写下此刻最要紧的那件事。</p>
+          <div style="display:flex;gap:8px"><button class="d-btn lime"><svg><use href="#d-i-inbox"></use></svg>去 INBOX 挑一件</button><button class="d-btn"><svg><use href="#d-i-plus"></use></svg>写一件</button></div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isDrag}}" hint-placeholder-val="{{ false }}">
+        <div class="d-fly"><span class="d-no">05</span><span>周报：本周完成的事直接从 HISTORY 里抄</span></div>
+      </sc-if>
+    </div>
+
+    <div class="d-ft"><svg><use href="#d-i-focusF"></use></svg>今天 <b>4</b> 件 · 连续 <b>6</b> 天<span class="d-dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></div>
+
+    <sc-if value="{{toast}}" hint-placeholder-val="{{ false }}"><div class="d-toast"><i></i><span>已删除「回复设计稿评论」</span><button>撤销</button></div></sc-if>
+  </div>
+</div>
+
+<sc-if value="{{oMenu}}" hint-placeholder-val="{{ false }}">
+  <div class="d-pop" style="right:8px;top:40px;width:216px">
+    <div class="d-mi"><svg><use href="#d-i-trash"></use></svg>回收站<em>3</em></div>
+    <div class="d-mi hl"><svg><use href="#d-i-{{syncIcon}}"></use></svg>同步设置…<em>{{syncShort}}</em></div>
+    <div class="d-msep"></div>
+    <div class="d-mi"><svg><use href="#d-i-sound"></use></svg>完成提示音<span class="tg"></span></div>
+    <div class="d-mi"><svg><use href="#d-i-folder"></use></svg>打开数据文件夹</div>
+    <div class="d-msep"></div>
+    <div class="d-mcap">FOCUS 0.2.0 · ⌘1–5 切换列表</div>
+  </div>
+</sc-if>
+
+<sc-if value="{{oCtx}}" hint-placeholder-val="{{ false }}">
+  <div class="d-pop" style="left:150px;top:{{ctxTop}}px;width:196px">
+    <div class="d-mi"><svg><use href="#d-i-check"></use></svg>完成</div>
+    <div class="d-mi"><svg><use href="#d-i-edit"></use></svg>编辑<kbd>双击</kbd></div>
+    <div class="d-mi"><svg><use href="#d-i-sub"></use></svg>添加子任务</div>
+    <div class="d-msep"></div>
+    <div class="d-mi hl"><svg><use href="#d-i-up"></use></svg>设为现在</div>
+    <div class="d-mi"><svg><use href="#d-i-verify"></use></svg>送去验证</div>
+    <div class="d-mi"><svg><use href="#d-i-move"></use></svg>移到<em>INBOX · GOAL</em><svg style="width:13px;height:13px;margin-left:4px"><use href="#d-i-right"></use></svg></div>
+    <div class="d-msep"></div>
+    <div class="d-mi bad"><svg><use href="#d-i-trash"></use></svg>删除<kbd>⌫</kbd></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{oProfile}}" hint-placeholder-val="{{ false }}">
+  <div class="d-pop" style="left:10px;top:82px;width:236px">
+    <div class="d-mcap">PROFILE</div>
+    <div class="d-pf on"><span class="a" style="background:#0B0B0C;color:#D6FF3D">工</span><b>工作</b><svg class="ck"><use href="#d-i-check"></use></svg><em>1</em></div>
+    <div class="d-pf"><span class="a" style="background:#FF8A65;color:#0B0B0C">生</span><b>生活</b><span class="ed"><button class="d-mini" aria-label="重命名"><svg><use href="#d-i-edit"></use></svg></button><button class="d-mini" aria-label="删除" style="color:var(--bad)"><svg><use href="#d-i-trash"></use></svg></button></span><em style="margin-left:4px">2</em></div>
+    <div class="d-pf"><span class="a" style="background:#B8A6FF;color:#0B0B0C">读</span><b>读书</b><em>3</em></div>
+    <div class="d-msep"></div>
+    <div class="d-mi"><svg><use href="#d-i-plus"></use></svg>新建 profile</div>
+    <div class="d-mcap">⌘⇧P 打开 · 数字键切换</div>
+  </div>
+</sc-if>
+
+<sc-if value="{{oSync}}" hint-placeholder-val="{{ false }}">
+  <div class="d-sheet">
+    <div class="d-shh"><button class="bk" aria-label="返回"><svg><use href="#d-i-back"></use></svg></button><b>同步</b><span>坚果云 WebDAV</span></div>
+    <div class="d-shb">
+      <div class="d-card d-ss"><span class="ic"><svg><use href="#d-i-ok"></use></svg></span><div><b>已同步</b><span>刚刚 · 每 15 秒检查一次</span></div><button class="d-btn pri">立即同步</button></div>
+      <div class="d-card d-fl" style="padding:2px 12px">
+        <div class="d-fr"><span>服务器</span><b>dav.jianguoyun.com/dav/</b></div>
+        <div class="d-fr"><span>账号</span><b>traveler@example.com</b></div>
+        <div class="d-fr"><span>应用密码</span><b class="ph">••••••••••</b></div>
+        <div class="d-fr"><span>同步文件夹</span><b>FOCUS</b></div>
+        <div class="d-fr"><span>本机名称</span><b>MacBook Pro</b></div>
+      </div>
+      <p class="d-cap2">应用密码在坚果云网页「账户信息 → 安全选项 → 第三方应用管理」生成，只加密存在本机钥匙串里。</p>
+      <div class="d-card" style="padding:4px 12px">
+        <div class="d-dv"><svg><use href="#d-i-laptop"></use></svg>MacBook Pro（本机）<em>刚刚</em></div>
+        <div class="d-dv"><svg><use href="#d-i-phone"></use></svg>iPhone 17 Pro<em>2 分钟前</em></div>
+        <div class="d-dv"><svg><use href="#d-i-phone"></use></svg>iPhone Duo<em>昨天 23:10</em></div>
+      </div>
+      <button class="d-btn bad" style="align-self:flex-start">关闭同步</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{oConflict}}" hint-placeholder-val="{{ false }}">
+  <div class="d-sheet">
+    <div class="d-shh"><button class="bk" aria-label="稍后处理"><svg><use href="#d-i-back"></use></svg></button><b>3 个冲突</b><span>稍后处理（Esc）</span></div>
+    <div class="d-shb">
+      <p class="d-cap2" style="margin:-2px 0 0">多台设备同时改了同一处，自动合并不了。在任何一台上做了决定，其它设备上的同一个冲突会自动消失。</p>
+      <div class="d-card d-cf">
+        <div class="q"><b>标题被改成了两样</b>，用哪个？</div>
+        <div class="d-opt sel"><span class="r"></span><span><small>这台设备 · 2 分钟前</small>整理多端同步的冲突规则，写成清单</span></div>
+        <div class="d-opt"><span class="r"></span><span><small>iPhone 17 Pro · 刚刚</small>整理同步冲突规则（含删除）</span></div>
+        <div class="a"><button class="d-btn pri">用选中的</button><button class="d-btn">两个都保留</button></div>
+      </div>
+      <div class="d-card d-cf">
+        <div class="q">「<b>旧版回收站格式迁移</b>」在 iPhone 17 Pro 上被删除，这台设备同时在它下面加了子项。</div>
+        <div class="a"><button class="d-btn pri">恢复</button><button class="d-btn">保持删除（留在回收站）</button></div>
+      </div>
+      <div class="d-card d-cf">
+        <div class="q">空间「<b>读书</b>」在 iPhone Duo 上被删除，这台设备同时在里面改过 2 条。</div>
+        <div class="a"><button class="d-btn pri">恢复空间</button><button class="d-btn conf">确认删除</button></div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{oJoin}}" hint-placeholder-val="{{ false }}">
+  <div class="d-scrim"></div>
+  <div class="d-modal">
+    <h3>云端已经有 2 台设备的数据</h3>
+    <p>这台电脑上已有 18 条待办。开启同步前，先决定它们怎么办：</p>
+    <div class="d-ch sel"><b>合并本机数据<em>推荐</em></b><span>两边的待办都保留，之后每条按标题、完成状态、位置分开合并。</span></div>
+    <div class="d-ch"><b>以云端为准</b><span>本机数据先备份成 focus-doc.backup-1017.json，再换成云端的。</span></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="d-btn">取消</button><button class="d-btn pri">继续</button></div>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"os":{"editor":"enum","options":["mac","win"],"default":"mac"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"view":{"editor":"enum","options":["focus","verify","inbox","goal","history","trash","empty"],"default":"focus"},"overlay":{"editor":"enum","options":["none","menu","ctx","profile","sync","conflict","join","drag","edit","hover","add","toast"],"default":"none"},"sync":{"editor":"enum","options":["ok","syncing","offline","error","conflict","off"],"default":"ok"},"w":{"editor":"int","default":360,"min":320,"max":900},"h":{"editor":"int","default":660,"min":480,"max":900},"pinned":{"editor":"boolean","default":false},"scheme":{"editor":"enum","options":["lime","ink","blue","matcha"],"default":"lime"},"$preview":{"width":360,"height":660}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const os = this.props.os || 'mac';
+    const theme = this.props.theme || 'light';
+    const view = this.props.view || 'focus';
+    const ov = this.props.overlay || 'none';
+    const sync = this.props.sync || 'ok';
+    const w = this.props.w ?? 360;
+    const h = this.props.h ?? 660;
+    const regular = w >= 520;
+    const L = {
+      focus: { en: 'FOCUS', cn: '当下要做', n: '5', c: 'var(--tx)', cs: 'var(--hi)', cOn: 'var(--accOnInk)', icon: 'focus', ph: '接下来要做…' },
+      verify: { en: 'VERIFY', cn: '做完待测', n: '2', c: 'var(--verify)', cs: 'var(--verifyS)', cOn: '#B8A6FF', icon: 'verify', ph: '做完了、还要测一下的事…' },
+      inbox: { en: 'INBOX', cn: '随手记', n: '3', c: 'var(--inbox)', cs: 'var(--inboxS)', cOn: '#8FD3FF', icon: 'inbox', ph: '想到什么，先丢进来…' },
+      goal: { en: 'GOAL', cn: '长期目标', n: '4', c: 'var(--goal)', cs: 'var(--goalS)', cOn: '#FF8A65', icon: 'goal', ph: '一个长期目标…' },
+      history: { en: 'HISTORY', cn: '完成记录', n: '', c: 'var(--hist)', cs: 'var(--histS)', cOn: '#F2E2B8', icon: 'history', ph: '' }
+    };
+    const cur = view === 'empty' ? 'focus' : view;
+    const order = ['focus', 'verify', 'inbox', 'goal', 'history'];
+    const dropTo = ov === 'drag' ? 'inbox' : '';
+    const pills = order.map((k) => ({ ...L[k], on: k === cur, cls: (k === cur ? 'on' : '') + (k === dropTo ? ' drop' : '') }));
+    const nav = order.slice(0, 4).map((k) => ({ ...L[k], cls: (k === cur ? 'on' : '') + (k === 'focus' ? ' f' : '') }));
+    const qt = [
+      ['把 iOS 原型装到真机上，过一遍左滑和长按', ''],
+      ['给 HISTORY 加上「从哪个列表完成」', '0/2'],
+      ['回复设计稿评论：侧栏宽度要不要再收窄', ''],
+      ['周报：本周完成的事直接从 HISTORY 里抄', '']
+    ];
+    const fade = ['1', '.84', '.68', '.52'];
+    const hovIdx = ov === 'hover' || ov === 'ctx' ? 1 : -1;
+    const queue = qt.map(([t, prog], i) => {
+      const hov = i === hovIdx;
+      const editing = ov === 'edit' && i === 2;
+      const ghost = ov === 'drag' && i === 3;
+      return {
+        t: editing ? '回复设计稿评论：侧栏宽度收窄到 188' : t,
+        prog: hov ? '' : prog, no: '0' + (i + 2), o: hov || editing ? '1' : fade[i],
+        hov, editing, grip: hov, showCb: hov, showNo: !hov,
+        dropBefore: ov === 'drag' && i === 1,
+        cls: [hov ? 'hov' : '', editing ? 'edit' : '', ghost ? 'ghost' : ''].join(' ')
+      };
+    });
+    const R = {
+      verify: [
+        { t: '坚果云限流时的退避重试', act: 'focus', actCls: 'spark', actLabel: '退回 FOCUS', hov: false },
+        { t: '删除 profile 与修改内容的冲突面板', prog: '1/2', hov: true },
+        { t: '面板文案：恢复 / 确认删除', sub: true, done: true },
+        { t: '其它设备上同一个冲突自动消失', sub: true }
+      ],
+      inbox: [
+        { t: '小组件加一个「今天完成」的样式', act: 'focus', actCls: 'spark', actLabel: '送进 FOCUS' },
+        { t: 'Windows 上标题栏按钮间距再看一下', act: 'focus', actCls: 'spark', actLabel: '送进 FOCUS', hov: true },
+        { t: '拖拽排序在 iOS 上怎么做', act: 'focus', actCls: 'spark', actLabel: '送进 FOCUS' }
+      ],
+      goal: []
+    };
+    const lrows = (R[view] || []).map((r) => ({
+      t: r.t, prog: r.prog || '', act: r.hov ? '' : r.act || '', actCls: r.actCls || '', actLabel: r.actLabel || '',
+      hov: !!r.hov, tag: r.tag || '',
+      cls: [r.sub ? 'sub' : '', r.hov ? 'hov' : ''].join(' '),
+      cb: r.done ? 'done' : 'c', tt: r.done ? 'done' : ''
+    }));
+    const lv = L[view] || L.verify;
+    const heat = [];
+    const seed = [0, 2, 1, 3, 0, 4, 2, 1, 0, 3, 2, 2, 1, 4, 3, 0, 1, 2, 3, 1, 0];
+    for (let i = 0; i < 112; i++) {
+      const v = i > 109 ? -1 : seed[(i * 5 + (i >> 3)) % seed.length];
+      heat.push(i === 109 ? 'l3 t' : v <= 0 ? '' : 'l' + v);
+    }
+    const syncIcon = { ok: 'ok', syncing: 'syncing', offline: 'offline', error: 'error', conflict: 'conflict', off: 'off' }[sync];
+    const syncLabel = { ok: '已同步', syncing: '正在同步…', offline: '离线：改动已保存在本机', error: '同步出错，稍后自动重试', conflict: '有 3 个冲突需要你决定', off: '未开启同步' }[sync];
+    const syncShort = { ok: '已同步', syncing: '同步中', offline: '离线', error: '出错', conflict: '3 个冲突', off: '未开启' }[sync];
+    return {
+      w, h, regular, compact: !regular,
+      rootCls: ['d-' + os, 'd-' + theme, regular ? 'd-reg' : 'd-cmp', 's-' + (this.props.scheme || 'lime')].join(' '),
+      regCls: regular ? 'd-reg' : '',
+      isMac: os === 'mac', isWin: os === 'win',
+      sync, syncIcon, syncLabel, syncShort, isConflict: sync === 'conflict',
+      pinCls: this.props.pinned ? 'on' : '', pinIcon: this.props.pinned ? 'pinF' : 'pin',
+      menuBtn: ov === 'menu' ? 'on' : '',
+      pills, nav, histNav: view === 'history' ? 'on' : '', trashNav: view === 'trash' ? 'on' : '',
+      vFocus: view === 'focus', vList: ['verify', 'inbox', 'goal'].includes(view), vHistory: view === 'history', vTrash: view === 'trash', vEmpty: view === 'empty',
+      isGoal: view === 'goal', isInbox: view === 'inbox',
+      lEn: lv.en, lCn: lv.cn, lN: lv.n, lc: lv.c, lcs: lv.cs, lPh: lv.ph,
+      lrows,
+      goals: [
+        { t: 'FOCUS 上架 App Store', m: '写下于 8 月 21 日' },
+        { t: '每周跑步 3 次', m: '写下于 9 月 26 日' },
+        { t: '读完《设计心理学》', m: '写下于 9 月 3 日' },
+        { t: '少熬夜，十二点前睡', m: '写下于 7 月 2 日' }
+      ],
+      queue, addCls: ov === 'add' ? 'focus' : '', addTyping: ov === 'add', addIdle: ov !== 'add',
+      heat,
+      hist: [
+        { time: '21:40', t: '坚果云 WebDAV 冲突决定面板', c: 'var(--verify)', sub: '在 VERIFY 完成 · 含 2 个子项' },
+        { time: '18:05', t: '回复设计稿评论', c: 'var(--tx)', sub: '' },
+        { time: '15:12', t: '排序与父子移动', c: 'var(--tx)', sub: '整理多端同步的冲突规则 › 子项' },
+        { time: '10:30', t: '给图标做 13px 版本', c: 'var(--inbox)', sub: '' }
+      ],
+      trash: [
+        { t: '旧版回收站格式迁移', m: '原在 FOCUS · 今天 14:20 删除', k: '含 2 个子项：读旧文件、写新格式', c: 'var(--tx)', del: '再点一次彻底删除', delCls: 'conf' },
+        { t: '试一下 Electron 44 的毛玻璃', m: '原在 INBOX · 昨天 22:08 删除', k: '', c: 'var(--inbox)', del: '彻底删除', delCls: 'bad' },
+        { t: '整理第一轮设计反馈', m: '原属「FOCUS 重设计」· 10月14日删除', k: '', c: 'var(--goal)', del: '彻底删除', delCls: 'bad' }
+      ],
+      oMenu: ov === 'menu', oCtx: ov === 'ctx', ctxTop: regular ? 352 : 412, oProfile: ov === 'profile', oSync: ov === 'sync', oConflict: ov === 'conflict', oJoin: ov === 'join',
+      isDrag: ov === 'drag', toast: ov === 'toast'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>动效 · 完成与换场</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mo{--disp:'Bricolage Grotesque',-apple-system,'PingFang SC',sans-serif;--sys:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;width:1700px;height:1320px;box-sizing:border-box;padding:40px 44px;background:#E8E8E3;color:#0B0B0C;font-family:var(--sys);-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;gap:22px;overflow:hidden}
+.mo h1{margin:0;font:800 40px/1 var(--disp);letter-spacing:-.03em}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.card{background:#F6F6F2;border-radius:24px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:12px}
+.ch{display:flex;justify-content:space-between;align-items:baseline}
+.ch b{font:800 17px/1 var(--disp);letter-spacing:-.01em}
+.ch span{font:800 12px/1 var(--disp);color:#66665F}
+.stage{position:relative;height:300px;border-radius:18px;background:#0B0B0C;overflow:hidden;color:#F4F4EF}
+.stage.lt{background:#FFFFFF;color:#0B0B0C;box-shadow:inset 0 0 0 1px rgba(11,11,12,.06)}
+.tl{display:flex;gap:3px;font:700 9.5px/1.35 var(--disp);color:#66665F}
+.tl span{flex:1;border-top:3px solid #DCDCD5;padding-top:6px}
+.tl span.k{border-color:#0B0B0C;color:#0B0B0C}
+.sp{font-size:12px;line-height:1.55;color:#45453F;margin:0}
+.sp b{color:#0B0B0C}
+/* 1 换场 */
+.n1{position:absolute;left:18px;right:18px;top:18px;height:150px;border-radius:22px;background:#D6FF3D;color:#0B0B0C;padding:14px 16px;box-sizing:border-box;animation:m1card 4s infinite;transform-origin:50% 0}
+.n1 .k{display:flex;justify-content:space-between;font:800 11px/1 var(--disp);letter-spacing:.08em}
+.n1 h3{position:relative;margin:10px 0 0;font:600 19px/1.3 var(--sys);display:inline-block}
+.n1 h3::after{content:'';position:absolute;left:0;right:0;top:52%;height:2.5px;background:#0B0B0C;transform-origin:left;transform:scaleX(0);animation:m1strike 4s infinite}
+.n1 .b{position:absolute;left:16px;bottom:14px;width:40px;height:40px;border-radius:50%;background:#0B0B0C;color:#D6FF3D;display:grid;place-items:center;animation:m1btn 4s infinite}
+.n1 .b svg{width:19px;height:19px}
+.ring{position:absolute;left:16px;bottom:14px;width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 3px #0B0B0C;opacity:0;animation:m1ring 4s infinite}
+.spk{position:absolute;width:12px;height:12px;color:#0B0B0C;opacity:0;animation:m1spk 4s infinite}
+.q1{position:absolute;left:18px;right:18px;height:44px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;font-size:14.5px;padding:0 6px;box-sizing:border-box}
+.q1 i{font:700 12px/1 var(--disp);color:#8E8E88;font-style:normal;width:20px}
+.q1.a{top:186px;animation:m1next 4s infinite;border-radius:12px}
+.q1.b{top:230px;opacity:.84;animation:m1rowb 4s infinite}
+.q1.c{top:274px;opacity:.68}
+@keyframes m1btn{0%,1%{transform:scale(1)}2%{transform:scale(.82)}4.5%{transform:scale(1.12)}6%,100%{transform:scale(1)}}
+@keyframes m1ring{0%,2%{opacity:0;transform:scale(1)}3%{opacity:.6}8%,100%{opacity:0;transform:scale(2.2)}}
+@keyframes m1spk{0%,2.5%{opacity:0;transform:translate(0,0) scale(.4) rotate(0)}4%{opacity:1}11%,100%{opacity:0;transform:translate(var(--x),var(--y)) scale(1) rotate(90deg)}}
+@keyframes m1strike{0%,3%{transform:scaleX(0)}9.5%,90%{transform:scaleX(1)}96%,100%{transform:scaleX(0)}}
+@keyframes m1card{0%,9.5%{transform:none;opacity:1}14%{transform:translateY(-30px) rotate(-3deg) scale(.95);opacity:0}14.1%,90%{opacity:0;transform:none}97%,100%{opacity:1}}
+@keyframes m1next{0%,11.5%{top:186px;height:44px;background:transparent;color:#F4F4EF;font-size:14.5px;padding-top:0}19%{top:12px;height:158px;background:#D6FF3D;color:#0B0B0C;font-size:19px}20.5%,90%{top:18px;height:150px;background:#D6FF3D;color:#0B0B0C;font-size:19px}96%,100%{top:186px;height:44px;background:transparent;color:#F4F4EF;font-size:14.5px;opacity:0}}
+@keyframes m1rowb{0%,13%{top:230px}19%,90%{top:186px;opacity:1}96%,100%{top:230px;opacity:.84}}
+/* 2 普通行完成 */
+.r2{position:absolute;left:18px;right:18px;top:110px;height:56px;border-radius:14px;background:#F6F6F2;display:flex;align-items:center;gap:12px;padding:0 14px;font-size:15px;box-sizing:border-box}
+.c2{position:relative;width:24px;height:24px;flex:none}
+.c2 .o{position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1.8px #1F7FBF;animation:m2o 4s infinite}
+.c2 .f{position:absolute;inset:0;border-radius:50%;background:#8FD3FF;transform:scale(0);animation:m2f 4s infinite}
+.c2 svg{position:absolute;inset:5px;width:14px;height:14px;color:#0B0B0C}
+.c2 svg path{stroke-dasharray:22;stroke-dashoffset:22;animation:m2chk 4s infinite}
+.t2{position:relative;animation:m2tx 4s infinite}
+.t2::after{content:'';position:absolute;left:0;right:0;top:52%;height:1.5px;background:#0B0B0C;transform-origin:left;transform:scaleX(0);animation:m2st 4s infinite}
+.s2{position:absolute;left:30px;top:130px;width:12px;height:12px;color:#B8E600;opacity:0;animation:m2spk 4s infinite}
+.fly2{position:absolute;left:30px;top:130px;width:14px;height:14px;color:#0B0B0C;opacity:0;animation:m2fly 4s infinite}
+.tabh{position:absolute;right:22px;bottom:18px;width:52px;height:52px;border-radius:26px;background:#EEEEE9;display:grid;place-items:center;animation:m2tab 4s infinite}
+.tabh svg{width:22px;height:22px}
+.tabh em{position:absolute;top:-6px;right:-4px;font:800 11px/1 var(--disp);font-style:normal;background:#D6FF3D;border-radius:8px;padding:3px 5px;opacity:0;animation:m2plus 4s infinite}
+@keyframes m2o{0%,2%{transform:scale(1)}3.5%{transform:scale(.85)}6%,100%{transform:scale(1)}}
+@keyframes m2f{0%,3%{transform:scale(0)}6.5%{transform:scale(1.15)}8%,88%{transform:scale(1)}95%,100%{transform:scale(0)}}
+@keyframes m2chk{0%,5%{stroke-dashoffset:22}9%,88%{stroke-dashoffset:0}95%,100%{stroke-dashoffset:22}}
+@keyframes m2st{0%,5%{transform:scaleX(0)}10.5%,88%{transform:scaleX(1)}95%,100%{transform:scaleX(0)}}
+@keyframes m2tx{0%,5%{color:#0B0B0C}10.5%,88%{color:#A3A39B}95%,100%{color:#0B0B0C}}
+@keyframes m2spk{0%,3%{opacity:0;transform:translate(0,0) scale(.3)}5%{opacity:1}13%,100%{opacity:0;transform:translate(var(--x),var(--y)) scale(1) rotate(80deg)}}
+@keyframes m2fly{0%,11.5%{opacity:0;transform:translate(0,0)}13%{opacity:1}17%{transform:translate(170px,-60px) scale(1.2)}19%{opacity:1;transform:translate(390px,120px) scale(.6)}19.5%,100%{opacity:0}}
+@keyframes m2tab{0%,19%{transform:scale(1)}21%{transform:scale(1.18)}24%,100%{transform:scale(1)}}
+@keyframes m2plus{0%,19%{opacity:0;transform:translateY(4px)}21%,40%{opacity:1;transform:none}46%,100%{opacity:0}}
+/* 3 送去验证 */
+.r3{position:absolute;left:18px;right:18px;top:96px;height:56px;border-radius:14px;background:#1C1C1F;display:flex;align-items:center;gap:12px;padding:0 10px 0 14px;font-size:15px;box-sizing:border-box;animation:m3row 4s infinite;overflow:hidden}
+.r3 i{font:700 12px/1 var(--disp);color:#8E8E88;font-style:normal}
+.eye{margin-left:auto;width:34px;height:34px;border-radius:50%;background:#B8A6FF;color:#0B0B0C;display:grid;place-items:center;flex:none}
+.eye svg{width:18px;height:18px;animation:m3blink 4s infinite}
+.vt{position:absolute;right:22px;bottom:18px;width:52px;height:52px;border-radius:26px;background:rgba(184,166,255,.16);color:#B8A6FF;display:grid;place-items:center;animation:m3tab 4s infinite}
+.vt svg{width:22px;height:22px}
+.vt em{position:absolute;top:2px;right:6px;font:800 11px/1 var(--disp);font-style:normal}
+.vt em span{display:block;height:11px;overflow:hidden}
+.vt em b{display:flex;flex-direction:column;font-weight:800;animation:m3roll 4s infinite}
+.trail{position:absolute;top:122px;left:60px;height:4px;width:0;border-radius:2px;background:linear-gradient(90deg,rgba(184,166,255,0),#B8A6FF);opacity:0;animation:m3trail 4s infinite}
+.r3b{position:absolute;left:18px;right:18px;top:152px;height:52px;display:flex;align-items:center;gap:12px;padding:0 14px;font-size:15px;opacity:.84;box-sizing:border-box;animation:m3up 4s infinite}
+.r3b i{font:700 12px/1 var(--disp);color:#8E8E88;font-style:normal}
+@keyframes m3blink{0%,2%{transform:scaleY(1)}3%{transform:scaleY(.1)}4%,100%{transform:scaleY(1)}}
+@keyframes m3row{0%,4%{transform:none;opacity:1;background:#1C1C1F;height:56px}6%{background:rgba(184,166,255,.28)}13%{transform:translateX(330px) translateY(90px) scale(.3);opacity:0;height:56px}14%,90%{opacity:0;height:0}97%,100%{opacity:1;transform:none;height:56px;background:#1C1C1F}}
+@keyframes m3trail{0%,5%{width:0;opacity:0}8%{opacity:1;width:160px}13%,100%{opacity:0;width:300px;left:160px}}
+@keyframes m3tab{0%,12%{transform:scale(1)}14%{transform:scale(1.18)}17%,100%{transform:scale(1)}}
+@keyframes m3roll{0%,12%{transform:translateY(0)}15%,90%{transform:translateY(-11px)}96%,100%{transform:translateY(0)}}
+@keyframes m3up{0%,13%{top:152px}17%,90%{top:96px;opacity:1}97%,100%{top:152px;opacity:.84}}
+/* 4 设为现在 */
+.n4{position:absolute;left:18px;right:18px;top:18px;height:110px;border-radius:22px;background:#D6FF3D;color:#0B0B0C;padding:14px 16px;box-sizing:border-box;font:600 17px/1.3 var(--sys);animation:m4now 4s infinite}
+.n4 small{display:block;font:800 11px/1 var(--disp);letter-spacing:.08em;margin-bottom:8px}
+.r4{position:absolute;left:18px;right:18px;top:196px;height:48px;border-radius:14px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:15px;box-sizing:border-box;color:#F4F4EF;animation:m4row 4s infinite}
+.r4 i{font:700 12px/1 var(--disp);color:#8E8E88;font-style:normal}
+.r4b{position:absolute;left:18px;right:18px;top:148px;height:48px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:15px;opacity:.84;box-sizing:border-box;color:#F4F4EF;animation:m4rb 4s infinite}
+@keyframes m4rb{0%,9%{top:148px}16%,88%{top:196px}95%,100%{top:148px}}
+.r4b i{font:700 12px/1 var(--disp);color:#8E8E88;font-style:normal}
+@keyframes m4row{0%,6%{top:196px;height:48px;background:transparent;color:#F4F4EF;transform:none;box-shadow:none}9%{transform:scale(1.03);background:#2A2A2E;box-shadow:0 14px 30px rgba(0,0,0,.5)}16%{top:18px;height:110px;background:#D6FF3D;color:#0B0B0C;transform:none;box-shadow:none}18%,88%{top:18px;height:110px;background:#D6FF3D;color:#0B0B0C}95%,100%{top:196px;height:48px;background:transparent;color:#F4F4EF}}
+@keyframes m4now{0%,9%{top:18px;height:110px;background:#D6FF3D;color:#0B0B0C;opacity:1}16%,88%{top:148px;height:48px;background:transparent;color:#F4F4EF;opacity:.84;font-size:15px;padding-top:14px}95%,100%{top:18px;height:110px;background:#D6FF3D;color:#0B0B0C;opacity:1}}
+/* 5 新建 */
+.in5{position:absolute;left:18px;right:18px;top:18px;height:46px;border-radius:14px;background:#F6F6F2;box-shadow:0 0 0 2px #0B0B0C;display:flex;align-items:center;gap:8px;padding:0 14px;font-size:15px;box-sizing:border-box}
+.in5 span{animation:m5type 4s infinite;white-space:nowrap;overflow:hidden;display:inline-block}
+.in5 i{display:inline-block;width:2px;height:18px;background:#0B0B0C;animation:m5blink 1s steps(1) infinite}
+.now5{position:absolute;left:18px;right:18px;top:80px;height:66px;border-radius:18px;background:#D6FF3D;padding:12px 14px;box-sizing:border-box;font:600 15px/1.3 var(--sys)}
+.now5 small{display:block;font:800 10px/1 var(--disp);letter-spacing:.08em;margin-bottom:6px}
+.new5{position:absolute;left:18px;right:18px;top:160px;height:0;overflow:hidden;display:flex;align-items:center;gap:10px;padding:0 14px;border-radius:12px;font-size:15px;box-sizing:border-box;animation:m5new 4s infinite}
+.new5 i,.old5 i{font:700 12px/1 var(--disp);color:#66665F;font-style:normal}
+.old5{position:absolute;left:18px;right:18px;top:160px;height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:15px;box-sizing:border-box;opacity:.84;animation:m5old 4s infinite;border-top:1px solid rgba(11,11,12,.08)}
+@keyframes m5type{0%{max-width:0}12%,20%{max-width:260px}21%,100%{max-width:0}}
+@keyframes m5blink{50%{opacity:0}}
+@keyframes m5new{0%,20%{height:0;opacity:0;transform:translateY(-8px);background:transparent}24%{height:46px;opacity:1;transform:none;background:rgba(214,255,61,.75)}40%,88%{height:46px;opacity:1;background:transparent}95%,100%{height:0;opacity:0}}
+@keyframes m5old{0%,20%{top:160px}24%,88%{top:206px}95%,100%{top:160px}}
+/* 6 页签与同步 */
+.pane6{position:absolute;left:18px;right:18px;top:18px;height:150px;border-radius:18px;padding:14px 16px;box-sizing:border-box}
+.pane6 b{display:block;font:800 26px/1 var(--disp);letter-spacing:-.02em}
+.pane6 p{margin:10px 0 0;font-size:13px;line-height:1.5;color:#8E8E88}
+.pA{background:#1C1C1F;animation:m6a 4s infinite}
+.pB{background:#1C1C1F;opacity:0;animation:m6b 4s infinite}
+.bar6{position:absolute;left:18px;bottom:18px;width:236px;height:56px;border-radius:28px;background:rgba(38,38,42,.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(255,255,255,.12);display:flex;align-items:center;padding:0 4px;box-sizing:border-box}
+.bar6 span{flex:1;display:grid;place-items:center;height:48px;position:relative;z-index:1}
+.bar6 span svg{width:21px;height:21px}
+.pill6{position:absolute;left:4px;top:4px;width:57px;height:48px;border-radius:24px;background:rgba(214,255,61,.17);animation:m6pill 4s infinite}
+.sync6{position:absolute;right:20px;bottom:22px;display:flex;gap:16px;align-items:center}
+.sync6 div{position:relative;width:44px;height:44px;border-radius:22px;background:rgba(38,38,42,.9);display:grid;place-items:center}
+.sync6 svg{width:22px;height:22px}
+.sync6 .spin svg{animation:m6spin 1.1s linear infinite}
+.sync6 em{position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;border-radius:8px;background:#FF6369;color:#fff;font:800 10px/16px var(--disp);text-align:center;font-style:normal;animation:m6pop 4s infinite}
+@keyframes m6a{0%,20%{opacity:1;transform:none}25%,70%{opacity:0;transform:translateY(8px)}75%,100%{opacity:1;transform:none}}
+@keyframes m6b{0%,20%{opacity:0;transform:translateY(8px)}25%,70%{opacity:1;transform:none}75%,100%{opacity:0;transform:translateY(8px)}}
+@keyframes m6pill{0%,20%{transform:translateX(0)}25%,70%{transform:translateX(114px)}75%,100%{transform:translateX(0)}}
+@keyframes m6spin{to{transform:rotate(360deg)}}
+@keyframes m6pop{0%,40%{transform:scale(0)}44%{transform:scale(1.25)}47%,100%{transform:scale(1)}}
+.tbl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tbl div{background:#F6F6F2;border-radius:16px;padding:12px 14px;font-size:12px;line-height:1.6;color:#3F3F3A}
+.tbl b{display:block;font:800 13px/1.3 var(--disp);color:#0B0B0C;margin-bottom:4px}
+</style>
+</helmet>
+<div class="mo">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="m-spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+<symbol id="m-focus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+<symbol id="m-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.3 4.3L19 7.2"></path></symbol>
+<symbol id="m-verify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.4 12S6 5.4 12 5.4 21.6 12 21.6 12 18 18.6 12 18.6 2.4 12 2.4 12z"></path><path d="m9.4 12.1 1.8 1.8 3.4-3.6"></path></symbol>
+<symbol id="m-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.8" y="5" width="16.4" height="15.2" rx="3.2"></rect><path d="M8 3v4M16 3v4M3.8 10h16.4M9 15l2 2 4-4"></path></symbol>
+<symbol id="m-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5 6 6a2 2 0 0 1 1.9-1.4h8.2A2 2 0 0 1 18 6l2.5 7.5V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><path d="M3.5 13.5h4.6l1.4 2.4h5l1.4-2.4h4.6"></path></symbol>
+<symbol id="m-goal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 19.6 9.4 7.8l3.9 6.4 2.4-3.3 5.5 8.7z"></path></symbol>
+<symbol id="m-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 0 1-13 5.1M4.5 12a7.5 7.5 0 0 1 13-5.1"></path><path d="M17.8 3.6v3.6h-3.6M6.2 20.4v-3.6h3.6"></path></symbol>
+<symbol id="m-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.9a4 4 0 0 0 .5-7.97 5.6 5.6 0 0 0-10.8-1A4.5 4.5 0 0 0 7.2 18.5z"></path><path d="M10 12.2l1.4 1.4-1.4 1.4M14 12.2l-1.4 1.4 1.4 1.4"></path></symbol>
+</svg>
+<h1>动效 · 每个都在循环播放（4 秒一轮，前 1 秒是动作本身）</h1>
+<div class="grid">
+  <div class="card">
+    <div class="ch"><b>1 · 完成 NOW：换场</b><span>1000ms</span></div>
+    <div class="stage">
+      <div class="q1 c"><i>04</i>回复设计稿评论</div>
+      <div class="q1 b"><i>03</i>给 HISTORY 加来源字段</div>
+      <div class="q1 a"><i>02</i>把 iOS 原型装到真机上</div>
+      <div class="n1"><div class="k"><span>NOW</span><span>01 / 05</span></div><h3>整理多端同步的冲突规则</h3><span class="ring"></span><span class="b"><svg><use href="#m-check"></use></svg></span>
+        <svg class="spk" style="left:30px;bottom:26px;--x:-18px;--y:-40px"><use href="#m-spark"></use></svg><svg class="spk" style="left:30px;bottom:26px;--x:30px;--y:-46px"><use href="#m-spark"></use></svg><svg class="spk" style="left:30px;bottom:26px;--x:54px;--y:-6px"><use href="#m-spark"></use></svg><svg class="spk" style="left:30px;bottom:26px;--x:40px;--y:24px"><use href="#m-spark"></use></svg><svg class="spk" style="left:30px;bottom:26px;--x:-30px;--y:10px"><use href="#m-spark"></use></svg><svg class="spk" style="left:30px;bottom:26px;--x:6px;--y:-60px"><use href="#m-spark"></use></svg>
+      </div>
+    </div>
+    <div class="tl"><span class="k">按下<br>0–80</span><span class="k">圈爆开·星芒<br>80–440</span><span class="k">划线<br>120–380</span><span class="k">卡片抽走<br>380–560</span><span class="k">下一件升起<br>460–820</span><span>就位<br>820–1000</span></div>
+    <p class="sp"><b>曲线</b>：抽走 ease-in cubic-bezier(.4,0,1,1)；升起用弹簧 cubic-bezier(.3,1.25,.4,1)（轻微回弹）。<b>触感</b>：按下 .rigid，380ms .success。<b>声音</b>：现有完成提示音。队列其余行上移、序号重排，每行错开 30ms。</p>
+  </div>
+
+  <div class="card">
+    <div class="ch"><b>2 · 完成普通行：星芒迸出</b><span>760ms</span></div>
+    <div class="stage lt">
+      <div class="r2"><span class="c2"><span class="o"></span><span class="f"></span><svg><use href="#m-check"></use></svg></span><span class="t2">小组件加「今天完成」的样式</span></div>
+      <svg class="s2" style="--x:-16px;--y:-34px"><use href="#m-spark"></use></svg><svg class="s2" style="--x:22px;--y:-36px"><use href="#m-spark"></use></svg><svg class="s2" style="--x:34px;--y:4px"><use href="#m-spark"></use></svg><svg class="s2" style="--x:12px;--y:30px"><use href="#m-spark"></use></svg><svg class="s2" style="--x:-26px;--y:18px"><use href="#m-spark"></use></svg><svg class="s2" style="--x:-4px;--y:-46px"><use href="#m-spark"></use></svg>
+      <svg class="fly2"><use href="#m-spark"></use></svg>
+      <div class="tabh"><svg><use href="#m-history"></use></svg><em>+1</em></div>
+    </div>
+    <div class="tl"><span class="k">按下<br>0–80</span><span class="k">填色+勾<br>120–360</span><span class="k">6 颗星芒<br>120–520</span><span class="k">划线<br>200–420</span><span class="k">一颗飞向 HISTORY<br>460–760</span></div>
+    <p class="sp"><b>星芒</b>：6 颗 8–12px，荧光绿（浅色底上用 #B8E600 加深），向外 30–46px 并转 80°，寿命 400ms。<b>飞行</b>：沿二次贝塞尔弧线到 HISTORY 页签 / 侧栏图标，到达时图标放大 1.18 并冒「+1」。FOCUS / VERIFY 顶层项完成后照旧移到 INBOX 的已完成。</p>
+  </div>
+
+  <div class="card">
+    <div class="ch"><b>3 · 送去验证</b><span>520ms</span></div>
+    <div class="stage">
+      <div class="r3b"><i>03</i>给 HISTORY 加来源字段</div>
+      <div class="trail"></div>
+      <div class="r3"><i>02</i>把 iOS 原型装到真机上<span class="eye"><svg><use href="#m-verify"></use></svg></span></div>
+      <div class="vt"><svg><use href="#m-verify"></use></svg><em><span><b><i style="font-style:normal">2</i><i style="font-style:normal">3</i></b></span></em></div>
+    </div>
+    <div class="tl"><span class="k">眨眼<br>0–160</span><span class="k">染成薰衣草<br>120–240</span><span class="k">滑向 VERIFY<br>200–520</span><span>角标 2→3<br>480–600</span></div>
+    <p class="sp"><b>眨眼</b>：眼睛图标 scaleY 1→0.1→1。<b>滑走</b>：行缩到 0.3 倍沿弧线飞向 VERIFY 页签，同时高度收起，后面的行上移补位。<b>触感</b> .light。子项送去验证不飞走，原地挂「待验证」标签。</p>
+  </div>
+
+  <div class="card">
+    <div class="ch"><b>4 · 设为现在</b><span>450ms</span></div>
+    <div class="stage">
+      <div class="r4b"><i>02</i>把 iOS 原型装到真机上</div>
+      <div class="n4"><small>NOW</small>整理多端同步的冲突规则</div>
+      <div class="r4"><i>03</i>给 HISTORY 加来源字段</div>
+    </div>
+    <div class="tl"><span class="k">浮起<br>0–120</span><span class="k">交换位置<br>120–420</span><span>颜色交接<br>240–450</span></div>
+    <p class="sp">被选中的行先浮起（放大 1.03、阴影），再与 NOW 卡交换位置（FLIP），荧光绿底在两者之间交接。拖拽到 NOW 卡上松手是同一个动画。</p>
+  </div>
+
+  <div class="card">
+    <div class="ch"><b>5 · 新建</b><span>300ms</span></div>
+    <div class="stage lt">
+      <div class="in5"><span>修一下 Windows 标题栏按钮间距</span><i></i></div>
+      <div class="now5"><small>NOW</small>整理多端同步的冲突规则</div>
+      <div class="old5"><i>03</i>把 iOS 原型装到真机上</div>
+      <div class="new5"><i>02</i>修一下 Windows 标题栏按钮间距</div>
+    </div>
+    <div class="tl"><span class="k">回车<br>0</span><span class="k">撑开一行<br>0–180</span><span class="k">荧光绿闪一下<br>0–600</span><span>输入框清空，保持焦点</span></div>
+    <p class="sp">新条目默认插在 NOW 后面（02）。行高从 0 撑开 180ms，同时从上方 8px 落下；背景荧光绿 75% → 透明 600ms。连续输入时每条都这样，节奏不打断。</p>
+  </div>
+
+  <div class="card">
+    <div class="ch"><b>6 · 切换列表 · 同步状态</b><span>220ms</span></div>
+    <div class="stage">
+      <div class="pane6 pA"><b>FOCUS · 5</b><p>内容交叉淡入，新页从下方 8px 升上来。</p></div>
+      <div class="pane6 pB"><b>INBOX · 3</b><p>玻璃页签的选中底由系统滑过去（原生）。</p></div>
+      <div class="bar6"><span class="pill6"></span><span style="color:#D6FF3D"><svg><use href="#m-focus"></use></svg></span><span><svg><use href="#m-verify"></use></svg></span><span style="color:#8FD3FF"><svg><use href="#m-inbox"></use></svg></span><span><svg><use href="#m-goal"></use></svg></span></div>
+      <div class="sync6"><div class="spin"><svg><use href="#m-sync"></use></svg></div><div><svg><use href="#m-cloud"></use></svg><em>3</em></div></div>
+    </div>
+    <div class="tl"><span class="k">淡出+下沉<br>0–120</span><span class="k">淡入+升起<br>60–220</span><span>同步图标 1.1s 一圈</span><span>冲突角标弹出 240ms</span></div>
+    <p class="sp">桌面快捷键 ⌘/Ctrl+1–5 同样走这个过渡。冲突角标从 0 弹到 1.25 再回 1。</p>
+  </div>
+</div>
+<div class="tbl">
+  <div><b>曲线</b>标准 cubic-bezier(.2,.8,.2,1)；退出 (.4,0,1,1)；弹簧 (.3,1.25,.4,1)。iOS 原生可用 .snappy / .bouncy(0.15)。</div>
+  <div><b>减少动态效果</b>系统开了「减弱动态效果」时：不飞、不迸星芒、不弹；全部换成 150ms 交叉淡入，NOW 卡直接换字。</div>
+  <div><b>触感（iOS）</b>按下完成 .rigid；完成落定 .success；送去验证 .light；切页签 .selection；删除 .warning。可在 ⋯ 菜单关掉。</div>
+  <div><b>声音</b>沿用现有完成提示音（所有 profile 共用开关）；送去验证用同一音色低一个八度、音量 60%。</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":1320}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

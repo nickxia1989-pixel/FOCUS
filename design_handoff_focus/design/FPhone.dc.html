@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FOCUS iOS 屏幕组件</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.p-root{--disp:'Bricolage Grotesque',-apple-system,'PingFang SC',sans-serif;--sys:-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC','Noto Sans SC',sans-serif;position:relative;flex:none;font-family:var(--sys);-webkit-font-smoothing:antialiased;color:var(--tx);text-align:left}
+.p-root *{box-sizing:border-box}
+.p-root{--now:#D6FF3D;--nowT:#0B0B0C;--nowSub:rgba(11,11,12,.1);--nowLine:rgba(11,11,12,.16);--nowBtn:#0B0B0C;--nowBtnT:#D6FF3D;--nowV:#4A3BB0;--hi:#D6FF3D;--hiT:#0B0B0C;--hiIcon:#0B0B0C;--accOnInk:#D6FF3D;--emBg:#0B0B0C;--emT:#D6FF3D;--h1:#EEFFC2;--h2:#E2FF85;--h3:#D6FF3D;--h4:#A9D400;--fab:rgba(214,255,61,.88);--fabT:#0B0B0C;--fabSh:rgba(120,160,0,.28)}
+.p-light.s-ink{--now:#141416;--nowT:#F4F4EF;--nowSub:rgba(255,255,255,.12);--nowLine:rgba(255,255,255,.24);--nowBtn:#D6FF3D;--nowBtnT:#0B0B0C;--nowV:#B8A6FF;--hi:#141416;--hiT:#F4F4EF;--hiIcon:#D6FF3D;--accOnInk:#D6FF3D;--emBg:#D6FF3D;--emT:#0B0B0C;--h1:#DEDED7;--h2:#ADADA5;--h3:#64645E;--h4:#141416;--tabOn:#141416;--tabOnT:#D6FF3D;--fab:rgba(20,20,22,.88);--fabT:#D6FF3D;--fabSh:rgba(0,0,0,.28)}
+.p-light.s-blue{--now:#2F5BFF;--nowT:#FFFFFF;--nowSub:rgba(255,255,255,.16);--nowLine:rgba(255,255,255,.32);--nowBtn:#FFFFFF;--nowBtnT:#2F5BFF;--nowV:#E3DDFF;--hi:#2F5BFF;--hiT:#FFFFFF;--hiIcon:#FFFFFF;--accOnInk:#9DB5FF;--emBg:#FFFFFF;--emT:#2F5BFF;--h1:#DDE5FF;--h2:#AFC1FF;--h3:#7393FF;--h4:#2F5BFF;--tabOn:#2F5BFF;--tabOnT:#FFFFFF;--fab:rgba(47,91,255,.9);--fabT:#FFFFFF;--fabSh:rgba(47,91,255,.35)}
+.p-light.s-matcha{--now:#E3F0B5;--nowT:#1F2A05;--nowSub:rgba(31,42,5,.08);--nowLine:rgba(31,42,5,.18);--nowBtn:#33470A;--nowBtnT:#E3F0B5;--nowV:#4A3BB0;--hi:#33470A;--hiT:#EEF7D2;--hiIcon:#D9EE8F;--accOnInk:#CFEA7A;--emBg:#E3F0B5;--emT:#33470A;--h1:#EEF5D6;--h2:#D2E69A;--h3:#9CBE45;--h4:#4E6912;--tabOn:#33470A;--tabOnT:#E3F0B5;--fab:rgba(51,71,10,.9);--fabT:#E3F0B5;--fabSh:rgba(51,71,10,.3)}
+.p-light{--bg:#F6F6F2;--sf:#FFFFFF;--sf2:#EEEEE9;--sf3:#E2E2DC;--tx:#0B0B0C;--mu:#66665F;--fa:#A3A39B;--ln:rgba(11,11,12,.08);--lime:#D6FF3D;--verify:#6C55E0;--verifyS:#E8E3FF;--inbox:#1F7FBF;--inboxS:#DDF1FF;--goal:#D4552E;--goalS:#FFE4DA;--hist:#97782C;--histS:#F5EBCF;--ok:#2E9E5B;--bad:#D93A3F;--glass:rgba(255,255,255,.56);--glassLn:rgba(255,255,255,.85);--glassHi:rgba(255,255,255,.95);--glassSh:0 8px 24px rgba(0,0,0,.12);--tabOn:#D6FF3D;--tabOnT:#0B0B0C;--edge:246,246,242;--pop:rgba(250,250,247,.92);--kb:#D3D5DB;--key:#FFFFFF;--key2:#ABB0BA;--scrim:rgba(11,11,12,.22)}
+.p-dark{--bg:#0B0B0C;--sf:#18181A;--sf2:#222225;--sf3:#2C2C30;--tx:#F4F4EF;--mu:#8E8E88;--fa:#55554F;--ln:rgba(255,255,255,.07);--lime:#D6FF3D;--verify:#B8A6FF;--verifyS:rgba(184,166,255,.16);--inbox:#8FD3FF;--inboxS:rgba(143,211,255,.14);--goal:#FF8A65;--goalS:rgba(255,138,101,.15);--hist:#F2E2B8;--histS:rgba(242,226,184,.13);--ok:#7EE2A0;--bad:#FF6369;--glass:rgba(38,38,42,.52);--glassLn:rgba(255,255,255,.13);--glassHi:rgba(255,255,255,.22);--glassSh:0 10px 28px rgba(0,0,0,.4);--tabOn:rgba(214,255,61,.17);--tabOnT:#D6FF3D;--edge:11,11,12;--pop:rgba(40,40,44,.88);--kb:#2A2A2D;--key:#555559;--key2:#3B3B3E;--scrim:rgba(0,0,0,.45)}
+.p-scr{position:absolute;inset:0;overflow:hidden;background:var(--bg)}
+.p-phone .p-scr{border-radius:60px}
+.p-phone{box-shadow:0 0 0 1.5px #3A3B3F,0 0 0 6px #1B1C1F,0 0 0 7px #4A4B50,0 40px 80px rgba(0,0,0,.26);border-radius:62px}
+.p-outer .p-scr{border-radius:7px 48px 48px 7px}
+.p-outer{border-radius:9px 52px 52px 9px;box-shadow:0 0 0 2px #2A2B2E,0 0 0 9px #111214,0 0 0 10px #55575C,0 40px 80px rgba(0,0,0,.26)}
+.p-inner .p-scr,.p-innerP .p-scr{border-radius:36px}
+.p-inner,.p-innerP{border-radius:38px;box-shadow:0 0 0 2px #2A2B2E,0 0 0 10px #111214,0 0 0 11px #55575C,0 40px 80px rgba(0,0,0,.26)}
+.p-sb{position:absolute;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:4px 34px 0 52px;font:600 16px/1 var(--sys);z-index:25}
+.p-sb svg{height:12px}
+.p-isl{position:absolute;top:11px;left:50%;margin-left:-63px;width:126px;height:37px;border-radius:20px;background:#000;z-index:30}
+.p-home{position:absolute;bottom:8px;left:50%;margin-left:-72px;width:144px;height:5px;border-radius:3px;background:var(--tx);opacity:.7;z-index:30}
+.p-gl{background:var(--glass);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);box-shadow:inset 0 1px 0 var(--glassHi),inset 0 0 0 1px var(--glassLn),var(--glassSh)}
+.p-nav{position:absolute;top:58px;left:16px;right:16px;display:flex;align-items:center;gap:12px;z-index:20}
+.p-gav{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;border:0;padding:0;flex:none}
+.p-gav i{width:30px;height:30px;border-radius:50%;background:#0B0B0C;color:#D6FF3D;font:700 14px/30px var(--sys);text-align:center;font-style:normal}
+.p-dark .p-gav i{background:#F4F4EF;color:#0B0B0C}
+.p-ttl{display:flex;flex-direction:column;gap:3px;min-width:0}
+.p-ttl>span{font:700 12px/1 var(--disp);letter-spacing:.06em;color:var(--mu)}
+.p-ttl b{font:800 22px/1 var(--disp);letter-spacing:-.01em}
+.p-gcap{margin-left:auto;height:44px;border-radius:22px;display:flex;align-items:center;padding:0 4px}
+.p-gcap button{position:relative;width:42px;height:44px;border:0;background:transparent;color:var(--tx);display:grid;place-items:center;padding:0}
+.p-gcap svg{width:21px;height:21px}
+.p-gcap .ok{color:var(--ok)}
+.p-col{position:absolute;display:flex;flex-direction:column;overflow:hidden}
+.p-phone .p-col,.p-innerP .p-col{top:112px;left:0;right:0;bottom:0;padding:6px 16px 0}
+.p-outer .p-col{top:0;left:0;right:80px;bottom:0;padding:22px 12px 0 18px}
+.p-innerP .p-col{padding:10px 28px 0}
+.p-ohead{display:flex;align-items:flex-end;justify-content:space-between;padding:0 2px 12px}
+.p-ohead div>span{font:700 12px/1 var(--disp);letter-spacing:.06em;color:var(--mu)}
+.p-ohead b{display:block;font:800 26px/1 var(--disp);letter-spacing:-.01em;margin-top:5px}
+.p-now{border-radius:30px;background:var(--now);color:var(--nowT);padding:20px 20px 18px;display:flex;flex-direction:column;gap:14px;flex:none}
+.p-outer .p-now{border-radius:26px;padding:16px 16px 14px;gap:11px}
+.p-now .top{display:flex;justify-content:space-between;font:800 13px/1 var(--disp);letter-spacing:.08em}
+.p-now h2{margin:0;font:600 28px/1.28 var(--sys);letter-spacing:-.015em}
+.p-outer .p-now h2{font-size:23px}
+.p-innerP .p-now h2,.p-left .p-now h2{font-size:32px}
+.p-bar{display:flex;gap:4px}
+.p-bar i{flex:1;height:4px;border-radius:2px;background:var(--nowLine)}
+.p-bar i.on{background:currentColor}
+.p-subs{display:flex;flex-direction:column;gap:9px}
+.p-sub{display:flex;align-items:center;gap:10px;font-size:14.5px;line-height:1.35}
+.p-sub i{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1.6px currentColor;flex:none}
+.p-sub i.d{background:currentColor}
+.p-sub i.v{box-shadow:none;border:1.6px dashed var(--nowV)}
+.p-sub s{opacity:.45}
+.p-sub em{font:700 10.5px/1 var(--sys);font-style:normal;padding:4px 7px;border-radius:999px;background:var(--nowSub)}
+.p-outer .p-sub{font-size:13.5px}
+.p-hact{display:flex;align-items:center;gap:12px}
+.p-done{width:60px;height:60px;border-radius:50%;border:0;padding:0;background:var(--nowBtn);color:var(--nowBtnT);display:grid;place-items:center}
+.p-done svg{width:28px;height:28px}
+.p-outer .p-done{width:52px;height:52px}
+.p-hact b{font:700 15px/1 var(--sys)}
+.p-vb{margin-left:auto;height:40px;border-radius:20px;border:0;padding:0 15px 0 12px;background:var(--nowSub);color:inherit;display:flex;align-items:center;gap:6px;font:600 14px/1 var(--sys);box-shadow:inset 0 0 0 1.5px var(--nowLine)}
+.p-vb svg{width:19px;height:19px}
+.p-qh{display:flex;justify-content:space-between;align-items:baseline;padding:22px 6px 8px;font:600 13px/1 var(--sys);color:var(--mu)}
+.p-qh b{font:800 13px/1 var(--disp);letter-spacing:.06em;color:var(--tx)}
+.p-qr{position:relative;display:flex;align-items:flex-start;gap:10px;padding:13px 6px;font-size:16px;line-height:1.4;border-top:1px solid var(--ln);background:var(--bg)}
+.p-qr .no{font:700 14px/22px var(--disp);color:var(--mu);width:24px;flex:none}
+.p-qr .t{flex:1;min-width:0}
+.p-qr .pg{font:700 12px/1 var(--disp);color:var(--mu);background:var(--sf2);border-radius:999px;padding:5px 8px;margin-top:1px}
+.p-outer .p-qr{font-size:15px;padding:11px 4px}
+.p-card{border-radius:26px;background:var(--sf);padding:4px 0;flex:none}
+.p-row{position:relative;display:flex;align-items:flex-start;gap:12px;padding:12px 14px 12px 16px;font-size:16px;line-height:1.4}
+.p-row+.p-row::before{content:'';position:absolute;left:50px;right:0;top:0;height:1px;background:var(--ln)}
+.p-row.sub{padding-left:46px}
+.p-row.sub::after{content:'';position:absolute;left:27px;top:6px;bottom:6px;width:1.5px;background:var(--ln)}
+.p-cb{width:23px;height:23px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1.8px var(--c);display:grid;place-items:center;color:#0B0B0C;margin-top:-1px}
+.p-cb svg{width:14px;height:14px;opacity:0}
+.p-cb.done{background:var(--c);box-shadow:none;opacity:.7}
+.p-cb.done svg{opacity:1}
+.p-tt{flex:1;min-width:0}
+.p-tt.done{color:var(--fa);text-decoration:line-through}
+.p-act{width:32px;height:32px;border-radius:50%;border:0;padding:0;display:grid;place-items:center;background:var(--hi);color:var(--hiIcon);flex:none;margin-top:-4px}
+.p-act svg{width:17px;height:17px}
+.p-pg{font:700 12px/1 var(--disp);color:var(--mu);background:var(--sf2);border-radius:999px;padding:6px 8px;margin-top:-2px}
+.p-grp{display:flex;align-items:center;gap:6px;padding:16px 10px 8px;font:600 13px/1 var(--sys);color:var(--mu)}
+.p-grp svg{width:14px;height:14px}
+.p-lh{display:flex;align-items:baseline;gap:10px;padding:2px 6px 14px}
+.p-lh i{width:10px;height:10px;border-radius:50%;background:var(--c);font-style:normal;align-self:center}
+.p-lh b{font:800 34px/1 var(--disp);letter-spacing:-.02em}
+.p-lh span{font-size:14px;color:var(--mu)}
+.p-goal{border-radius:22px;background:var(--sf);padding:14px 16px;display:flex;flex-direction:column;gap:9px;margin-bottom:10px}
+.p-goal .h{display:flex;gap:12px;align-items:flex-start;font-size:16px;font-weight:600;line-height:1.4}
+.p-goal .h em{margin-left:auto;font:800 14px/1.6 var(--disp);font-style:normal;color:var(--goal)}
+.p-goal .bar{height:7px;border-radius:4px;background:var(--sf2);overflow:hidden}
+.p-goal .bar i{display:block;height:100%;background:var(--goal);border-radius:4px}
+.p-goal .m{font-size:12.5px;color:var(--mu);padding-left:35px;margin-top:-4px}
+.p-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.p-st{border-radius:20px;background:var(--sf);padding:14px}
+.p-st b{display:block;font:800 34px/1 var(--disp);letter-spacing:-.02em}
+.p-st>span{display:block;font-size:12px;color:var(--mu);margin-top:6px}
+.p-st.f{background:var(--hi);color:var(--hiT)}
+.p-st.f>span{color:var(--hiT);opacity:.65}
+.p-week{margin-top:10px;border-radius:20px;background:var(--sf);padding:14px 16px 12px}
+.p-week .hd{display:flex;justify-content:space-between;font-size:12px;color:var(--mu)}
+.p-bars{display:flex;align-items:flex-end;gap:10px;height:96px;margin-top:10px}
+.p-bars div{flex:1;height:100%;justify-content:flex-end;display:flex;flex-direction:column;align-items:center;gap:6px;font:700 11px/1 var(--disp);color:var(--mu)}
+.p-bars i{width:100%;border-radius:8px;background:var(--sf3)}
+.p-bars .on i{background:var(--hi)}
+.p-bars .on{color:var(--tx)}
+.p-hm{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,minmax(0,1fr));gap:4px;margin-top:10px}
+.p-hm i{aspect-ratio:1;border-radius:5px;background:var(--sf2)}
+.p-hm i.l1{background:var(--h1)}.p-hm i.l2{background:var(--h2)}.p-hm i.l3{background:var(--h3)}.p-hm i.l4{background:var(--h4)}
+.p-dark .p-hm i.l1{background:#2E3A10}.p-dark .p-hm i.l2{background:#56701A}.p-dark .p-hm i.l3{background:#9DC22A}.p-dark .p-hm i.l4{background:#D6FF3D}
+.p-hm i.t{box-shadow:0 0 0 2px var(--tx)}
+.p-day{display:flex;align-items:baseline;gap:8px;padding:18px 6px 6px;font-size:13px;color:var(--mu)}
+.p-day b{font:800 15px/1 var(--disp);color:var(--tx)}
+.p-hr{display:flex;align-items:flex-start;gap:12px;padding:10px 6px;font-size:15px;line-height:1.4;border-top:1px solid var(--ln)}
+.p-hr time{font:700 13px/21px var(--disp);color:var(--mu);width:40px;flex:none}
+.p-hr i{width:9px;height:9px;border-radius:50%;background:var(--c);margin-top:6px;flex:none}
+.p-hr small{display:block;font-size:12px;color:var(--mu);margin-top:2px}
+.p-empty{display:flex;flex-direction:column;gap:12px;padding:36px 8px 0}
+.p-empty .art{width:150px;height:116px;position:relative}
+.p-empty b{font:800 44px/1 var(--disp);letter-spacing:-.03em}
+.p-empty p{margin:0;font-size:15px;line-height:1.6;color:var(--mu);max-width:320px}
+.p-btn{height:44px;border-radius:22px;border:0;padding:0 18px;background:var(--sf2);color:var(--tx);font:600 15px/1 var(--sys);display:inline-flex;align-items:center;gap:7px}
+.p-btn svg{width:18px;height:18px}
+.p-btn.lime{background:var(--hi);color:var(--hiT)}
+.p-btn.pri{background:var(--tx);color:var(--bg)}
+.p-btn.bad{background:transparent;color:var(--bad);box-shadow:inset 0 0 0 1px var(--ln)}
+.p-btn.conf{background:var(--bad);color:#fff}
+.p-btn.sm{height:34px;font-size:13.5px;padding:0 14px}
+.p-edge{position:absolute;left:0;right:0;bottom:0;height:170px;background:linear-gradient(to bottom,rgba(var(--edge),0),rgba(var(--edge),.9) 72%);z-index:10;pointer-events:none}
+.p-tabs{position:absolute;left:16px;bottom:24px;height:64px;width:300px;border-radius:32px;display:flex;align-items:center;padding:0 4px;z-index:20}
+.p-innerP .p-tabs{left:50%;margin-left:-190px;width:380px}
+.p-tab{flex:1;height:56px;border-radius:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--tx);font:700 9.5px/1 var(--disp);letter-spacing:.04em;position:relative;border:0;background:transparent;padding:0}
+.p-tab svg{width:23px;height:23px}
+.p-tab.on{background:var(--tabOn);color:var(--tabOnT)}
+.p-tab .tb{position:absolute;top:5px;left:50%;margin-left:8px;font:800 10px/1 var(--disp);color:var(--mu)}
+.p-tab.on .tb{color:var(--tabOnT)}
+.p-fab{position:absolute;right:16px;bottom:24px;width:64px;height:64px;border-radius:50%;border:0;display:grid;place-items:center;color:var(--fabT);z-index:20;padding:0;background:var(--fab);-webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),inset 0 0 0 1px rgba(255,255,255,.35),0 10px 24px rgba(120,160,0,.28)}
+.p-innerP .p-fab{right:auto;left:50%;margin-left:202px}
+.p-fab svg{width:27px;height:27px}
+.p-strip{position:absolute;top:0;bottom:0;right:0;z-index:20;display:flex;flex-direction:column;align-items:center}
+.p-outer .p-strip{width:80px}
+.p-inner .p-strip{width:84px}
+.p-cam{position:absolute;top:18px;right:35px;width:14px;height:14px;border-radius:50%;background:#000;box-shadow:inset 0 0 0 2px #1A1A1E,0 0 0 4px rgba(0,0,0,.05);z-index:40}
+.p-inner .p-cam{display:none}
+.p-vstat{margin-top:48px;display:flex;flex-direction:column;align-items:center;gap:7px;font:600 14px/1 var(--sys)}
+.p-inner .p-vstat{margin-top:22px}
+.p-vstat svg{width:22px;height:12px}
+.p-vcap{margin-top:14px;width:56px;border-radius:28px;display:flex;flex-direction:column;align-items:center;padding:6px 0;gap:2px}
+.p-vcap button{width:48px;height:44px;border:0;background:transparent;color:var(--tx);display:grid;place-items:center;padding:0;position:relative}
+.p-vcap button svg{width:21px;height:21px}
+.p-vcap .ok{color:var(--ok)}
+.p-vcap .av{width:30px;height:30px;border-radius:50%;background:#0B0B0C;color:#D6FF3D;font:700 13px/30px var(--sys);text-align:center;font-style:normal}
+.p-dark .p-vcap .av{background:#F4F4EF;color:#0B0B0C}
+.p-vtabs{margin-top:auto;width:62px;border-radius:31px;display:flex;flex-direction:column;align-items:center;padding:4px 0;gap:2px}
+.p-vtabs .p-tab{flex:none;width:54px;height:54px;border-radius:27px;font-size:8px}
+.p-vtabs .p-tab svg{width:21px;height:21px}
+.p-vtabs .p-tab .tb{top:4px;margin-left:7px}
+.p-vfab{width:58px;height:58px;margin:10px 0 16px;border-radius:50%;border:0;display:grid;place-items:center;color:var(--fabT);padding:0;background:var(--fab);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),inset 0 0 0 1px rgba(255,255,255,.35),0 10px 24px rgba(120,160,0,.28)}
+.p-vfab svg{width:25px;height:25px}
+.p-left,.p-right{position:absolute;top:0;bottom:0;display:flex;flex-direction:column;overflow:hidden}
+.p-addr{display:flex;align-items:center;gap:10px;height:48px;border-radius:16px;background:var(--sf);padding:0 14px;color:var(--fa);font-size:15px;margin-top:2px}.p-addr svg{width:18px;height:18px;color:var(--tx)}.p-addr span{margin-left:auto;font:700 12px/1 var(--disp);color:var(--fa)}
+.p-left{left:0;width:455px;padding:26px 24px 0 30px}
+.p-right{left:495px;width:372px;padding:26px 8px 0 0}
+.p-crease{position:absolute;top:0;bottom:0;left:455px;width:40px;z-index:24;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,.0),rgba(0,0,0,.16) 30%,rgba(255,255,255,.08) 50%,rgba(0,0,0,.16) 70%,rgba(0,0,0,0))}
+.p-dark .p-crease{background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.5) 30%,rgba(255,255,255,.06) 50%,rgba(0,0,0,.5) 70%,rgba(0,0,0,0))}
+.p-guide{position:absolute;top:0;bottom:0;left:455px;width:40px;z-index:23;pointer-events:none;background:repeating-linear-gradient(135deg,rgba(255,60,60,.12) 0 6px,transparent 6px 12px);box-shadow:inset 1px 0 0 rgba(255,60,60,.4),inset -1px 0 0 rgba(255,60,60,.4)}
+.p-scrim{position:absolute;inset:0;z-index:40;background:var(--scrim)}
+.p-blur{position:absolute;inset:0;z-index:40;background:var(--scrim);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.p-sheet{position:absolute;left:0;right:0;bottom:0;z-index:41;border-radius:34px 34px 0 0;background:var(--bg);box-shadow:0 -10px 40px rgba(0,0,0,.18);padding:10px 18px 30px;display:flex;flex-direction:column;gap:12px}
+.p-outer .p-sheet{right:80px;border-radius:30px 30px 0 0;top:60px}
+.p-inner .p-sheet,.p-innerP .p-sheet{left:511px;right:100px;top:56px;bottom:56px;border-radius:30px}
+.p-innerP .p-sheet{left:120px;right:120px;top:auto;bottom:120px}
+.p-grab{width:36px;height:5px;border-radius:3px;background:var(--fa);opacity:.6;align-self:center;margin-bottom:4px}
+.p-shh{display:flex;align-items:center;gap:10px}
+.p-shh b{font:800 24px/1 var(--disp);letter-spacing:-.01em}
+.p-shh span{margin-left:auto;font-size:13px;color:var(--mu)}
+.p-shh .x{margin-left:auto;width:36px;height:36px;border-radius:50%;border:0;background:var(--sf2);color:var(--tx);display:grid;place-items:center;padding:0}
+.p-shh .x svg{width:16px;height:16px}
+.p-scard{border-radius:20px;background:var(--sf);padding:4px 16px}
+.p-li{display:flex;align-items:center;gap:12px;min-height:52px;font-size:16px;border-bottom:1px solid var(--ln)}
+.p-li:last-child{border-bottom:0}
+.p-li .a{width:34px;height:34px;border-radius:50%;font:700 14px/34px var(--sys);text-align:center;flex:none}
+.p-li b{font-weight:600}
+.p-li small{display:block;font-size:12.5px;color:var(--mu);margin-top:2px}
+.p-li em{margin-left:auto;font-style:normal;font-size:13px;color:var(--mu)}
+.p-li svg.ck{width:20px;height:20px;margin-left:auto;color:var(--tx)}
+.p-li svg.ic{width:20px;height:20px;color:var(--mu)}
+.p-li .tg{margin-left:auto;width:50px;height:30px;border-radius:15px;background:var(--hi);position:relative}
+.p-li .tg::after{content:'';position:absolute;right:2px;top:2px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+.p-li .tg.off{background:var(--sf3)}
+.p-li .tg.off::after{right:auto;left:2px}
+.p-note{font-size:12.5px;color:var(--mu);line-height:1.5;padding:0 4px}
+.p-ss{display:flex;align-items:center;gap:12px;border-radius:20px;background:var(--sf);padding:14px 16px}
+.p-ss .ic{width:44px;height:44px;border-radius:14px;background:var(--sf2);color:var(--ok);display:grid;place-items:center}
+.p-ss .ic svg{width:24px;height:24px}
+.p-ss b{display:block;font-size:16px;font-weight:600}
+.p-ss span{display:block;font-size:12.5px;color:var(--mu);margin-top:3px}
+.p-ss .p-btn{margin-left:auto;white-space:nowrap}
+.p-cf{border-radius:20px;background:var(--sf);padding:14px 16px;display:flex;flex-direction:column;gap:10px;font-size:14px;line-height:1.5}
+.p-opt{display:flex;gap:10px;padding:10px 12px;border-radius:14px;background:var(--sf2);font-size:14px;line-height:1.45}
+.p-opt.sel{background:var(--hi);color:var(--hiT)}
+.p-opt .r{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1.6px currentColor;flex:none;margin-top:1px;opacity:.6}
+.p-opt.sel .r{box-shadow:inset 0 0 0 5.5px currentColor;opacity:1}
+.p-opt small{display:block;font-size:11.5px;opacity:.65;margin-bottom:2px}
+.p-cf .a{display:flex;gap:8px;flex-wrap:wrap}
+.p-ch{border-radius:20px;padding:14px 16px;display:flex;flex-direction:column;gap:5px;box-shadow:inset 0 0 0 1.5px var(--ln)}
+.p-ch b{font-size:16px;font-weight:600;display:flex;gap:8px;align-items:center}
+.p-ch b em{font:700 11px/1 var(--sys);font-style:normal;padding:4px 8px;border-radius:999px;background:var(--emBg);color:var(--emT)}
+.p-ch span{font-size:13.5px;line-height:1.5;color:var(--mu)}
+.p-ch.sel{background:var(--hi);box-shadow:none;color:var(--hiT)}
+.p-ch.sel span{color:var(--hiT);opacity:.7}
+.p-alert{position:absolute;left:24px;right:24px;top:200px;z-index:41;border-radius:34px;background:var(--bg);padding:24px 20px 20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.p-outer .p-alert{right:104px;left:20px;top:110px}
+.p-inner .p-alert{left:511px;right:100px;top:120px}
+.p-alert h3{margin:0;font:800 23px/1.2 var(--disp);letter-spacing:-.01em}
+.p-alert p{margin:0;font-size:14px;line-height:1.55;color:var(--mu)}
+.p-pop{position:absolute;z-index:41;border-radius:26px;background:var(--pop);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:inset 0 1px 0 var(--glassHi),inset 0 0 0 1px var(--glassLn),0 20px 50px rgba(0,0,0,.25);padding:8px;width:250px}
+.p-mi{display:flex;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:14px;font-size:16px;color:var(--tx)}
+.p-mi svg{width:20px;height:20px;color:var(--tx)}
+.p-mi em{margin-left:auto;font-style:normal;font-size:13.5px;color:var(--mu)}
+.p-mi .tg{margin-left:auto;width:44px;height:26px;border-radius:13px;background:var(--hi);position:relative}
+.p-mi .tg::after{content:'';position:absolute;right:2px;top:2px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.p-mi.bad,.p-mi.bad svg{color:var(--bad)}
+.p-mi.hl{background:rgba(127,127,127,.14)}
+.p-msep{height:1px;background:var(--ln);margin:6px 10px}
+.p-lift{position:absolute;left:16px;right:16px;z-index:41;border-radius:20px;background:var(--sf);padding:14px 16px;display:flex;gap:10px;font-size:16px;line-height:1.4;box-shadow:0 18px 40px rgba(0,0,0,.25)}
+.p-lift .no{font:700 14px/22px var(--disp);color:var(--mu)}
+.p-swipe{display:flex;position:relative;border-top:1px solid var(--ln);overflow:hidden}
+.p-swipe .p-qr{border-top:0;flex:none;width:100%;transform:translateX(-262px)}
+.p-sw{position:absolute;right:0;top:0;bottom:0;display:flex}
+.p-sw button{width:65px;border:0;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:600 11px/1 var(--sys);color:#0B0B0C}
+.p-sw button svg{width:20px;height:20px}
+.p-swr{display:flex;position:relative;border-top:1px solid var(--ln);overflow:hidden}
+.p-swr .p-qr{border-top:0;flex:none;width:100%;transform:translateX(96px)}
+.p-swr .go{position:absolute;left:0;top:0;bottom:0;width:96px;background:var(--hi);color:var(--hiT);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:600 11px/1 var(--sys)}
+.p-swr .go svg{width:22px;height:22px}
+.p-comp{position:absolute;left:0;right:0;z-index:41;border-radius:30px 30px 0 0;padding:14px 16px 12px;display:flex;flex-direction:column;gap:12px}
+.p-cin{display:flex;align-items:flex-start;gap:10px;font-size:18px;line-height:1.4}
+.p-cin span{flex:1}
+.p-caret{display:inline-block;width:2px;height:21px;background:#D6FF3D;vertical-align:-4px;margin-left:1px;box-shadow:0 0 0 .5px rgba(0,0,0,.4);animation:pBlink 1s steps(1) infinite}
+.p-light .p-caret{background:#0B0B0C;box-shadow:none}
+.p-send{width:40px;height:40px;border-radius:50%;border:0;background:var(--hi);color:var(--hiIcon);display:grid;place-items:center;padding:0;flex:none}
+.p-send svg{width:20px;height:20px}
+.p-chips{display:flex;gap:8px}
+.p-chip{height:32px;border-radius:16px;padding:0 12px 0 9px;display:flex;align-items:center;gap:5px;font:700 12px/1 var(--disp);background:var(--sf2);color:var(--tx)}
+.p-chip svg{width:16px;height:16px;color:var(--c)}
+.p-chip.on{background:var(--tx);color:var(--bg)}
+.p-chip.on svg{color:var(--accOnInk)}.p-dark .p-chip.on svg{color:#0B0B0C}
+.p-chip.sw{margin-left:auto;background:transparent;box-shadow:inset 0 0 0 1.5px var(--ln);font:600 12px/1 var(--sys)}
+.p-kb{position:absolute;left:0;right:0;bottom:0;z-index:41;background:var(--kb);padding:6px 4px 40px;display:flex;flex-direction:column;gap:11px}
+.p-cand{display:flex;gap:22px;padding:6px 12px 2px;font-size:17px}
+.p-cand span:first-child{font-weight:600}
+.p-kr{display:flex;gap:6px;justify-content:center}
+.p-k{height:44px;flex:0 0 33.5px;border-radius:9px;background:var(--key);box-shadow:0 1px 0 rgba(0,0,0,.3);display:grid;place-items:center;font:400 20px/1 var(--sys);color:var(--tx)}
+.p-k.f{background:var(--key2);flex-basis:45px;font-size:15px}
+.p-k.sp{flex:1 1 auto;font-size:15px}
+.p-k.go{flex-basis:88px;background:var(--hi);color:var(--hiT);font-size:15px;font-weight:600}
+.p-toast{position:absolute;left:16px;right:16px;bottom:100px;z-index:30;height:54px;border-radius:27px;display:flex;align-items:center;gap:12px;padding:0 8px 0 18px;font-size:14.5px}
+.p-toast span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-toast button{height:38px;border-radius:19px;border:0;background:var(--hi);color:var(--hiT);font:700 14px/1 var(--sys);padding:0 16px}
+.p-tr{border-radius:20px;background:var(--sf);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.p-tr b{font-size:15.5px;font-weight:600}
+.p-tr .m{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mu)}
+.p-tr .m i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.p-tr .a{display:flex;gap:8px;margin-top:4px}
+@keyframes pBlink{50%{opacity:0}}
+</style>
+</helmet>
+<div class="p-root {{rootCls}}" style="width:{{W}}px;height:{{H}}px">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="p-i-focus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+<symbol id="p-i-focusF" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+<symbol id="p-i-verify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.4 12S6 5.4 12 5.4 21.6 12 21.6 12 18 18.6 12 18.6 2.4 12 2.4 12z"></path><path d="m9.4 12.1 1.8 1.8 3.4-3.6"></path></symbol>
+<symbol id="p-i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5 6 6a2 2 0 0 1 1.9-1.4h8.2A2 2 0 0 1 18 6l2.5 7.5V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><path d="M3.5 13.5h4.6l1.4 2.4h5l1.4-2.4h4.6"></path></symbol>
+<symbol id="p-i-goal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 19.6 9.4 7.8l3.9 6.4 2.4-3.3 5.5 8.7z"></path></symbol>
+<symbol id="p-i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.8" y="5" width="16.4" height="15.2" rx="3.2"></rect><path d="M8 3v4M16 3v4M3.8 10h16.4M9 15l2 2 4-4"></path></symbol>
+<symbol id="p-i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></symbol>
+<symbol id="p-i-more" viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="12" r="1.9"></circle><circle cx="12" cy="12" r="1.9"></circle><circle cx="18.5" cy="12" r="1.9"></circle></symbol>
+<symbol id="p-i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7.2 18.5h9.9a4 4 0 0 0 .5-7.97 5.6 5.6 0 0 0-10.8-1A4.5 4.5 0 0 0 7.2 18.5z"></path><path d="m9.6 13.9 1.8 1.8 3.2-3.4"></path></symbol>
+<symbol id="p-i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.3 4.3L19 7.2"></path></symbol>
+<symbol id="p-i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"></path></symbol>
+<symbol id="p-i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 7 5 5-5 5"></path></symbol>
+<symbol id="p-i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></symbol>
+<symbol id="p-i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"></path></symbol>
+<symbol id="p-i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2A1.8 1.8 0 0 0 9.2 21h5.6a1.8 1.8 0 0 0 1.8-1.8L17.5 7"></path></symbol>
+<symbol id="p-i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"></path></symbol>
+<symbol id="p-i-sub" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v9a3 3 0 0 0 3 3h9M15 13l3 3-3 3"></path></symbol>
+<symbol id="p-i-move" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h14M13 6l6 6-6 6"></path></symbol>
+<symbol id="p-i-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"></path><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"></path></symbol>
+<symbol id="p-i-haptic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3.5" width="8" height="17" rx="2"></rect><path d="M4.5 8v8M19.5 8v8M2 10.5v3M22 10.5v3"></path></symbol>
+<symbol id="p-i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.3"></circle><path d="M3 19.5c.6-3.2 3-5 6-5s5.4 1.8 6 5"></path><circle cx="17" cy="9.5" r="2.5"></circle><path d="M17.5 14.5c2 .3 3.2 1.8 3.6 4"></path></symbol>
+<symbol id="p-i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2.4"></rect><path d="M11 18h2"></path></symbol>
+<symbol id="p-i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="5" width="15" height="10.5" rx="1.6"></rect><path d="M2.5 19h19"></path></symbol>
+<symbol id="p-i-sig" viewBox="0 0 70 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"></rect><rect x="5" y="5" width="3" height="7" rx="1"></rect><rect x="10" y="2.5" width="3" height="9.5" rx="1"></rect><rect x="15" y="0" width="3" height="12" rx="1"></rect><path d="M30 3.2a10 10 0 0 1 13 0l-1.6 1.7a7.6 7.6 0 0 0-9.8 0zM32.6 6a6.2 6.2 0 0 1 7.8 0l-1.6 1.7a3.8 3.8 0 0 0-4.6 0zM35.2 8.8a2.4 2.4 0 0 1 2.6 0L36.5 10.4z"></path><rect x="46" y=".5" width="21" height="11" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".45"></rect><rect x="48" y="2.5" width="15" height="7" rx="2"></rect><rect x="68" y="4" width="1.6" height="4" rx=".8" fill-opacity=".45"></rect></symbol>
+<symbol id="p-i-wifi" viewBox="0 0 40 12" fill="currentColor"><path d="M2 3.2a10 10 0 0 1 13 0l-1.6 1.7a7.6 7.6 0 0 0-9.8 0zM4.6 6a6.2 6.2 0 0 1 7.8 0l-1.6 1.7a3.8 3.8 0 0 0-4.6 0zM7.2 8.8a2.4 2.4 0 0 1 2.6 0L8.5 10.4z"></path><rect x="18" y=".5" width="19" height="11" rx="3.5" fill="none" stroke="currentColor" stroke-opacity=".45"></rect><rect x="20" y="2.5" width="13" height="7" rx="2"></rect></symbol>
+</svg>
+
+<div class="p-scr">
+  <sc-if value="{{hasTopBar}}" hint-placeholder-val="{{ true }}">
+    <div class="p-isl"></div>
+    <div class="p-sb"><span>9:41</span><svg viewBox="0 0 70 12" style="width:70px"><use href="#p-i-sig"></use></svg></div>
+    <div class="p-nav">
+      <button class="p-gav p-gl" aria-label="空间：工作"><i>工</i></button>
+      <div class="p-ttl"><span>{{dateLine}}</span><b>{{title}}</b></div>
+      <div class="p-gcap p-gl"><button class="{{syncCls}}" aria-label="同步状态"><svg><use href="#p-i-cloud"></use></svg></button><button aria-label="更多"><svg><use href="#p-i-more"></use></svg></button></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{single}}" hint-placeholder-val="{{ true }}">
+    <div class="p-col">
+      <sc-if value="{{isOuter}}" hint-placeholder-val="{{ false }}"><div class="p-ohead"><div><span>{{dateLine}}</span><b>{{title}}</b></div></div></sc-if>
+
+      <sc-if value="{{vFocus}}" hint-placeholder-val="{{ true }}">
+        <div class="p-now">
+          <div class="top"><span>NOW</span><span>01 / 05</span></div>
+          <h2>整理多端同步的冲突规则，写成可以直接实现的清单</h2>
+          <div class="p-bar"><i class="on"></i><i></i><i></i></div>
+          <div class="p-subs">
+            <div class="p-sub"><i class="v"></i>完成 / 待测与删除墓碑<em>待验证</em></div>
+            <div class="p-sub"><i></i>离线一周后的合并</div>
+            <div class="p-sub"><i class="d"></i><s>排序与父子移动</s></div>
+          </div>
+          <div class="p-hact"><button class="p-done" aria-label="完成"><svg><use href="#p-i-check"></use></svg></button><b>完成</b><button class="p-vb"><svg><use href="#p-i-verify"></use></svg>送去验证</button></div>
+        </div>
+        <div class="p-qh"><span><b>接下来</b></span><span>4</span></div>
+        <sc-for list="{{queue}}" as="r" hint-placeholder-count="4">
+          <div>
+            <sc-if value="{{r.swL}}" hint-placeholder-val="{{ false }}">
+              <div class="p-swipe"><div class="p-qr"><span class="no">{{r.no}}</span><span class="t">{{r.t}}</span></div><div class="p-sw"><button style="background:var(--hi);color:var(--hiT)"><svg><use href="#p-i-up"></use></svg>设为现在</button><button style="background:#B8A6FF"><svg><use href="#p-i-verify"></use></svg>送去验证</button><button style="background:#C9C9C2"><svg><use href="#p-i-move"></use></svg>移动</button><button style="background:#FF6369;color:#fff"><svg><use href="#p-i-trash"></use></svg>删除</button></div></div>
+            </sc-if>
+            <sc-if value="{{r.swR}}" hint-placeholder-val="{{ false }}">
+              <div class="p-swr"><div class="go"><svg><use href="#p-i-check"></use></svg>完成</div><div class="p-qr"><span class="no">{{r.no}}</span><span class="t">{{r.t}}</span></div></div>
+            </sc-if>
+            <sc-if value="{{r.plain}}" hint-placeholder-val="{{ true }}">
+              <div class="p-qr" style="opacity:{{r.o}}"><span class="no">{{r.no}}</span><span class="t">{{r.t}}</span><sc-if value="{{r.prog}}" hint-placeholder-val="{{ false }}"><span class="pg">{{r.prog}}</span></sc-if></div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{vList}}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{isGoal}}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{goals}}" as="g" hint-placeholder-count="3">
+            <div class="p-goal"><div class="h"><span class="p-cb" style="--c:var(--goal)"><svg><use href="#p-i-check"></use></svg></span><span>{{g.t}}</span></div><div class="m">{{g.m}}</div></div>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{hasRows}}" hint-placeholder-val="{{ true }}">
+          <div class="p-card">
+            <sc-for list="{{lrows}}" as="r" hint-placeholder-count="3">
+              <div class="p-row {{r.cls}}" style="--c:{{lc}}">
+                <span class="p-cb {{r.cb}}"><svg><use href="#p-i-check"></use></svg></span>
+                <span class="p-tt {{r.tt}}">{{r.t}}</span>
+                <sc-if value="{{r.prog}}" hint-placeholder-val="{{ false }}"><span class="p-pg">{{r.prog}}</span></sc-if>
+                <sc-if value="{{r.act}}" hint-placeholder-val="{{ false }}"><button class="p-act" aria-label="{{r.actLabel}}"><svg><use href="#p-i-focus"></use></svg></button></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{isInbox}}" hint-placeholder-val="{{ false }}">
+          <div class="p-grp"><svg><use href="#p-i-chev"></use></svg>已完成 · 12</div>
+          <div class="p-card">
+            <div class="p-row" style="--c:var(--inbox)"><span class="p-cb done"><svg><use href="#p-i-check"></use></svg></span><span class="p-tt done">给图标做 13px 版本</span></div>
+            <div class="p-row" style="--c:var(--inbox)"><span class="p-cb done"><svg><use href="#p-i-check"></use></svg></span><span class="p-tt done">整理第一轮设计的反馈</span></div>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{vHistory}}" hint-placeholder-val="{{ false }}">
+        <div class="p-stats"><div class="p-st f"><b>4</b><span>今天</span></div><div class="p-st"><b>23</b><span>近 7 天</span></div><div class="p-st"><b>6</b><span>连续天数</span></div></div>
+        <div class="p-week"><div class="hd"><span>最近 7 天</span><span>点柱子跳到那天</span></div>
+          <div class="p-bars"><sc-for list="{{bars}}" as="b" hint-placeholder-count="7"><div class="{{b.cls}}"><i style="height:{{b.h}}"></i>{{b.d}}</div></sc-for></div>
+        </div>
+        <div class="p-day"><b>今天</b>10月17日 周六 · 4 件</div>
+        <sc-for list="{{hist}}" as="h" hint-placeholder-count="4">
+          <div class="p-hr" style="--c:{{h.c}}"><time>{{h.time}}</time><i></i><span>{{h.t}}<sc-if value="{{h.sub}}" hint-placeholder-val="{{ false }}"><small>{{h.sub}}</small></sc-if></span></div>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{vEmpty}}" hint-placeholder-val="{{ false }}">
+        <div class="p-empty">
+          <div class="art">
+            <div style="position:absolute;left:14px;top:62px;width:130px;height:40px;border-radius:14px;background:var(--sf2)"></div>
+            <div style="position:absolute;left:6px;top:48px;width:142px;height:40px;border-radius:14px;background:var(--sf3)"></div>
+            <div style="position:absolute;left:0;top:0;width:150px;height:76px;border-radius:22px;box-shadow:inset 0 0 0 2.5px var(--tx);background:repeating-linear-gradient(135deg,transparent 0 7px,var(--ln) 7px 8px)"></div>
+            <svg style="position:absolute;left:57px;top:20px;width:36px;height:36px;color:var(--tx)"><use href="#p-i-focus"></use></svg>
+          </div>
+          <b>Nothing now.</b>
+          <p>FOCUS 空了。从 INBOX 挑一件当「现在」，或者就停在这儿，喝口水。</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="p-btn lime"><svg><use href="#p-i-inbox"></use></svg>去 INBOX 挑一件</button><button class="p-btn"><svg><use href="#p-i-plus"></use></svg>写一件</button></div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{spread}}" hint-placeholder-val="{{ false }}">
+    <div class="p-left">
+      <div class="p-ohead" style="padding-bottom:16px"><div><span>{{dateLine}}</span><b style="font-size:30px">{{title}}</b></div></div>
+      <sc-if value="{{vFocus}}" hint-placeholder-val="{{ true }}">
+        <div class="p-now">
+          <div class="top"><span>NOW · 现在就做这件</span><span>01 / 05</span></div>
+          <h2>整理多端同步的冲突规则，写成可以直接实现的清单</h2>
+          <div class="p-bar"><i class="on"></i><i></i><i></i></div>
+          <div class="p-subs">
+            <div class="p-sub"><i class="v"></i>完成 / 待测与删除墓碑<em>待验证</em></div>
+            <div class="p-sub"><i></i>离线一周后的合并</div>
+            <div class="p-sub"><i class="d"></i><s>排序与父子移动</s></div>
+          </div>
+          <div class="p-hact"><button class="p-done" aria-label="完成"><svg><use href="#p-i-check"></use></svg></button><b>完成</b><button class="p-vb"><svg><use href="#p-i-verify"></use></svg>送去验证</button></div>
+        </div>
+        <div class="p-stats" style="margin-top:14px"><div class="p-st"><b>4</b><span>今天完成</span></div><div class="p-st"><b>23</b><span>近 7 天</span></div><div class="p-st"><b>6</b><span>连续天数</span></div></div>
+      </sc-if>
+      <sc-if value="{{vHistory}}" hint-placeholder-val="{{ false }}">
+        <div class="p-stats"><div class="p-st f"><b>4</b><span>今天</span></div><div class="p-st"><b>23</b><span>近 7 天</span></div><div class="p-st"><b>6</b><span>连续天数</span></div></div>
+        <div class="p-week"><div class="hd"><span>最近 16 周</span><span>点一天，右页跳到那天</span></div><div class="p-hm"><sc-for list="{{heat}}" as="c" hint-placeholder-count="112"><i class="{{c}}"></i></sc-for></div></div>
+      </sc-if>
+    </div>
+    <div class="p-right">
+      <sc-if value="{{vFocus}}" hint-placeholder-val="{{ true }}">
+        <div class="p-addr"><svg><use href="#p-i-plus"></use></svg>接下来要做…</div>
+        <div class="p-qh" style="padding-top:12px"><span><b>接下来</b></span><span>4 · 拖到左页 = 换成现在</span></div>
+        <sc-for list="{{queue}}" as="r" hint-placeholder-count="4">
+          <div class="p-qr" style="opacity:{{r.o}}"><span class="no">{{r.no}}</span><span class="t">{{r.t}}</span><sc-if value="{{r.prog}}" hint-placeholder-val="{{ false }}"><span class="pg">{{r.prog}}</span></sc-if></div>
+        </sc-for>
+        <div class="p-grp" style="margin-top:12px"><svg><use href="#p-i-right"></use></svg>今天已完成 · 4</div>
+      </sc-if>
+      <sc-if value="{{vHistory}}" hint-placeholder-val="{{ false }}">
+        <div class="p-day" style="padding-top:12px"><b>今天</b>10月17日 周六 · 4 件</div>
+        <sc-for list="{{hist}}" as="h" hint-placeholder-count="4">
+          <div class="p-hr" style="--c:{{h.c}}"><time>{{h.time}}</time><i></i><span>{{h.t}}<sc-if value="{{h.sub}}" hint-placeholder-val="{{ false }}"><small>{{h.sub}}</small></sc-if></span></div>
+        </sc-for>
+        <div class="p-day"><b>昨天</b>10月16日 周五 · 6 件</div>
+        <div class="p-hr" style="--c:var(--tx)"><time>22:14</time><i></i><span>同步设置里显示各设备最后更新时间</span></div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasStrip}}" hint-placeholder-val="{{ false }}">
+    <div class="p-cam"></div>
+    <div class="p-strip">
+      <div class="p-vstat"><span>9:41</span><svg viewBox="0 0 40 12"><use href="#p-i-wifi"></use></svg></div>
+      <div class="p-vcap p-gl"><button aria-label="空间：工作"><i class="av">工</i></button><button class="{{syncCls}}" aria-label="同步状态"><svg><use href="#p-i-cloud"></use></svg></button><button aria-label="更多"><svg><use href="#p-i-more"></use></svg></button></div>
+      <div class="p-vtabs p-gl">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+          <button class="p-tab {{t.on}}" aria-label="{{t.en}}"><svg><use href="#p-i-{{t.icon}}"></use></svg>{{t.short}}<sc-if value="{{t.n}}" hint-placeholder-val="{{ true }}"><span class="tb">{{t.n}}</span></sc-if></button>
+        </sc-for>
+      </div>
+      <button class="p-vfab" aria-label="新增"><svg><use href="#p-i-plus"></use></svg></button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasBottomBar}}" hint-placeholder-val="{{ true }}">
+    <div class="p-edge"></div>
+    <div class="p-tabs p-gl">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
+        <button class="p-tab {{t.on}}" aria-label="{{t.en}}"><svg><use href="#p-i-{{t.icon}}"></use></svg>{{t.en}}<sc-if value="{{t.n}}" hint-placeholder-val="{{ true }}"><span class="tb">{{t.n}}</span></sc-if></button>
+      </sc-for>
+    </div>
+    <button class="p-fab" aria-label="新增"><svg><use href="#p-i-plus"></use></svg></button>
+  </sc-if>
+  <sc-if value="{{hasHome}}" hint-placeholder-val="{{ true }}"><div class="p-home"></div></sc-if>
+
+  <sc-if value="{{isBook}}" hint-placeholder-val="{{ false }}"><div class="p-crease"></div></sc-if>
+  <sc-if value="{{showGuide}}" hint-placeholder-val="{{ false }}"><div class="p-guide"></div></sc-if>
+
+  <sc-if value="{{oToast}}" hint-placeholder-val="{{ false }}"><div class="p-toast p-gl"><span>已删除「回复设计稿评论」</span><button>撤销</button></div></sc-if>
+
+  <sc-if value="{{oAdd}}" hint-placeholder-val="{{ false }}">
+    <div class="p-scrim"></div>
+    <div class="p-comp p-gl" style="bottom:{{kbTop}}px">
+      <div class="p-cin"><span>修一下 Windows 标题栏按钮间距<i class="p-caret"></i></span><button class="p-send" aria-label="添加"><svg><use href="#p-i-up"></use></svg></button></div>
+      <div class="p-chips"><span class="p-chip on" style="--c:var(--lime)"><svg><use href="#p-i-focus"></use></svg>FOCUS</span><span class="p-chip" style="--c:var(--verify)"><svg><use href="#p-i-verify"></use></svg></span><span class="p-chip" style="--c:var(--inbox)"><svg><use href="#p-i-inbox"></use></svg></span><span class="p-chip" style="--c:var(--goal)"><svg><use href="#p-i-goal"></use></svg></span><span class="p-chip sw">排在现在之后</span></div>
+    </div>
+    <div class="p-kb">
+      <div class="p-cand"><span>间距</span><span>间隔</span><span>坚决</span><span>监局</span></div>
+      <div class="p-kr"><span class="p-k">q</span><span class="p-k">w</span><span class="p-k">e</span><span class="p-k">r</span><span class="p-k">t</span><span class="p-k">y</span><span class="p-k">u</span><span class="p-k">i</span><span class="p-k">o</span><span class="p-k">p</span></div>
+      <div class="p-kr"><span class="p-k">a</span><span class="p-k">s</span><span class="p-k">d</span><span class="p-k">f</span><span class="p-k">g</span><span class="p-k">h</span><span class="p-k">j</span><span class="p-k">k</span><span class="p-k">l</span></div>
+      <div class="p-kr"><span class="p-k f">⇧</span><span class="p-k">z</span><span class="p-k">x</span><span class="p-k">c</span><span class="p-k">v</span><span class="p-k">b</span><span class="p-k">n</span><span class="p-k">m</span><span class="p-k f">⌫</span></div>
+      <div class="p-kr"><span class="p-k f">123</span><span class="p-k f">☺</span><span class="p-k sp">拼音</span><span class="p-k go">添加</span></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{oMenu}}" hint-placeholder-val="{{ false }}">
+    <div class="p-blur"></div>
+    <div class="p-lift" style="top:300px"><span class="no">03</span><span>给 HISTORY 加上「从哪个列表完成」</span></div>
+    <div class="p-pop" style="left:16px;top:384px;width:270px">
+      <div class="p-mi"><svg><use href="#p-i-check"></use></svg>完成</div>
+      <div class="p-mi"><svg><use href="#p-i-edit"></use></svg>编辑</div>
+      <div class="p-mi"><svg><use href="#p-i-sub"></use></svg>添加子任务</div>
+      <div class="p-msep"></div>
+      <div class="p-mi hl"><svg><use href="#p-i-up"></use></svg>设为现在</div>
+      <div class="p-mi"><svg><use href="#p-i-verify"></use></svg>送去验证</div>
+      <div class="p-mi"><svg><use href="#p-i-move"></use></svg>移到…<em>›</em></div>
+      <div class="p-msep"></div>
+      <div class="p-mi bad"><svg><use href="#p-i-trash"></use></svg>删除</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{oMore}}" hint-placeholder-val="{{ false }}">
+    <div class="p-pop" style="{{morePos}}">
+      <div class="p-mi"><svg><use href="#p-i-trash"></use></svg>回收站<em>3</em></div>
+      <div class="p-mi"><svg><use href="#p-i-cloud"></use></svg>同步<em>已同步</em></div>
+      <div class="p-mi"><svg><use href="#p-i-people"></use></svg>空间<em>工作 ›</em></div>
+      <div class="p-msep"></div>
+      <div class="p-mi"><svg><use href="#p-i-sound"></use></svg>完成提示音<span class="tg"></span></div>
+      <div class="p-mi"><svg><use href="#p-i-haptic"></use></svg>触感反馈<span class="tg"></span></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{oSheet}}" hint-placeholder-val="{{ false }}">
+    <div class="p-scrim"></div>
+    <div class="p-sheet" style="{{sheetStyle}}">
+      <sc-if value="{{sheetGrab}}" hint-placeholder-val="{{ true }}"><div class="p-grab"></div></sc-if>
+      <sc-if value="{{sSpace}}" hint-placeholder-val="{{ false }}">
+        <div class="p-shh"><b>空间</b><button class="x" aria-label="关闭"><svg><use href="#p-i-x"></use></svg></button></div>
+        <div class="p-scard">
+          <div class="p-li"><span class="a" style="background:#0B0B0C;color:#D6FF3D">工</span><div><b>工作</b><small>5 件在 FOCUS · 当前</small></div><svg class="ck"><use href="#p-i-check"></use></svg></div>
+          <div class="p-li"><span class="a" style="background:#FF8A65;color:#0B0B0C">生</span><div><b>生活</b><small>2 件在 FOCUS</small></div><em>›</em></div>
+          <div class="p-li"><span class="a" style="background:#B8A6FF;color:#0B0B0C">读</span><div><b>读书</b><small>FOCUS 空着</small></div><em>›</em></div>
+        </div>
+        <div class="p-scard"><div class="p-li"><svg class="ic"><use href="#p-i-plus"></use></svg><b>新建空间</b></div></div>
+        <p class="p-note">左滑一个空间可改名或删除；删除需要再点一次确认，至少保留一个。</p>
+      </sc-if>
+      <sc-if value="{{sSync}}" hint-placeholder-val="{{ false }}">
+        <div class="p-shh"><b>同步</b><span>坚果云 WebDAV</span></div>
+        <div class="p-ss"><span class="ic"><svg><use href="#p-i-cloud"></use></svg></span><div><b>已同步</b><span>刚刚 · 前台每 15 秒检查</span></div><button class="p-btn pri sm">立即同步</button></div>
+        <div class="p-scard">
+          <div class="p-li"><b style="width:86px;font-weight:400;color:var(--mu)">账号</b><span>traveler@example.com</span></div>
+          <div class="p-li"><b style="width:86px;font-weight:400;color:var(--mu)">应用密码</b><span style="letter-spacing:.2em;color:var(--fa)">••••••••</span></div>
+          <div class="p-li"><b style="width:86px;font-weight:400;color:var(--mu)">文件夹</b><span>FOCUS</span></div>
+        </div>
+        <div class="p-scard">
+          <div class="p-li"><svg class="ic"><use href="#p-i-phone"></use></svg><span>iPhone 17 Pro（本机）</span><em>刚刚</em></div>
+          <div class="p-li"><svg class="ic"><use href="#p-i-laptop"></use></svg><span>MacBook Pro</span><em>2 分钟前</em></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{sConflict}}" hint-placeholder-val="{{ false }}">
+        <div class="p-shh"><b>2 个冲突</b><span>稍后处理</span></div>
+        <p class="p-note" style="margin:-4px 0 0">两台设备同时改了同一处。在这里决定后，另一台上的同一个冲突会自动消失。</p>
+        <div class="p-cf"><div><b>标题被改成了两样</b>，用哪个？</div>
+          <div class="p-opt"><span class="r"></span><span><small>MacBook Pro · 2 分钟前</small>整理多端同步的冲突规则，写成清单</span></div>
+          <div class="p-opt sel"><span class="r"></span><span><small>这台 iPhone · 刚刚</small>整理同步冲突规则（含删除）</span></div>
+          <div class="a"><button class="p-btn pri sm">用选中的</button><button class="p-btn sm">都保留</button></div>
+        </div>
+        <div class="p-cf"><div>「<b>旧版回收站格式迁移</b>」在 MacBook 上被删除，这台 iPhone 同时在它下面加了子项。</div>
+          <div class="a"><button class="p-btn pri sm">恢复</button><button class="p-btn sm">保持删除</button></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{sTrash}}" hint-placeholder-val="{{ false }}">
+        <div class="p-shh"><b>回收站</b><button class="p-btn bad sm" style="margin-left:auto">清空</button></div>
+        <p class="p-note" style="margin:-4px 0 0">删除的条目连同子项保留 30 天，可以恢复到原来的位置。</p>
+        <div class="p-tr" style="--c:var(--tx)"><b>旧版回收站格式迁移</b><div class="m"><i></i>原在 FOCUS · 今天 14:20 · 含 2 个子项</div><div class="a"><button class="p-btn pri sm">恢复</button><button class="p-btn conf sm">再点一次彻底删除</button></div></div>
+        <div class="p-tr" style="--c:var(--inbox)"><b>试一下 Electron 44 的毛玻璃</b><div class="m"><i></i>原在 INBOX · 昨天 22:08</div><div class="a"><button class="p-btn pri sm">恢复</button><button class="p-btn bad sm">彻底删除</button></div></div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{oJoin}}" hint-placeholder-val="{{ false }}">
+    <div class="p-blur"></div>
+    <div class="p-alert">
+      <h3>云端已经有 2 台设备的数据</h3>
+      <p>这台 iPhone 上已有 9 条待办。开启同步前，先决定它们怎么办：</p>
+      <div class="p-ch sel"><b>合并本机数据<em>推荐</em></b><span>两边都保留，之后每条按标题、完成状态、位置分开合并。</span></div>
+      <div class="p-ch"><b>以云端为准</b><span>本机数据先备份一份，再换成云端的。</span></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end"><button class="p-btn">取消</button><button class="p-btn pri">继续</button></div>
+    </div>
+  </sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"form":{"editor":"enum","options":["phone","outer","inner","innerP"],"default":"phone"},"posture":{"editor":"enum","options":["flat","book"],"default":"flat"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"view":{"editor":"enum","options":["focus","verify","inbox","goal","history","empty"],"default":"focus"},"overlay":{"editor":"enum","options":["none","add","menu","swipe","more","space","sync","conflict","trash","join","toast"],"default":"none"},"guide":{"editor":"boolean","default":false},"scheme":{"editor":"enum","options":["lime","ink","blue","matcha"],"default":"lime"},"$preview":{"width":402,"height":874}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const form = this.props.form || 'phone';
+    const theme = this.props.theme || 'light';
+    const view = this.props.view || 'focus';
+    const ov = this.props.overlay || 'none';
+    const posture = this.props.posture || 'flat';
+    const size = { phone: [402, 874], outer: [466, 678], inner: [951, 669], innerP: [669, 951] }[form];
+    const L = {
+      focus: { en: 'FOCUS', n: '5', c: 'var(--tx)', icon: 'focus', short: 'FOCUS' },
+      verify: { en: 'VERIFY', n: '2', c: 'var(--verify)', icon: 'verify', short: 'VERIFY' },
+      inbox: { en: 'INBOX', n: '3', c: 'var(--inbox)', icon: 'inbox', short: 'INBOX' },
+      goal: { en: 'GOAL', n: '', c: 'var(--goal)', icon: 'goal', short: 'GOAL' },
+      history: { en: 'HISTORY', n: '', c: 'var(--hist)', icon: 'history', short: 'HIST' }
+    };
+    const cur = view === 'empty' ? 'focus' : view;
+    const tabs = ['focus', 'verify', 'inbox', 'goal', 'history'].map((k) => ({ ...L[k], on: k === cur ? 'on' : '' }));
+    const counts = { focus: '5', verify: '2', inbox: '3', goal: '4', history: '今天 4' };
+    const qt = [
+      ['把 iOS 原型装到真机上，过一遍左滑和长按', ''],
+      ['给 HISTORY 加上「从哪个列表完成」', '0/2'],
+      ['回复设计稿评论：侧栏宽度要不要再收窄', ''],
+      ['周报：本周完成的事直接从 HISTORY 里抄', '']
+    ];
+    const fade = ['1', '.84', '.68', '.52'];
+    const queue = qt.map(([t, prog], i) => {
+      const swL = ov === 'swipe' && i === 1;
+      const swR = ov === 'swipe' && i === 2;
+      return { t, prog, no: '0' + (i + 2), o: fade[i], swL, swR, plain: !swL && !swR };
+    });
+    const R = {
+      verify: [
+        { t: '坚果云限流时的退避重试', act: true, actLabel: '退回 FOCUS' },
+        { t: '删除 profile 与修改内容的冲突面板', prog: '1/2' },
+        { t: '面板文案：恢复 / 确认删除', sub: true, done: true },
+        { t: '其它设备上同一个冲突自动消失', sub: true }
+      ],
+      inbox: [
+        { t: '小组件加一个「今天完成」的样式', act: true, actLabel: '送进 FOCUS' },
+        { t: 'Windows 上标题栏按钮间距再看一下', act: true, actLabel: '送进 FOCUS' },
+        { t: '拖拽排序在 iOS 上怎么做', act: true, actLabel: '送进 FOCUS' }
+      ]
+    };
+    const lrows = (R[view] || []).map((r) => ({ t: r.t, prog: r.prog || '', act: !!r.act, actLabel: r.actLabel || '', cls: r.sub ? 'sub' : '', cb: r.done ? 'done' : '', tt: r.done ? 'done' : '' }));
+    const heat = [];
+    const seed = [0, 2, 1, 3, 0, 4, 2, 1, 0, 3, 2, 2, 1, 4, 3, 0, 1, 2, 3, 1, 0];
+    for (let i = 0; i < 112; i++) { const v = i > 109 ? -1 : seed[(i * 5 + (i >> 3)) % seed.length]; heat.push(i === 109 ? 'l3 t' : v <= 0 ? '' : 'l' + v); }
+    const isPhoneLike = form === 'phone' || form === 'innerP';
+    const spread = form === 'inner';
+    const sheetKind = ['space', 'sync', 'conflict', 'trash'].includes(ov) ? ov : '';
+    const kbTop = form === 'innerP' ? 300 : 320;
+    return {
+      W: size[0], H: size[1],
+      rootCls: ['p-' + form, 'p-' + theme, 's-' + (this.props.scheme || 'lime')].join(' '),
+      hasTopBar: isPhoneLike, hasBottomBar: isPhoneLike, hasHome: form !== 'outer', hasStrip: form === 'outer' || form === 'inner',
+      isOuter: form === 'outer', single: !spread, spread, isBook: spread && posture === 'book', showGuide: spread && !!this.props.guide,
+      dateLine: cur === 'history' ? '完成记录' : '10/17 周六',
+      title: L[cur].en + ' · ' + counts[cur],
+      syncCls: 'ok',
+      tabs, queue,
+      vFocus: view === 'focus', vList: ['verify', 'inbox', 'goal'].includes(view), vHistory: view === 'history', vEmpty: view === 'empty',
+      isGoal: view === 'goal', isInbox: view === 'inbox', hasRows: lrows.length > 0,
+      lc: L[cur].c, lrows,
+      goals: [
+        { t: 'FOCUS 上架 App Store', m: '写下于 8 月 21 日' },
+        { t: '每周跑步 3 次', m: '写下于 9 月 26 日' },
+        { t: '读完《设计心理学》', m: '写下于 9 月 3 日' },
+        { t: '少熬夜，十二点前睡', m: '写下于 7 月 2 日' }
+      ],
+      bars: [['一', '40%'], ['二', '70%'], ['三', '25%'], ['四', '90%'], ['五', '60%'], ['六', '0%'], ['今', '55%']].map(([d, h], i) => ({ d, h: Math.max(4, Math.round(parseInt(h, 10) * 0.74)) + 'px', cls: i === 6 ? 'on' : '' })),
+      heat,
+      hist: [
+        { time: '21:40', t: '坚果云 WebDAV 冲突决定面板', c: 'var(--verify)', sub: '在 VERIFY 完成 · 含 2 个子项' },
+        { time: '18:05', t: '回复设计稿评论', c: 'var(--tx)', sub: '' },
+        { time: '15:12', t: '排序与父子移动', c: 'var(--tx)', sub: '整理多端同步的冲突规则 › 子项' },
+        { time: '10:30', t: '给图标做 13px 版本', c: 'var(--inbox)', sub: '' }
+      ],
+      oToast: ov === 'toast', oAdd: ov === 'add', kbTop, oMenu: ov === 'menu', oMore: ov === 'more',
+      morePos: form === 'outer' ? 'right:92px;top:110px' : form === 'inner' ? 'right:96px;top:96px' : 'right:16px;top:110px',
+      oSheet: !!sheetKind, sSpace: sheetKind === 'space', sSync: sheetKind === 'sync', sConflict: sheetKind === 'conflict', sTrash: sheetKind === 'trash',
+      sheetGrab: form !== 'inner',
+      sheetStyle: form === 'phone' ? (sheetKind === 'space' ? 'top:430px' : 'top:150px') : '',
+      oJoin: ov === 'join'
+    };
+  }
+}
+</script>
+</body>
+</html>

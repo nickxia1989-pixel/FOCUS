@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>iPhone Duo · 外屏与内屏</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.ub{width:2240px;box-sizing:border-box;padding:44px 56px 64px;background:#E6E6E1;color:#0B0B0C;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;gap:40px}
+.ub h1{margin:0;font:800 40px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.ub-rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.ub-rules div{background:#F6F6F2;border-radius:16px;padding:14px 16px;font-size:13px;line-height:1.6;color:#3F3F3A}
+.ub-rules b{display:block;font:800 14px/1.3 'Bricolage Grotesque',sans-serif;color:#0B0B0C;margin-bottom:6px}
+.ub-st{font:800 13px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#55554F;margin-bottom:-18px}
+.ub-row{display:flex;gap:64px;align-items:flex-start;flex-wrap:wrap}
+.ub-it{display:flex;flex-direction:column;gap:22px}
+.ub-lb{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:#55554F;max-width:900px}
+.ub-lb b{font:800 11px/1 'Bricolage Grotesque',sans-serif;padding:4px 7px;border-radius:6px;background:#0B0B0C;color:#D6FF3D;flex:none}
+.ub-story{display:flex;align-items:center;gap:26px;background:#F6F6F2;border-radius:24px;padding:26px 30px}
+.ub-mini{position:relative;flex:none;overflow:visible}
+.ub-mini>div{position:absolute;left:0;top:0;transform-origin:0 0}
+.ub-arrow{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:#55554F;width:150px;text-align:center;line-height:1.5}
+.ub-arrow svg{width:64px;height:20px}
+.ub-notes{display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.6;color:#3F3F3A;max-width:520px}
+.ub-notes b{color:#0B0B0C}
+</style>
+</helmet>
+<div class="ub">
+  <h1>iPhone Duo · 外屏与内屏</h1>
+  <div class="ub-rules">
+    <div><b>外屏 = compact · 466×678</b>D 形屏：左边靠铰链近直角，右边大圆角，前摄在右上角。按 Apple 的 Duo 规范，状态栏、导航按钮和页签栏都挪到右侧 80pt 的竖条里：上面是空间 / 云朵 / ⋯，下面是竖排玻璃页签和 + 钮，留给内容一整块 386×678 的矩形。</div>
+    <div><b>内屏 = regular · 951×669</b>竖条留在同一位置（84pt），开合时手指不用找按钮。内容分成两页：左页 0–455 放 NOW 大卡和统计，右页 495–867 放「接下来」队列。HISTORY 同理：左页热力图，右页按天的记录。</div>
+    <div><b>折痕 40pt · x 455–495</b>完全展开时折痕宽度为 0，但版式照样留出这 40pt，所以半折成书本姿态时内容一点都不重排。折痕区里不放任何可点的东西；面板居中在右页，不压折痕。</div>
+    <div><b>开合连续</b>竖条位置不变；NOW 卡从外屏单列的顶部，平移放大到内屏左页同一个视觉位置；队列从卡下面挪到右页。滚动位置、正在编辑的文字、选中的列表都保留（沿用现在 iOS 版的锚点做法）。</div>
+  </div>
+
+  <div class="ub-st">外屏 · 合上</div>
+  <div class="ub-row">
+    <sc-for list="{{outer}}" as="it" hint-placeholder-count="3">
+      <div class="ub-it"><div class="ub-lb"><b>{{it.k}}</b><span>{{it.l}}</span></div><dc-import name="FPhone" form="outer" theme="{{it.theme}}" view="{{it.view}}" overlay="{{it.ov}}" hint-size="466px,678px"></dc-import></div>
+    </sc-for>
+  </div>
+
+  <div class="ub-st">内屏 · 展开与半折</div>
+  <sc-for list="{{innerRows}}" as="row" hint-placeholder-count="2">
+    <div class="ub-row">
+      <sc-for list="{{row.items}}" as="it" hint-placeholder-count="2">
+        <div class="ub-it"><div class="ub-lb"><b>{{it.k}}</b><span>{{it.l}}</span></div><dc-import name="FPhone" form="inner" posture="{{it.posture}}" guide="{{it.guide}}" theme="{{it.theme}}" view="{{it.view}}" overlay="{{it.ov}}" hint-size="951px,669px"></dc-import></div>
+      </sc-for>
+    </div>
+  </sc-for>
+
+  <div class="ub-st">内屏竖握 · 与开合过程</div>
+  <div class="ub-row">
+    <div class="ub-it"><div class="ub-lb"><b>U9</b><span>内屏竖握（669×951）：竖向空间够，页签回到底部横排并居中；按大号单列排</span></div><dc-import name="FPhone" form="innerP" theme="light" view="focus" hint-size="669px,951px"></dc-import></div>
+    <div class="ub-it">
+      <div class="ub-lb"><b>U10</b><span>开合过程（展开约 0.38s，iOS 减速曲线）</span></div>
+      <div class="ub-story">
+        <div class="ub-mini" style="width:196px;height:285px"><div style="transform:scale(.42)"><dc-import name="FPhone" form="outer" theme="light" view="focus" hint-size="466px,678px"></dc-import></div></div>
+        <div class="ub-arrow"><svg viewBox="0 0 64 20" fill="none" stroke="#0B0B0C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10h58M52 3l8 7-8 7"></path></svg>展开：竖条不动，NOW 卡放大移到左页，队列滑到右页</div>
+        <div class="ub-mini" style="width:400px;height:281px"><div style="transform:scale(.42)"><dc-import name="FPhone" form="inner" theme="light" view="focus" hint-size="951px,669px"></dc-import></div></div>
+      </div>
+      <div class="ub-notes">
+        <div><b>展开</b>：外屏的单列内容先定住，NOW 卡以左上角为原点放大到左页宽度（386→425），队列行从卡下方水平滑到右页并依次就位（每行错开 24ms）。</div>
+        <div><b>合上</b>：右页队列先向左收拢到 NOW 卡下面，NOW 卡缩回外屏宽度；竖条全程不动。</div>
+        <div><b>半折</b>（书本姿态）：版式不变，只多一层折痕阴影；弹出的面板、菜单居中在右页。</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2240,"height":4460}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const o = (k, l, view, ov, theme) => ({ k, l, view, ov: ov || 'none', theme: theme || 'light' });
+    const i = (k, l, view, ov, theme, posture, guide) => ({ k, l, view, ov: ov || 'none', theme: theme || 'light', posture: posture || 'flat', guide: !!guide });
+    return {
+      outer: [
+        o('U1', 'FOCUS · 浅色：内容在左边一整块，竖条在右', 'focus'),
+        o('U2', 'INBOX · 深色：竖排页签选中 INBOX', 'inbox', 'none', 'dark'),
+        o('U3', '空间面板：从底部弹出，宽度只到竖条左边', 'focus', 'space', 'dark')
+      ],
+      innerRows: [
+        { items: [
+          i('U4', '完全展开 · FOCUS：左页 NOW 卡 + 统计，右页「接下来」', 'focus'),
+          i('U5', '半折（书本姿态）· 深色：同一版式，只多折痕阴影', 'focus', 'none', 'dark', 'book')
+        ] },
+        { items: [
+          i('U6', '展开 · HISTORY：左页统计 + 16 周热力图，右页按天记录', 'history'),
+          i('U7', '标注：红色斜线是 40pt 折痕保留区，任何姿态都不放可点元素', 'focus', 'none', 'light', 'flat', true)
+        ] },
+        { items: [
+          i('U8', '半折 · 面板居中在右页，不压折痕', 'focus', 'sync', 'dark', 'book')
+        ] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

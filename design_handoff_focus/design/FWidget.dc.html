@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FOCUS 小组件组件</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.w-root{--disp:'Bricolage Grotesque',-apple-system,'PingFang SC',sans-serif;--sys:-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',sans-serif;position:relative;flex:none;overflow:hidden;font-family:var(--sys);-webkit-font-smoothing:antialiased;box-sizing:border-box;text-align:left}
+.w-root *{box-sizing:border-box}
+.w-sq{border-radius:26px}
+.w-light{background:#FFFFFF;color:#0B0B0C;--mu:#66665F;--ln:rgba(11,11,12,.08);--now:#D6FF3D;--nowT:#0B0B0C;--acc:#0B0B0C}
+.w-dark{background:#141416;color:#F4F4EF;--mu:#8E8E88;--ln:rgba(255,255,255,.08);--now:#D6FF3D;--nowT:#0B0B0C;--acc:#D6FF3D}
+.w-tinted{background:rgba(255,255,255,.14);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);color:rgba(255,255,255,.95);--mu:rgba(255,255,255,.55);--ln:rgba(255,255,255,.14);--now:rgba(160,205,255,.32);--nowT:#BFE0FF;--acc:#BFE0FF;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(255,255,255,.18)}
+.w-light.s-ink{--now:#141416;--nowT:#F4F4EF}.w-light.s-blue{--now:#2F5BFF;--nowT:#FFFFFF}.w-light.s-matcha{--now:#E3F0B5;--nowT:#1F2A05}
+.w-small.w-light:not(.s-lime){background:#FFFFFF;padding:8px}
+.w-light:not(.s-lime) .w-sb{background:var(--now);color:var(--nowT);border-radius:20px;padding:13px}
+.w-light:not(.s-lime) .w-sb .w-k{color:inherit}
+.w-light:not(.s-lime) .w-sb small{color:inherit;opacity:.6}
+.w-light.s-ink .w-sb .w-pill svg,.w-light.s-ink .w-now .w-pill svg{color:#D6FF3D}
+.w-small.w-light:not(.s-lime) .w-empty{padding:7px}
+.w-small{width:170px;height:170px}
+.w-medium{width:364px;height:170px}
+.w-large{width:364px;height:382px}
+.w-k{display:flex;justify-content:space-between;align-items:center;font:800 12px/1 var(--disp);letter-spacing:.08em}
+.w-k svg{width:14px;height:14px}
+.w-pill{display:inline-flex;align-items:center;gap:4px}
+.w-now{background:var(--now);color:var(--nowT);border-radius:22px;padding:14px 15px;display:flex;flex-direction:column}
+.w-light .w-now{color:var(--nowT)}.w-dark .w-now{color:#0B0B0C}
+.w-tinted .w-now{color:#fff}
+.w-tinted .w-now .w-k{color:var(--nowT)}
+.w-now p{margin:auto 0 0;font:600 17px/1.28 var(--sys);letter-spacing:-.01em}
+.w-small.w-light{background:#D6FF3D}
+.w-small.w-light .w-k{color:#0B0B0C}
+.w-sb{padding:15px;display:flex;flex-direction:column;height:100%}
+.w-sb p{margin:auto 0 0;font:600 17px/1.28 var(--sys);letter-spacing:-.01em}
+.w-sb small{display:block;font:700 11px/1 var(--disp);letter-spacing:.04em;color:var(--mu);margin-top:9px}
+.w-light .w-sb small{color:rgba(11,11,12,.55)}
+.w-dark .w-sb .w-k{color:#D6FF3D}
+.w-tinted .w-sb .w-k{color:var(--acc)}
+.w-bar{display:flex;gap:3px;margin-top:9px}
+.w-bar i{flex:1;height:3px;border-radius:2px;background:currentColor;opacity:.2}
+.w-bar i.on{opacity:1}
+.w-m{display:flex;height:100%;padding:8px;gap:10px}
+.w-m .w-now{width:164px;flex:none}
+.w-list{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:4px 6px 4px 0}
+.w-list b{font:800 11px/1 var(--disp);letter-spacing:.08em;color:var(--mu);margin-bottom:6px}
+.w-it{display:flex;align-items:baseline;gap:8px;padding:6px 0;font-size:13.5px;font-weight:500;line-height:1.3;border-top:1px solid var(--ln)}
+.w-it:first-of-type{border-top:0}
+.w-it i{font:700 11px/1 var(--disp);color:var(--mu);font-style:normal;flex:none;width:16px}
+.w-it span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.w-more{font:700 11px/1 var(--disp);color:var(--mu);margin-top:6px;letter-spacing:.04em}
+.w-l{display:flex;flex-direction:column;height:100%;padding:8px;gap:6px}
+.w-l .w-now{height:184px;flex:none;gap:8px}
+.w-l .w-now p{font-size:20px;margin:6px 0 0}
+.w-subs{display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.w-sub{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.w-sub i{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1.5px currentColor;flex:none;font-style:normal;opacity:.8}
+.w-sub i.d{background:currentColor}
+.w-sub s{opacity:.5}
+.w-l .w-list{padding:4px 10px 0;justify-content:flex-start}
+.w-ft{display:flex;align-items:center;gap:8px;padding:2px 10px 6px;font-size:11.5px;color:var(--mu)}
+.w-ft b{color:inherit;font:800 12px/1 var(--disp)}
+.w-ft .sp{margin-left:auto;display:inline-flex;align-items:center;gap:5px}
+.w-ft .sp i{width:16px;height:16px;border-radius:50%;background:#0B0B0C;color:#D6FF3D;font:700 9px/16px var(--sys);text-align:center;font-style:normal}
+.w-dark .w-ft .sp i{background:#F4F4EF;color:#0B0B0C}
+.w-tinted .w-ft .sp i{background:rgba(255,255,255,.3);color:#fff}
+.w-empty{padding:15px;display:flex;flex-direction:column;height:100%}
+.w-empty b{font:800 24px/1 var(--disp);letter-spacing:-.03em;margin-top:auto}
+.w-empty span{font-size:12px;line-height:1.45;color:var(--mu);margin-top:6px}
+.w-light .w-empty b{color:#0B0B0C}
+.w-dark .w-empty b{color:#D6FF3D}
+.w-art{width:56px;height:34px;border-radius:10px;box-shadow:inset 0 0 0 2px currentColor;opacity:.5;background:repeating-linear-gradient(135deg,transparent 0 5px,var(--ln) 5px 6px)}
+.w-circ{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;color:#fff;position:relative}
+.w-circ svg.r{position:absolute;inset:4px;width:64px;height:64px}
+.w-circ .c{display:flex;flex-direction:column;align-items:center;gap:1px;font:800 20px/1 var(--disp)}
+.w-circ .c svg{width:11px;height:11px}
+.w-rect{width:172px;height:76px;border-radius:18px;background:rgba(255,255,255,.18);color:#fff;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.w-rect .w-k{font-size:11px;opacity:.85}
+.w-rect p{margin:0;font:600 13.5px/1.3 var(--sys);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.w-inl{display:flex;align-items:center;gap:6px;color:#fff;font:600 15px/1 var(--sys);height:22px}
+.w-inl svg{width:14px;height:14px}
+</style>
+</helmet>
+<div class="w-root {{rootCls}}">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="w-i-spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+</svg>
+<sc-if value="{{small}}" hint-placeholder-val="{{ true }}">
+  <sc-if value="{{normal}}" hint-placeholder-val="{{ true }}">
+    <div class="w-sb">
+      <div class="w-k"><span class="w-pill"><svg><use href="#w-i-spark"></use></svg>NOW</span><span>1/5</span></div>
+      <p>整理多端同步的冲突规则</p>
+      <div class="w-bar"><i class="on"></i><i></i><i></i></div>
+      <small>还有 4 件 · 今天 ✓4</small>
+    </div>
+  </sc-if>
+  <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+    <div class="w-empty"><div class="w-art"></div><b>Nothing now.</b><span>INBOX 里有 3 件可以挑</span></div>
+  </sc-if>
+</sc-if>
+<sc-if value="{{medium}}" hint-placeholder-val="{{ false }}">
+  <div class="w-m">
+    <sc-if value="{{normal}}" hint-placeholder-val="{{ true }}">
+      <div class="w-now"><div class="w-k"><span class="w-pill"><svg><use href="#w-i-spark"></use></svg>NOW</span><span>1/5</span></div><p>整理多端同步的冲突规则</p></div>
+      <div class="w-list"><b>NEXT</b>
+        <div class="w-it"><i>02</i><span>把 iOS 原型装到真机上</span></div>
+        <div class="w-it"><i>03</i><span>给 HISTORY 加来源字段</span></div>
+        <div class="w-it"><i>04</i><span>回复设计稿评论</span></div>
+        <div class="w-more">+1 · 今天 ✓4</div>
+      </div>
+    </sc-if>
+    <sc-if value="{{empty}}" hint-placeholder-val="{{ false }}">
+      <div class="w-empty" style="width:164px;flex:none;padding:7px"><div class="w-art"></div><b>Nothing now.</b><span>FOCUS 空了</span></div>
+      <div class="w-list"><b>从 INBOX 挑一件</b>
+        <div class="w-it"><i>·</i><span>小组件加「今天完成」样式</span></div>
+        <div class="w-it"><i>·</i><span>Windows 标题栏按钮间距</span></div>
+        <div class="w-it"><i>·</i><span>拖拽排序在 iOS 上怎么做</span></div>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+<sc-if value="{{large}}" hint-placeholder-val="{{ false }}">
+  <div class="w-l">
+    <div class="w-now">
+      <div class="w-k"><span class="w-pill"><svg><use href="#w-i-spark"></use></svg>NOW</span><span>01 / 05</span></div>
+      <p>整理多端同步的冲突规则，写成可以直接实现的清单</p>
+      <div class="w-subs">
+        <div class="w-sub"><i></i>离线一周后的合并</div>
+        <div class="w-sub"><i class="d"></i><s>排序与父子移动</s></div>
+      </div>
+    </div>
+    <div class="w-list"><b>NEXT</b>
+      <div class="w-it"><i>02</i><span>把 iOS 原型装到真机上，过一遍左滑和长按</span></div>
+      <div class="w-it"><i>03</i><span>给 HISTORY 加上「从哪个列表完成」</span></div>
+      <div class="w-it"><i>04</i><span>回复设计稿评论：侧栏宽度</span></div>
+      <div class="w-it"><i>05</i><span>周报：本周完成的事从 HISTORY 抄</span></div>
+    </div>
+    <div class="w-ft">今天 <b>4</b> 件 · 连续 <b>6</b> 天<span class="sp"><i>工</i>工作</span></div>
+  </div>
+</sc-if>
+<sc-if value="{{circ}}" hint-placeholder-val="{{ false }}">
+  <div class="w-circ"><svg class="r" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="28" stroke="#fff" stroke-opacity=".28" stroke-width="5"></circle><path d="M32 4a28 28 0 0 1 24.3 42" stroke="#fff" stroke-width="5" stroke-linecap="round"></path></svg><div class="c"><svg><use href="#w-i-spark"></use></svg>5</div></div>
+</sc-if>
+<sc-if value="{{rect}}" hint-placeholder-val="{{ false }}">
+  <div class="w-rect"><div class="w-k"><span class="w-pill"><svg><use href="#w-i-spark"></use></svg>NOW</span><span>1/5</span></div><p>整理多端同步的冲突规则</p></div>
+</sc-if>
+<sc-if value="{{inl}}" hint-placeholder-val="{{ false }}">
+  <div class="w-inl"><svg><use href="#w-i-spark"></use></svg>整理多端同步的冲突规则</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"family":{"editor":"enum","options":["small","medium","large","circ","rect","inl"],"default":"small"},"mode":{"editor":"enum","options":["light","dark","tinted"],"default":"light"},"state":{"editor":"enum","options":["normal","empty"],"default":"normal"},"scheme":{"editor":"enum","options":["lime","ink","blue","matcha"],"default":"lime"},"$preview":{"width":170,"height":170}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const f = this.props.family || 'small';
+    const mode = this.props.mode || 'light';
+    const st = this.props.state || 'normal';
+    const home = ['small', 'medium', 'large'].includes(f);
+    return {
+      rootCls: home ? ['w-' + f, 'w-' + mode, 'w-sq', 's-' + (this.props.scheme || 'lime')].join(' ') : 'w-acc',
+      small: f === 'small', medium: f === 'medium', large: f === 'large', circ: f === 'circ', rect: f === 'rect', inl: f === 'inl',
+      normal: st === 'normal', empty: st === 'empty'
+    };
+  }
+}
+</script>
+</body>
+</html>

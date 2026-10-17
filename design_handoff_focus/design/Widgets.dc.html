@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>iOS 小组件</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.gb{width:1760px;box-sizing:border-box;padding:44px 48px 56px;background:#E8E8E3;color:#0B0B0C;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;gap:28px}
+.gb h1{margin:0;font:800 40px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.gb-top{display:flex;gap:28px;align-items:flex-start}
+.gb-top p{margin:0;font-size:14px;line-height:1.6;color:#55554F;max-width:980px}
+.gb-row{display:flex;gap:24px;align-items:flex-start}
+.gb-wall{width:412px;border-radius:36px;padding:24px;display:flex;flex-direction:column;gap:22px;box-sizing:border-box}
+.gb-wall .lab{font:800 12px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.gb-pair{display:flex;gap:24px}
+.gb-cap{font-size:11.5px;margin-top:-12px;opacity:.75}
+.gb-spec{flex:1;display:flex;flex-direction:column;gap:12px}
+.gb-spec div{background:#F6F6F2;border-radius:16px;padding:12px 14px;font-size:12.5px;line-height:1.6;color:#3F3F3A}
+.gb-spec b{display:block;font:800 13px/1.3 'Bricolage Grotesque',sans-serif;color:#0B0B0C;margin-bottom:4px}
+.gb-lock{border-radius:36px;padding:26px 30px;background:linear-gradient(160deg,#20262E,#3A4654 55%,#6B7C8C);color:#fff;display:flex;flex-direction:column;gap:18px;width:840px;box-sizing:border-box}
+.gb-lock .t{text-align:center;font:300 64px/1 -apple-system,sans-serif;letter-spacing:-.02em}
+.gb-lock .d{text-align:center;font-size:15px;font-weight:600;margin-top:-8px;display:flex;justify-content:center;align-items:center;gap:8px}
+.gb-lock .acc{display:flex;gap:16px;justify-content:center;align-items:center}
+</style>
+</helmet>
+<div class="gb">
+  <div class="gb-top"><h1>iOS 小组件</h1><p>只展示，不能勾选；点任何地方都打开 App 并停在 FOCUS（focustodo://focus），固定了空间的小组件同时切到那个空间。小组件也遵守「荧光绿只给现在这一件」：最显眼的永远是 NOW。尺寸按 402pt 宽的 iPhone 画（小 170、中 364×170、大 364×382），实际以系统给的为准，内容按比例排。</p></div>
+  <div class="gb-row">
+    <sc-for list="{{walls}}" as="w" hint-placeholder-count="3">
+      <div class="gb-wall" style="background:{{w.bg}};color:{{w.fg}}">
+        <span class="lab">{{w.t}}</span>
+        <div class="gb-pair">
+          <dc-import name="FWidget" family="small" mode="{{w.mode}}" state="normal" hint-size="170px,170px"></dc-import>
+          <dc-import name="FWidget" family="small" mode="{{w.mode}}" state="empty" hint-size="170px,170px"></dc-import>
+        </div>
+        <span class="gb-cap">小 · 平时 / FOCUS 空了</span>
+        <dc-import name="FWidget" family="medium" mode="{{w.mode}}" state="normal" hint-size="364px,170px"></dc-import>
+        <span class="gb-cap">中 · NOW + 接下来三件</span>
+        <dc-import name="FWidget" family="large" mode="{{w.mode}}" state="normal" hint-size="364px,382px"></dc-import>
+        <span class="gb-cap">大 · NOW 带子任务 + 接下来四件 + 今天 / 连续 + 空间</span>
+      </div>
+    </sc-for>
+    <div class="gb-spec">
+      <div><b>浅色</b>小号整块荧光绿；中、大号是白底上一张荧光绿 NOW 卡（内缩 8pt，圆角 22）。字：标题 SF 600 17/20pt，标签 Bricolage 800 12pt 字距 .08em。</div>
+      <div><b>深色</b>底 #141416；小号的 NOW 标签和进度变荧光绿，标题白字；中、大号 NOW 卡仍是荧光绿，保证一眼认出。</div>
+      <div><b>着色 / 透明</b>iOS 26 的着色模式下整体变成单色玻璃：NOW 卡和数字标成 widgetAccentable，跟随系统着色；其余文字白色 55%–95% 透明度分层。</div>
+      <div><b>空状态</b>FOCUS 空时小号显示「Nothing now.」和 INBOX 件数；中号右边列出 INBOX 最上面三件，点进 App 落在 INBOX。</div>
+      <div><b>刷新</b>沿用小组件会话已做的快照 + 节流刷新；不需要新数据字段：NOW = FOCUS 第一件未完成顶层项，子任务进度 = 已完成子项 / 子项总数。</div>
+    </div>
+  </div>
+  <div class="gb-lock">
+    <div class="d"><span>10月17日 周六</span><dc-import name="FWidget" family="inl" hint-size="240px,22px"></dc-import></div>
+    <div class="t">9:41</div>
+    <div class="acc">
+      <dc-import name="FWidget" family="circ" hint-size="72px,72px"></dc-import>
+      <dc-import name="FWidget" family="rect" hint-size="172px,76px"></dc-import>
+      <span style="font-size:12.5px;line-height:1.6;opacity:.8;max-width:380px">锁屏小组件永远是单色：圆形 = FOCUS 剩几件，外圈是今天完成占比；矩形 = NOW 这一件（两行截断）；时间上方的一行 = ✦ + NOW 标题。</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1760,"height":1380}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      walls: [
+        { t: '浅色', mode: 'light', bg: 'linear-gradient(165deg,#EDE7DC,#C8D3DE)', fg: '#0B0B0C' },
+        { t: '深色', mode: 'dark', bg: 'linear-gradient(165deg,#1C1E25,#33303C)', fg: '#F4F4EF' },
+        { t: '着色', mode: 'tinted', bg: 'linear-gradient(165deg,#2E4458,#557489)', fg: '#FFFFFF' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

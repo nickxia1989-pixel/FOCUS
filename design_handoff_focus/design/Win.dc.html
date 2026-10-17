@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Windows 桌面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.wb{width:1760px;box-sizing:border-box;padding:44px 48px 56px;background:#E3E6EA;color:#0B0B0C;font-family:'Segoe UI Variable Text','Segoe UI','Microsoft YaHei UI',-apple-system,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;gap:30px}
+.wb-h{display:flex;flex-direction:column;gap:12px}
+.wb-h h1{margin:0;font:800 40px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.wb-rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.wb-rules div{background:#F6F7F8;border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.55;color:#3E4146}
+.wb-rules b{display:block;font-size:13px;color:#0B0B0C;margin-bottom:3px}
+.wb-row{display:flex;gap:48px;align-items:flex-start;flex-wrap:wrap}
+.wb-it{display:flex;flex-direction:column;gap:10px}
+.wb-lb{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:#4A4D52}
+.wb-lb b{font:800 11px/1 'Bricolage Grotesque',sans-serif;padding:4px 7px;border-radius:6px;background:#0B0B0C;color:#D6FF3D}
+.wb-lb span{max-width:330px}
+</style>
+</helmet>
+<div class="wb">
+  <div class="wb-h">
+    <h1>Windows · 桌面小窗</h1>
+    <div class="wb-rules">
+      <div><b>标题栏</b>无边框窗口，标题栏 36 高；左侧 16px 应用图标 + FOCUS，右侧依次是云朵、图钉、⋯，然后是 46×36 的最小化 / 关闭。关闭悬停 #C42B1C 白叉。</div>
+      <div><b>窗口</b>圆角 8（Win11），1px 描边 + 系统阴影。背景比 Mac 略冷一点（浅 #F3F3EF / 深 #121213），可开 Mica。</div>
+      <div><b>字体</b>中文微软雅黑 UI，西文 Segoe UI Variable；品牌字（Bricolage Grotesque）随应用打包，只用于大标题和数字，不依赖系统。</div>
+      <div><b>快捷键与菜单</b>⌘ 换成 Ctrl；菜单圆角 8、行高 32；其余尺寸、颜色、动效和 Mac 一致，都来自同一套 token。</div>
+    </div>
+  </div>
+  <sc-for list="{{rows}}" as="row" hint-placeholder-count="2">
+    <div class="wb-row">
+      <sc-for list="{{row.items}}" as="it" hint-placeholder-count="4">
+        <div class="wb-it">
+          <div class="wb-lb"><b>{{it.k}}</b><span>{{it.l}}</span></div>
+          <dc-import name="FDesk" os="win" theme="{{it.theme}}" view="{{it.view}}" overlay="{{it.ov}}" sync="{{it.sync}}" w="{{it.w}}" h="{{it.h}}" hint-size="{{it.hs}}"></dc-import>
+        </div>
+      </sc-for>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1760,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const it = (k, l, view, ov, theme, extra) => ({ k, l, view, ov: ov || 'none', theme: theme || 'light', sync: 'ok', w: 360, h: 660, hs: '360px,660px', ...(extra || {}) });
+    return {
+      rows: [
+        { items: [
+          it('W1', 'FOCUS · 浅色', 'focus'),
+          it('W2', 'FOCUS · 深色 · 同步中', 'focus', 'none', 'dark', { sync: 'syncing' }),
+          it('W3', '⋯ 菜单', 'focus', 'menu'),
+          it('W4', '右键菜单', 'focus', 'ctx', 'dark')
+        ] },
+        { items: [
+          it('W5', 'INBOX · 深色 · 离线', 'inbox', 'none', 'dark', { sync: 'offline' }),
+          it('W6', '冲突面板', 'focus', 'conflict', 'light', { sync: 'conflict' }),
+          it('W7', '宽窗口 · 浅色', 'focus', 'none', 'light', { w: 640, hs: '640px,660px' })
+        ] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

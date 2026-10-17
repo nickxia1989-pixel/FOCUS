@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Mac 桌面 · 全部状态</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mb{width:2260px;box-sizing:border-box;padding:44px 48px 56px;background:#E8E8E3;color:#0B0B0C;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;gap:34px}
+.mb-h{display:flex;align-items:baseline;gap:18px}
+.mb-h h1{margin:0;font:800 40px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.mb-h p{margin:0;font-size:14px;color:#55554F;max-width:1100px;line-height:1.6}
+.mb-sec{display:flex;flex-direction:column;gap:14px}
+.mb-st{font:800 13px/1 'Bricolage Grotesque',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#55554F}
+.mb-row{display:flex;gap:48px;align-items:flex-start;flex-wrap:wrap}
+.mb-it{display:flex;flex-direction:column;gap:10px}
+.mb-lb{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:#55554F}
+.mb-lb b{font:800 11px/1 'Bricolage Grotesque',sans-serif;padding:4px 7px;border-radius:6px;background:#0B0B0C;color:#D6FF3D}
+.mb-lb span{max-width:330px}
+.mb-sync{display:flex;gap:24px;flex-wrap:wrap}
+.mb-sc{display:flex;flex-direction:column;gap:8px;font-size:12px;color:#55554F;width:330px}
+.mb-sc .clip{height:48px;overflow:hidden;border-radius:12px;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+</style>
+</helmet>
+<div class="mb">
+  <div class="mb-h"><h1>Mac · 桌面小窗</h1><p>默认 384×680，最小 320 宽。窄于 520 用顶部页签胶囊；拉宽到 520 以上换成左侧栏（最下面两张）。所有画面用同一个窗口组件，Windows 版只换标题栏和字体，见下一块画板。</p></div>
+  <sc-for list="{{secs}}" as="s" hint-placeholder-count="4">
+    <div class="mb-sec">
+      <div class="mb-st">{{s.t}}</div>
+      <div class="mb-row">
+        <sc-for list="{{s.items}}" as="it" hint-placeholder-count="5">
+          <div class="mb-it">
+            <div class="mb-lb"><b>{{it.k}}</b><span>{{it.l}}</span></div>
+            <dc-import name="FDesk" os="mac" theme="{{it.theme}}" view="{{it.view}}" overlay="{{it.ov}}" sync="{{it.sync}}" w="{{it.w}}" h="{{it.h}}" pinned="{{it.pin}}" hint-size="{{it.hs}}"></dc-import>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+  <div class="mb-sec">
+    <div class="mb-st">标题栏上的同步状态（云朵图标）</div>
+    <div class="mb-sync">
+      <sc-for list="{{syncs}}" as="it" hint-placeholder-count="6">
+        <div class="mb-sc"><div class="clip"><dc-import name="FDesk" os="mac" theme="light" sync="{{it.sync}}" w="{{ 330 }}" h="{{ 48 }}" hint-size="330px,48px"></dc-import></div><span>{{it.l}}</span></div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2260,"height":3340}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const it = (k, l, view, ov, theme, extra) => ({ k, l, view, ov: ov || 'none', theme: theme || 'light', sync: 'ok', w: 360, h: 660, pin: false, hs: '360px,660px', ...(extra || {}) });
+    return {
+      secs: [
+        { t: '主界面与交互', items: [
+          it('1', 'FOCUS · 浅色。最上面一件是 NOW 卡，其余排在「接下来」', 'focus'),
+          it('2', 'FOCUS · 深色。NOW 卡保持荧光绿；窗口已置顶（图钉实心）', 'focus', 'none', 'dark', { pin: true }),
+          it('3', '悬停 + 右键菜单：序号变成勾选圈，出现「设为现在 / 送去验证 / ⋯」', 'focus', 'ctx'),
+          it('4', '拖拽：拖到「接下来」之间出现插入线；拖到顶部 INBOX 页签上就移过去', 'focus', 'drag'),
+          it('5', '新建框聚焦正在输入；第 04 行在双击编辑', 'focus', 'edit', 'light')
+        ] },
+        { t: '其它列表', items: [
+          it('6', 'VERIFY · 做完待测。顶层项右侧星芒按钮 = 退回 FOCUS；勾选 = 测完了', 'verify'),
+          it('7', 'INBOX · 随手记。星芒按钮一键送进 FOCUS；已完成折叠在下面', 'inbox'),
+          it('8', 'GOAL · 长期的自我提醒：不显示进度，做到了自己勾掉', 'goal'),
+          it('9', 'HISTORY · 今天 / 本周 / 连续天数、16 周热力图、按天分组', 'history'),
+          it('10', '回收站：保留 30 天，恢复回原位置；彻底删除要再点一次', 'trash')
+        ] },
+        { t: '菜单、profile 与同步', items: [
+          it('11', '⋯ 菜单：回收站、同步设置、提示音、数据文件夹', 'focus', 'menu'),
+          it('12', 'Profile 菜单：数字键切换，悬停一项可改名 / 删除', 'focus', 'profile'),
+          it('13', '同步设置：状态、坚果云账号、各设备最后更新时间', 'focus', 'sync'),
+          it('14', '冲突决定面板：标题二选一 / 删除 vs 修改 / 删空间 vs 改内容', 'focus', 'conflict', 'light', { sync: 'conflict' }),
+          it('15', '第一次加入云端：合并本机数据，或以云端为准（本机先备份）', 'focus', 'join', 'light', { sync: 'syncing' })
+        ] },
+        { t: '空状态、提示条、深色与宽窗口', items: [
+          it('16', 'FOCUS 空了：叠放的空卡片 + 去 INBOX 挑一件', 'empty'),
+          it('17', '删除后 5 秒内可撤销，圆环倒计时', 'focus', 'toast', 'dark'),
+          it('18', '宽窗口（≥520）：左侧栏 + 更大的 NOW 卡', 'focus', 'none', 'light', { w: 640, hs: '640px,660px' }),
+          it('19', '宽窗口 · 深色 · HISTORY', 'history', 'none', 'dark', { w: 640, hs: '640px,660px' })
+        ] }
+      ],
+      syncs: [
+        { sync: 'ok', l: '已同步：绿色云朵带勾' },
+        { sync: 'syncing', l: '同步中：双箭头旋转，1.1 秒一圈' },
+        { sync: 'offline', l: '离线：灰色斜线云朵，改动先存本机' },
+        { sync: 'error', l: '出错：红色感叹号，稍后自动重试' },
+        { sync: 'conflict', l: '有冲突：红色数字角标，点开冲突面板' },
+        { sync: 'off', l: '未开启：虚线云朵，点开同步设置' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

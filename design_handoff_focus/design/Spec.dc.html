@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>组件规格 · NOW 卡与液态玻璃底栏</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.sb{--disp:'Bricolage Grotesque',-apple-system,'PingFang SC',sans-serif;width:1700px;height:1240px;box-sizing:border-box;padding:40px 44px;background:#E8E8E3;color:#0B0B0C;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;display:grid;grid-template-columns:520px minmax(0,1fr);gap:44px;overflow:hidden}
+.lab{font:800 11px/1 var(--disp);letter-spacing:.1em;text-transform:uppercase;color:#66665F;margin:0 0 14px}
+.col{display:flex;flex-direction:column;gap:26px}
+.stage{position:relative;background:#F6F6F2;border-radius:24px;padding:28px}
+.now{position:relative;width:370px;border-radius:30px;background:#D6FF3D;padding:20px 20px 18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
+.now .top{display:flex;justify-content:space-between;font:800 13px/1 var(--disp);letter-spacing:.08em}
+.now h2{margin:0;font:600 28px/1.28 -apple-system,'PingFang SC',sans-serif;letter-spacing:-.015em}
+.bar{display:flex;gap:4px}.bar i{flex:1;height:4px;border-radius:2px;background:rgba(11,11,12,.15)}.bar i.on{background:#0B0B0C}
+.subs{display:flex;flex-direction:column;gap:9px}
+.sub{display:flex;align-items:center;gap:10px;font-size:14.5px}
+.sub i{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 1.6px #0B0B0C;flex:none}
+.sub i.d{background:#0B0B0C}
+.sub s{opacity:.45}
+.hact{display:flex;align-items:center;gap:12px}
+.done{width:60px;height:60px;border-radius:50%;background:#0B0B0C;color:#D6FF3D;display:grid;place-items:center}
+.done svg{width:28px;height:28px}
+.hact b{font:700 15px/1 -apple-system,sans-serif}
+.vb{margin-left:auto;height:40px;border-radius:20px;padding:0 15px 0 12px;background:rgba(11,11,12,.07);display:flex;align-items:center;gap:6px;font:600 14px/1 -apple-system,sans-serif;box-shadow:inset 0 0 0 1.5px rgba(11,11,12,.16)}
+.vb svg{width:19px;height:19px}
+.ann{position:absolute;font:700 11px/1.3 var(--disp);color:#E0365A;white-space:nowrap}
+.ann.l{text-align:right}
+.ln{position:absolute;background:#E0365A}
+.box{position:absolute;box-shadow:inset 0 0 0 1px #E0365A;background:rgba(224,54,90,.06);border-radius:2px}
+.tbl{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;font-size:12.5px;line-height:1.5;color:#3F3F3A}
+.tbl b{font:800 12px/1.5 var(--disp);color:#0B0B0C}
+.glassStage{position:relative;border-radius:24px;overflow:hidden;height:300px;background:#F6F6F2}
+.glassStage .rows{position:absolute;inset:0;padding:22px 26px;display:flex;flex-direction:column;gap:0}
+.glassStage .rows div{display:flex;gap:12px;padding:12px 0;border-top:1px solid rgba(11,11,12,.08);font-size:16px}
+.glassStage .rows span{font:700 14px/22px var(--disp);color:#66665F;width:24px}
+.edge{position:absolute;left:0;right:0;bottom:0;height:170px;background:linear-gradient(to bottom,rgba(246,246,242,0),rgba(246,246,242,.9) 72%)}
+.gl{background:rgba(255,255,255,.56);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(255,255,255,.85),0 8px 24px rgba(0,0,0,.12)}
+.dk .gl{background:rgba(38,38,42,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 1px rgba(255,255,255,.13),0 10px 28px rgba(0,0,0,.4)}
+.tabs{position:absolute;left:26px;bottom:24px;width:300px;height:64px;border-radius:32px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box}
+.tab{flex:1;height:56px;border-radius:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:700 9.5px/1 var(--disp);letter-spacing:.04em;position:relative;color:#0B0B0C}
+.tab svg{width:23px;height:23px}
+.tab.on{background:#D6FF3D}
+.dk .tab{color:#F4F4EF}
+.dk .tab.on{background:rgba(214,255,61,.17);color:#D6FF3D}
+.tab em{position:absolute;top:5px;left:50%;margin-left:8px;font:800 10px/1 var(--disp);font-style:normal;color:#66665F}
+.tab.on em{color:inherit}
+.fab{position:absolute;left:342px;bottom:24px;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;background:rgba(214,255,61,.88);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),inset 0 0 0 1px rgba(255,255,255,.35),0 10px 24px rgba(120,160,0,.28)}
+.fab svg{width:27px;height:27px}
+.vert{position:relative;width:180px;height:520px;border-radius:24px;background:#0B0B0C;overflow:hidden;flex:none}
+.vert .vt{position:absolute;right:20px;top:120px;width:62px;border-radius:31px;display:flex;flex-direction:column;align-items:center;padding:4px 0;gap:2px}
+.vert .vt .tab{flex:none;width:54px;height:54px;border-radius:27px;font-size:8px}
+.vert .vt .tab svg{width:21px;height:21px}
+.vert .vf{position:absolute;right:22px;bottom:22px;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:rgba(214,255,61,.88);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 10px 24px rgba(120,160,0,.28)}
+.vert .vf svg{width:25px;height:25px}
+.vert .stripe{position:absolute;right:0;top:0;bottom:0;width:80px;box-shadow:inset 1px 0 0 rgba(224,54,90,.6);background:repeating-linear-gradient(135deg,rgba(224,54,90,.08) 0 6px,transparent 6px 12px)}
+.rowspec{display:flex;flex-direction:column;gap:10px}
+.rs{position:relative;background:#FFFFFF;border-radius:14px;padding:12px 16px;display:flex;align-items:flex-start;gap:12px;font-size:16px;line-height:1.4}
+.rs .no{font:700 14px/22px var(--disp);color:#66665F;width:24px}
+.rs .cb{width:23px;height:23px;border-radius:50%;box-shadow:inset 0 0 0 1.8px #1F7FBF;flex:none}
+.rs .act{margin-left:auto;width:32px;height:32px;border-radius:50%;background:#D6FF3D;display:grid;place-items:center;flex:none;margin-top:-4px}
+.rs .act svg{width:17px;height:17px}
+.note{font-size:12px;line-height:1.55;color:#55554F;margin:0}
+</style>
+</helmet>
+<div class="sb">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="s-focus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2.8c.8 5 3.4 7.6 8.4 8.4-5 .8-7.6 3.4-8.4 8.4-.8-5-3.4-7.6-8.4-8.4 5-.8 7.6-3.4 8.4-8.4z"></path></symbol>
+<symbol id="s-verify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.4 12S6 5.4 12 5.4 21.6 12 21.6 12 18 18.6 12 18.6 2.4 12 2.4 12z"></path><path d="m9.4 12.1 1.8 1.8 3.4-3.6"></path></symbol>
+<symbol id="s-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 13.5 6 6a2 2 0 0 1 1.9-1.4h8.2A2 2 0 0 1 18 6l2.5 7.5V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"></path><path d="M3.5 13.5h4.6l1.4 2.4h5l1.4-2.4h4.6"></path></symbol>
+<symbol id="s-goal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 19.6 9.4 7.8l3.9 6.4 2.4-3.3 5.5 8.7z"></path></symbol>
+<symbol id="s-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.8" y="5" width="16.4" height="15.2" rx="3.2"></rect><path d="M8 3v4M16 3v4M3.8 10h16.4M9 15l2 2 4-4"></path></symbol>
+<symbol id="s-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></symbol>
+<symbol id="s-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.3 4.3L19 7.2"></path></symbol>
+</svg>
+
+<section class="col">
+  <div>
+    <p class="lab">NOW 卡 · iOS（桌面紧凑版等比缩到 0.72）</p>
+    <div class="stage" style="padding:40px 70px 40px 60px">
+      <div class="now">
+        <div class="top"><span>NOW</span><span>01 / 05</span></div>
+        <h2>整理多端同步的冲突规则，写成可以直接实现的清单</h2>
+        <div class="bar"><i class="on"></i><i></i><i></i></div>
+        <div class="subs"><div class="sub"><i></i>离线一周后的合并</div><div class="sub"><i class="d"></i><s>排序与父子移动</s></div></div>
+        <div class="hact"><span class="done"><svg><use href="#s-check"></use></svg></span><b>完成</b><span class="vb"><svg><use href="#s-verify"></use></svg>送去验证</span></div>
+        <span class="box" style="left:0;top:0;width:20px;height:100%"></span>
+        <span class="ann" style="left:-2px;top:-16px">20</span>
+        <span class="box" style="right:0;bottom:18px;width:118px;height:40px"></span>
+        <span class="ann" style="right:0;bottom:-16px">40 高 · 胶囊</span>
+        <span class="box" style="left:20px;bottom:18px;width:60px;height:60px;border-radius:50%"></span>
+        <span class="ann" style="left:20px;bottom:-16px">60 圆钮</span>
+      </div>
+      <span class="ann" style="left:442px;top:40px">圆角 30</span>
+      <span class="ann" style="left:442px;top:66px">标签 Bricolage 800 13 · .08em</span>
+      <span class="ann" style="left:442px;top:96px">标题 SF 600 28/36</span>
+      <span class="ann" style="left:442px;top:200px">进度 4 高 · 间距 4</span>
+      <span class="ann" style="left:442px;top:226px">子任务 18 圈 · 14.5 字</span>
+      <span class="ann" style="left:442px;top:300px">块间距 14</span>
+    </div>
+  </div>
+  <div class="tbl">
+    <b>谁是 NOW</b><span>FOCUS 列表里排第一的那件未完成的顶层项（手动顺序）。不需要新字段。</span>
+    <b>完成 NOW</b><span>和现在完成 FOCUS 顶层项一样：移到 INBOX 的已完成；下一件自动升上来。</span>
+    <b>新建</b><span>默认插在 NOW 后面（第 2 位），不抢 NOW；开关「排在现在之后」关掉则插到最前面变成 NOW。</span>
+    <b>设为现在</b><span>把那一件移到 FOCUS 第 1 位（拖到 NOW 卡上、菜单、左滑都行）。</span>
+    <b>送去验证</b><span>与烧瓶按钮行为相同：整棵进 VERIFY，本身恢复未完成。子项送去验证：留在原处挂「待验证」。</span>
+    <b>子任务</b><span>NOW 卡上最多显示 3 条（未完成在前），多的显示「还有 N 条」；完成子项不会让 NOW 换人。</span>
+  </div>
+  <div>
+    <p class="lab">列表行</p>
+    <div class="rowspec">
+      <div class="rs"><span class="no">02</span><span>队列行：序号 Bricolage 700 14，正文 16/22，上下 12，分隔 1px；透明度 1 / .84 / .68 / .52 逐行递减</span></div>
+      <div class="rs"><span class="cb"></span><span>普通行：圈 23（描边 1.8，列表色），文字 16/22</span><span class="act"><svg><use href="#s-focus"></use></svg></span></div>
+      <p class="note">桌面同样的结构缩到 13.5/19.5 字、19 圈、行高至少 36；悬停时序号换成勾选圈，右边出现「设为现在 · 送去验证 · ⋯」。</p>
+    </div>
+  </div>
+</section>
+
+<section class="col">
+  <div>
+    <p class="lab">液态玻璃页签栏 · iPhone（浅 / 深）· 胶囊 64 高、圆角 32、左右内缩 16、底距 24；+ 钮 64，与胶囊间距 12</p>    <div style="display:flex;gap:22px">
+      <div class="glassStage" style="flex:1">
+        <div class="rows"><div><span>02</span>把 iOS 原型装到真机上，过一遍左滑</div><div><span>03</span>给 HISTORY 加上「从哪个列表完成」</div><div><span>04</span>回复设计稿评论：侧栏宽度要不要收窄</div><div><span>05</span>周报：本周完成的事从 HISTORY 里抄</div><div><span>06</span>把冲突面板的文案再顺一遍</div></div>
+        <div class="edge"></div>
+        <div class="tabs gl"><div class="tab on"><svg><use href="#s-focus"></use></svg>FOCUS<em>5</em></div><div class="tab"><svg><use href="#s-verify"></use></svg>VERIFY<em>2</em></div><div class="tab"><svg><use href="#s-inbox"></use></svg>INBOX<em>3</em></div><div class="tab"><svg><use href="#s-goal"></use></svg>GOAL</div><div class="tab"><svg><use href="#s-history"></use></svg>HISTORY</div></div>
+        <div class="fab"><svg><use href="#s-plus"></use></svg></div>
+      </div>
+      <div class="glassStage dk" style="flex:1;background:#0B0B0C">
+        <div class="rows" style="color:#F4F4EF"><div style="border-color:rgba(255,255,255,.07)"><span>02</span>把 iOS 原型装到真机上，过一遍左滑</div><div style="border-color:rgba(255,255,255,.07)"><span>03</span>给 HISTORY 加上「从哪个列表完成」</div><div style="border-color:rgba(255,255,255,.07)"><span>04</span>回复设计稿评论：侧栏宽度要不要收窄</div><div style="border-color:rgba(255,255,255,.07)"><span>05</span>周报：本周完成的事从 HISTORY 里抄</div><div style="border-color:rgba(255,255,255,.07)"><span>06</span>把冲突面板的文案再顺一遍</div></div>
+        <div class="edge" style="background:linear-gradient(to bottom,rgba(11,11,12,0),rgba(11,11,12,.9) 72%)"></div>
+        <div class="tabs gl"><div class="tab on"><svg><use href="#s-focus"></use></svg>FOCUS<em>5</em></div><div class="tab"><svg><use href="#s-verify"></use></svg>VERIFY<em>2</em></div><div class="tab"><svg><use href="#s-inbox"></use></svg>INBOX<em>3</em></div><div class="tab"><svg><use href="#s-goal"></use></svg>GOAL</div><div class="tab"><svg><use href="#s-history"></use></svg>HISTORY</div></div>
+        <div class="fab"><svg><use href="#s-plus"></use></svg></div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:26px;align-items:flex-start">
+    <div class="tbl" style="flex:1">
+      <b>实现</b><span>用 iOS 26 原生 UITabBarController / SwiftUI TabView，系统自动给液态玻璃、滚动时缩小、Duo 上竖排；网页里只画内容，不画底栏（Duo 会话已接好原生外壳）。</span>
+      <b>+ 钮</b><span>作为第 6 个 Tab 用 search 角色（系统画成右侧独立玻璃圆钮），点它不切页，弹出新建卡片。荧光绿着色 tint = #D6FF3D，图标 #0B0B0C。</span>
+      <b>选中态</b><span>浅色：选中项底是荧光绿、图标和字近黑；深色：17% 荧光绿底 + 荧光绿图标和字。未选中：图标和字是正文色。</span>
+      <b>角标</b><span>未完成数（FOCUS / VERIFY / INBOX），用数字不用红点；GOAL、HISTORY 不显示。</span>
+      <b>标签</b><span>英文大写，Bricolage 700 9.5，字距 .04em；图标 23。原生实现若字体受限，用 SF Compact 同字号。</span>
+      <b>滚动边缘</b><span>内容可以滚到玻璃下面；底部 170pt 渐隐到页面底色（系统 scrollEdgeEffect 即可）。</span>
+      <b>导航栏</b><span>同一种玻璃：左边空间头像 44 圆钮，右边 44 高胶囊放云朵和 ⋯；有冲突时云朵右上角红色数字角标。</span>
+      <b>辅助功能</b><span>减少透明度时玻璃换成不透明 surface；增强对比时描边加深到 30%。</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+      <div class="vert dk">
+        <div class="stripe"></div>
+        <div class="vt gl"><div class="tab on"><svg><use href="#s-focus"></use></svg>FOCUS</div><div class="tab"><svg><use href="#s-verify"></use></svg>VERIFY</div><div class="tab"><svg><use href="#s-inbox"></use></svg>INBOX</div><div class="tab"><svg><use href="#s-goal"></use></svg>GOAL</div><div class="tab"><svg><use href="#s-history"></use></svg>HIST</div></div>
+        <div class="vf"><svg><use href="#s-plus"></use></svg></div>
+      </div>
+      <span style="font-size:11.5px;color:#55554F;text-align:center;max-width:180px;line-height:1.5">Duo 竖排：胶囊 62 宽、项 54；+ 钮 58 在最下。斜线 = 80pt 侧边竖条</span>
+    </div>
+  </div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1700,"height":1240}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
