@@ -2,6 +2,7 @@
 // 从本机测试服务器取命令，经过真实的 store、原生 HTTP 和钥匙串执行，把结果回传。
 import { CapacitorHttp } from '@capacitor/core';
 import type { ListId, Todo } from '../types';
+import { useChrome } from './chrome';
 import { activeOf, useData } from './store';
 import { disableSync, enableSync, loadConfig, probeCloud, saveConfig, setSimulatedOffline, syncNow } from './sync';
 import { useUi } from './ui';
@@ -44,6 +45,12 @@ const commands: Record<string, (a: Record<string, unknown>) => unknown> = {
     useData.getState().resolveDelete(c.id, a.choice as 'restore' | 'delete');
   },
   sheet: (a) => useUi.getState().set({ sheet: (a.name as 'sync' | 'conflicts' | null) ?? null }),
+  // 只动界面、不改数据的联调命令（Duo 合上时模拟器点不了，靠它们截各种状态）
+  ui: (a) => useUi.getState().set(a as Parameters<ReturnType<typeof useUi.getState>['set']>[0]),
+  /** 原生外壳报来的几何信息（栏占掉的边距、折痕、铰链、页签位置） */
+  chrome: () => useChrome.getState().geo,
+  /** 在页面里执行一段表达式并返回结果（读布局、滚动、量尺寸） */
+  eval: (a) => (0, eval)(String(a.js)),
   state: () => {
     const s = useData.getState();
     return {

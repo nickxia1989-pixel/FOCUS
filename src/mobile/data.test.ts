@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { completeTodo, createTodo, sanitize } from '../model';
 import type { ListId, Todo } from '../types';
-import { DAY, historyDays, recentCounts, sanitizeSnapshot, seedSnapshot, streak } from './data';
+import { DAY, historyDays, listHistoryDays, recentCounts, sanitizeSnapshot, seedSnapshot, streak } from './data';
 
 // 固定在本地时间的某天中午，避免跨零点和时区带来的偶发失败
 const NOON = new Date(2026, 9, 17, 12, 0, 0).getTime();
@@ -122,5 +122,36 @@ describe('快照清洗', () => {
     const seed = sanitizeSnapshot(seedSnapshot(NOON), NOON)!;
     expect(seed.profiles.map((p) => p.name)).toEqual(['工作', '生活']);
     for (const p of seed.profiles) expect(sanitize(p.todos)).toEqual(p.todos);
+  });
+});
+
+describe('列表的完成记录（双页布局右页）', () => {
+  it('FOCUS 顶层项完成后挪进 INBOX，仍记在 FOCUS 名下；子项跟着顶层祖先', () => {
+    let s: Todo[] = [];
+    s = add(s, 'f', 'focus');
+    s = add(s, 'g', 'goal');
+    s = add(s, 'g1', 'goal', 'g');
+    s = add(s, 'i', 'inbox');
+    s = done(s, 'f', NOON);
+    s = done(s, 'g1', NOON - DAY);
+    s = done(s, 'i', NOON + 60_000);
+    expect(s.find((t) => t.id === 'f')!.list).toBe('inbox');
+    const ids = (list: ListId) => listHistoryDays(s, list).map((d) => d.items.map((i) => i.todo.id));
+    expect(ids('focus')).toEqual([['f']]);
+    expect(ids('inbox')).toEqual([['i']]);
+    expect(ids('goal')).toEqual([['g1']]);
+    expect(ids('verify')).toEqual([]);
+  });
+
+  it('每天的总数只算这个列表的，含折叠进去的子项', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'goal');
+    s = add(s, 'c', 'goal', 'p');
+    s = add(s, 'x', 'inbox');
+    s = done(s, 'p', NOON);
+    s = done(s, 'x', NOON);
+    const [day] = listHistoryDays(s, 'goal');
+    expect(day.items.map((i) => i.todo.id)).toEqual(['p']);
+    expect(day.total).toBe(2);
   });
 });

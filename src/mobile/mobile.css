@@ -2262,3 +2262,173 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============ 原生外壳（iOS 26 起：系统的 Liquid Glass 页签栏、导航栏按钮） ============ */
+
+/*
+ * 原生栏在系统安全区之外又占掉的边距由 src/mobile/chrome.ts 写进 --chrome-*。
+ * iPhone 上是顶部导航栏和底部页签栏；iPhone Duo 把栏竖排到侧边时，那一列算在系统安全区里。
+ */
+:root {
+  --chrome-top: 0px;
+  --chrome-right: 0px;
+  --chrome-bottom: 0px;
+  --chrome-left: 0px;
+}
+
+.app {
+  --inset-top: calc(env(safe-area-inset-top) + var(--chrome-top));
+  --inset-right: calc(env(safe-area-inset-right) + var(--chrome-right));
+  --inset-bottom: calc(env(safe-area-inset-bottom) + var(--chrome-bottom));
+  --inset-left: calc(env(safe-area-inset-left) + var(--chrome-left));
+}
+
+.has-native-chrome .screen {
+  padding-left: max(16px, calc(var(--inset-left) + 10px));
+  padding-right: max(16px, calc(var(--inset-right) + 10px));
+}
+
+/* 大标题紧跟在原生导航栏下面；栏竖排到侧边（Duo）时顶上没有栏，留一点呼吸 */
+.has-native-chrome .large-title {
+  padding-top: max(20px, calc(var(--inset-top) + 10px));
+}
+
+/* 只剩滚动后的毛玻璃底，高度正好垫在原生导航栏后面 */
+.has-native-chrome .navbar {
+  padding-top: var(--inset-top);
+}
+
+.has-native-chrome .screen-bottom {
+  height: calc(var(--inset-bottom) + 28px + var(--kb));
+}
+
+.has-native-chrome .toast-host {
+  left: var(--inset-left);
+  right: var(--inset-right);
+  bottom: calc(var(--inset-bottom) + 14px);
+}
+
+.has-native-chrome .composer {
+  left: max(10px, calc(var(--inset-left) + 8px));
+  right: max(10px, calc(var(--inset-right) + 8px));
+}
+
+.has-native-chrome .history-day {
+  scroll-margin-top: calc(var(--inset-top) + 12px);
+}
+
+/* 栏竖排在侧边时顶上没有导航栏挡着：滚上去的内容在屏幕顶边淡出，不齐刷刷地切掉 */
+:root[data-bar] .has-native-chrome .screen,
+:root[data-bar] .has-native-chrome .page-right {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent, #000 14px);
+}
+
+/* ============ 双页（Duo 展开的内屏、手机横屏）：以折痕为界，左页是当前分区，右页是补充的一层 ============ */
+
+/* 左页就是原来的滚动页，只是收窄到折痕左边：列表不重建，滚动位置和正在编辑的内容都在 */
+.is-spread .screen {
+  right: auto;
+  width: calc(var(--page-l-end) - var(--main-left));
+  padding-right: 14px;
+}
+
+.is-spread .screen > *,
+.page-right > * {
+  max-width: none;
+}
+
+.page-right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--page-r-start) - var(--main-left));
+  right: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 max(16px, calc(var(--inset-right) + 10px)) 0 14px;
+}
+
+.page-head h1 {
+  color: var(--c-history);
+}
+
+.page-right > .history-day:first-of-type .day-head {
+  margin-top: 4px;
+}
+
+/* 统计卡在双页时挪到右页 */
+.is-spread .history-stats {
+  display: none;
+}
+
+/* 新建卡片放在左页（要加进去的列表在那儿），提示条放在右页底下：都不压折痕 */
+.is-spread .composer {
+  right: calc(100% - var(--page-l-end) + 10px);
+}
+
+.is-spread .toast-host {
+  left: var(--page-r-start);
+}
+
+/* 面板是居中在右页的表单卡片 */
+.is-spread .sheet-layer.is-wide {
+  padding-left: calc(var(--page-r-start) + 12px);
+  padding-right: max(12px, calc(var(--inset-right) + 12px));
+}
+
+.by-list {
+  margin-top: 14px;
+  padding: 12px 16px 10px;
+}
+
+.by-list-head {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--label-2);
+}
+
+.by-list-row {
+  display: grid;
+  grid-template-columns: 20px 62px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+}
+
+.by-list-icon {
+  color: var(--c);
+}
+
+.by-list-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.by-list-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--fill);
+  overflow: hidden;
+}
+
+.by-list-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--c);
+}
+
+.by-list-num {
+  min-width: 48px;
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}

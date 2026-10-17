@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { burst, chime, flyTo } from '../effects';
 import { LISTS, type ListId, type Todo } from '../types';
 import type { Section } from './data';
+import { useChrome } from './chrome';
 import { haptic } from './native';
 import { useData } from './store';
 import { pulse, showToast, useUi } from './ui';
@@ -22,14 +23,17 @@ function centerOf(el: Element | null | undefined) {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-/** 底部标签栏或侧栏里，该分区的图标位置（取当前可见的那个） */
+/**
+ * 「飞向某个分区」的终点：网页里看得见的目标（双页时右页的完成记录标题、网页自己画的页签 / 侧栏），
+ * 其次是原生页签栏上那个分区的图标
+ */
 function sectionTarget(s: Section) {
   for (const el of document.querySelectorAll(`[data-target="${s}"]`)) {
     if (el.closest('[inert]')) continue; // 收起的侧栏 / 页签
     const c = centerOf(el);
     if (c && c.y > 0 && c.y < window.innerHeight) return c;
   }
-  return null;
+  return useChrome.getState().geo.targets[s] ?? null;
 }
 
 function checkAnchor(id: string) {
