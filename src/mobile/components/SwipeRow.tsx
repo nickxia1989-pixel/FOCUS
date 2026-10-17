@@ -9,8 +9,10 @@ export interface SwipeAction {
   key: string;
   label: string;
   icon: ReactNode;
-  /** CSS 颜色 */
+  /** 底色（CSS 颜色） */
   color: string;
+  /** 字色，默认近黑 */
+  fg?: string;
   run(el: Element | null): void;
 }
 
@@ -25,7 +27,9 @@ interface Props {
   children: ReactNode;
 }
 
-const ACTION_W = 74;
+const ACTION_W = 65;
+/** 右滑露出的「完成」宽度 */
+const LEAD_W = 96;
 const LONG_PRESS_MS = 460;
 const SLOP = 9;
 
@@ -98,7 +102,7 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
     const openLead = leading && (v > 56 || (v > 16 && vel > 500));
     const openTrail = trailing.length > 0 && (v < -56 || (v < -16 && vel < -500));
     if (!cancelled && openLead) {
-      settle(ACTION_W + 8);
+      settle(LEAD_W);
       useUi.getState().set({ swipedId: id });
     } else if (!cancelled && openTrail) {
       settle(-ACTION_W * trailing.length);
@@ -154,8 +158,10 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
     if (!leading && nx > 0) nx *= 0.2;
     if (!trailing.length && nx < 0) nx *= 0.2;
     x.set(nx);
-    const threshold = Math.min(w * 0.55, 260);
-    setFull(leading && nx > threshold ? 'lead' : trailing.length && nx < -threshold ? 'trail' : null);
+    // 滑过按钮全部露出的位置再往里一截才算「滑到底」，免得想露出按钮时误删
+    const leadAt = Math.min(w - 24, Math.max(w * 0.55, LEAD_W + 56));
+    const trailAt = Math.min(w - 24, Math.max(w * 0.55, ACTION_W * trailing.length + 56));
+    setFull(leading && nx > leadAt ? 'lead' : trailing.length && nx < -trailAt ? 'trail' : null);
   };
 
   const onClickCapture = (e: MouseEvent) => {
@@ -164,8 +170,9 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
     if (suppressClick.current || open) {
       e.stopPropagation();
       e.preventDefault();
-      suppressClick.current = false;
-      if (open) useUi.getState().set({ swipedId: null });
+      // 刚滑开时松手跟着的那次 click 只吞掉，不收回
+      if (suppressClick.current) suppressClick.current = false;
+      else useUi.getState().set({ swipedId: null });
     }
   };
 
@@ -183,7 +190,7 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
       {leading && (
         <motion.div ref={leadRef} className="swipe-actions swipe-lead" style={{ width: leadWidth }}>
           <button
-            style={{ background: leading.color }}
+            style={{ background: leading.color, color: leading.fg ?? '#0b0b0c' }}
             onClick={(e) => {
               useUi.getState().set({ swipedId: null });
               leading.run(e.currentTarget);
@@ -199,7 +206,7 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
           {trailing.map((a) => (
             <button
               key={a.key}
-              style={{ background: a.color }}
+              style={{ background: a.color, color: a.fg ?? '#0b0b0c' }}
               onClick={(e) => {
                 useUi.getState().set({ swipedId: null });
                 a.run(e.currentTarget);

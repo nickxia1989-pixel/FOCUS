@@ -9,6 +9,14 @@ import { useUi } from './ui';
 
 const BASE = 'http://127.0.0.1:8765/__e2e';
 
+interface SeedItem {
+  title: string;
+  list?: ListId;
+  done?: boolean;
+  test?: boolean;
+  kids?: SeedItem[];
+}
+
 const find = (title: string): Todo => {
   const t = activeOf(useData.getState())?.todos.find((x) => x.title === title);
   if (!t) throw new Error(`找不到「${title}」`);
@@ -43,6 +51,20 @@ const commands: Record<string, (a: Record<string, unknown>) => unknown> = {
     const c = useData.getState().conflicts.find((x) => x.kind === 'delete' && x.title === a.title);
     if (!c || c.kind !== 'delete') throw new Error('没有这个删除冲突');
     useData.getState().resolveDelete(c.id, a.choice as 'restore' | 'delete');
+  },
+  /** 新建一个演示空间并填上条目（文档截图用）。每个列表里排在最前的条目放在数组最前面，FOCUS 的第一条就是 NOW */
+  seed: (a) => {
+    const s = useData.getState();
+    s.addProfile(String(a.profile));
+    const items = a.items as SeedItem[];
+    const add = (it: SeedItem, list: ListId, parent: string | null) => {
+      const id = useData.getState().add(it.title, list, parent, 'top');
+      if (!id) return;
+      for (const k of [...(it.kids ?? [])].reverse()) add(k, list, id);
+      if (it.test) useData.getState().markForTest(id);
+      if (it.done) useData.getState().complete(id);
+    };
+    for (const it of [...items].reverse()) add(it, it.list ?? 'inbox', null);
   },
   sheet: (a) => useUi.getState().set({ sheet: (a.name as 'sync' | 'conflicts' | null) ?? null }),
   // 只动界面、不改数据的联调命令（Duo 合上时模拟器点不了，靠它们截各种状态）

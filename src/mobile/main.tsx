@@ -3,6 +3,9 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { MobileApp } from './MobileApp';
 import { isNative, trackKeyboard } from './native';
 import './widget';
+// 设计里的 Display 字体（英文标签、列表名、数字），随网页包打进 App，不往 iOS 工程里加字体文件
+import '@fontsource/bricolage-grotesque/latin-700.css';
+import '@fontsource/bricolage-grotesque/latin-800.css';
 import './mobile.css';
 
 if (isNative) document.documentElement.classList.add('is-native');

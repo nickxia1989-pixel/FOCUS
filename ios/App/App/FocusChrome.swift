@@ -82,32 +82,50 @@ public class FocusChromePlugin: CAPPlugin, CAPBridgedPlugin {
     }
 }
 
-/// 网页推过来的状态（字段见 src/mobile/chrome.ts 的 ChromeState）
+/// 网页推过来的状态（字段见 src/mobile/chrome.ts 的 snapshot）
 struct ChromeState: Decodable, Equatable {
     struct Profile: Decodable, Equatable {
         var name: String
-        var color: String
+        /// 头像底色和字色（设计：第一个空间是近黑底荧光绿字，深色下反过来）
+        var bg: String
+        var fg: String
     }
     struct Sync: Decodable, Equatable {
-        /// ok / busy / warn / bad / off
-        var tone: String
+        /// ok / syncing / offline / error / off
+        var icon: String
         var conflicts: Int
+        /// 无障碍说明，例如「离线：改动已保存在本机……」
         var label: String
+        /// ⋯ 菜单里「同步」右边的短状态，例如「已同步」
+        var status: String
     }
     struct Menu: Decodable, Equatable {
         var trash: Int
         var sound: Bool
         var haptics: Bool
+        /// 当前空间名（⋯ 菜单里「空间」右边）
+        var space: String
+    }
+    /// 设计 token 里原生栏要用的几种颜色（跟着网页当前的浅色 / 深色）
+    struct Palette: Decodable, Equatable {
+        var lime: String
+        var limeInk: String
+        var text: String
+        var muted: String
+        var faint: String
+        var ok: String
+        var bad: String
+        /// 选中页签的图标和字色：浅色近黑，深色荧光绿
+        var tabOnFg: String
+        var dark: Bool
     }
     var section: String
+    /// 角标：只给 FOCUS / VERIFY / INBOX
     var counts: [String: Int]
-    /// 各分区的主题色（跟着网页当前的浅色 / 深色）
-    var colors: [String: String]
+    var palette: Palette
     var profile: Profile
     var sync: Sync
     var menu: Menu
-    /// 往下滚过大标题后导航栏中间显示的小标题
-    var title: String?
     /// 网页上开着面板、菜单或新建卡片：原生栏让开
     var modal: Bool
     /// 分区"收到东西"的计数，变了就让那个页签弹一下
@@ -118,16 +136,23 @@ struct ChromeState: Decodable, Equatable {
 
 @available(iOS 26.0, *)
 final class ChromeShellController: UIViewController, UITabBarControllerDelegate {
+    /// 图标：星芒、眼睛里一个勾（SF Symbols 里没有，用 Assets 里的 TabVerify 模板图）、托盘、山、日历勾
     static let sections: [(id: String, title: String, symbol: String)] = [
-        ("focus", "FOCUS", "target"),
-        ("verify", "VERIFY", "flask"),
-        ("inbox", "INBOX", "tray"),
-        ("goal", "GOAL", "flag"),
-        ("history", "HISTORY", "calendar.badge.checkmark"),
+        ("focus", "FOCUS", "TabFocus"),
+        ("verify", "VERIFY", "TabVerify"),
+        ("inbox", "INBOX", "TabInbox"),
+        ("goal", "GOAL", "TabGoal"),
+        ("history", "HISTORY", "TabHistory"),
     ]
-    /// 「+」圆钮的直径和它与页签栏之间的空隙
+    /// 角标只给这几个列表（GOAL、HISTORY 不显示数字）
+    static let badged: Set<String> = ["focus", "verify", "inbox"]
+
+    static func icon(_ name: String) -> UIImage? {
+        UIImage(systemName: name) ?? UIImage(named: name)?.withRenderingMode(.alwaysTemplate)
+    }
+    /// 「+」圆钮的直径和它与页签栏之间的空隙（设计：64 / 12；系统页签栏高 62，跟它齐）
     private static let plusSize: CGFloat = 62
-    private static let plusGap: CGFloat = 10
+    private static let plusGap: CGFloat = 12
 
     private let web: MainViewController
     private let overlay = PassthroughView()
@@ -138,7 +163,9 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
     private var holder: ChromeHolderController?
     /// 当前这套栏是按竖排搭的
     private var builtVertical: Bool?
-    /// 栏横排时页签栏右边的「+」。系统页签栏超过 5 个会折出"更多"，所以「+」不做成页签，自己放一颗玻璃圆钮
+    /// 栏横排时页签栏右边的「+」：荧光绿的玻璃圆钮、近黑的 +。
+    /// 设计里它是第 6 个 search 角色的页签，但系统页签栏在手机上超过 5 个就折出「更多」（iOS 27 实测，search / prominent 都一样），
+    /// 所以不做成页签，自己放一颗玻璃圆钮
     private let plusButton = UIButton(configuration: .prominentGlass())
     private var hosts: [WeakHost] = []
     private var state: ChromeState?
@@ -192,8 +219,13 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         }
         view.addSubview(overlay)
 
+        // 深色下玻璃按钮会把前景色改成白色：图标用原色渲染，浅色深色都是近黑
+        let ink = UIColor(red: 0x0B / 255, green: 0x0B / 255, blue: 0x0C / 255, alpha: 1)
         plusButton.configuration?.image = UIImage(
-            systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold))
+            systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 25, weight: .semibold))?
+            .withTintColor(ink, renderingMode: .alwaysOriginal)
+        plusButton.tintColor = UIColor(red: 0xD6 / 255, green: 1, blue: 0x3D / 255, alpha: 1)
+        plusButton.configuration?.baseForegroundColor = ink
         plusButton.configuration?.cornerStyle = .capsule
         plusButton.accessibilityLabel = "新建"
         plusButton.addAction(UIAction { [weak self] _ in self?.compose() }, for: .primaryActionTriggered)
@@ -271,7 +303,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         tabs.tabBarMinimizeBehavior = .never
         tabs.view.backgroundColor = .clear
         tabs.tabs = Self.sections.map { s in
-            UITab(title: s.title, image: UIImage(systemName: s.symbol), identifier: s.id) { [weak self] _ in
+            UITab(title: s.title, image: Self.icon(s.symbol), identifier: s.id) { [weak self] _ in
                 guard let self else { return UIViewController() }
                 let host = self.makeHost()
                 return vertical ? self.wrapInNav(host) : host
@@ -380,9 +412,8 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
     private func apply(_ s: ChromeState) {
         let old = state
         state = s
-        applyTabs(s, tint: old?.colors != s.colors || old?.section != s.section)
-        if old?.profile != s.profile || old?.sync != s.sync || old?.title != s.title || old?.menu != s.menu
-            || old?.colors != s.colors || old?.section != s.section {
+        applyTabs(s, tint: old?.palette != s.palette)
+        if old?.profile != s.profile || old?.sync != s.sync || old?.menu != s.menu || old?.palette != s.palette {
             configureItems()
         }
         if let old {
@@ -394,22 +425,41 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         }
     }
 
-    /// 选中的页签、角标、分区色
+    /// 选中的页签、角标、配色
     private func applyTabs(_ s: ChromeState, tint: Bool) {
         if let tab = tabs.tabs.first(where: { $0.identifier == s.section }), tabs.selectedTab !== tab {
             tabs.selectedTab = tab
         }
-        for tab in tabs.tabs where tab.identifier != "history" {
-            let n = s.counts[tab.identifier] ?? 0
+        for tab in tabs.tabs {
+            let n = Self.badged.contains(tab.identifier) ? (s.counts[tab.identifier] ?? 0) : 0
             let value = n > 0 ? (n > 99 ? "99+" : String(n)) : nil
             if tab.badgeValue != value { tab.badgeValue = value }
         }
-        if tint {
-            let color = color(s.colors[s.section]) ?? view.tintColor
-            tabs.view.tintColor = color
-            // 和 Duo 竖排栏里系统画的 prominent 按钮一样：分区色的玻璃底、白色的 +
-            plusButton.tintColor = color
+        guard tint else { return }
+        let p = s.palette
+        let onFg = color(p.tabOnFg) ?? .label
+        let text = color(p.text) ?? .label
+        let muted = color(p.muted) ?? .secondaryLabel
+        // 选中态：设计是浅色荧光绿底 + 近黑、深色 17% 荧光绿底 + 荧光绿。
+        // 但 iOS 26 起玻璃页签栏的选中胶囊是系统玻璃，selectionIndicatorTintColor / selectionIndicatorImage 都不生效（27.1 实测），
+        // 所以只给图标和文字上色：浅色近黑，深色荧光绿；未选中是正文色。
+        // 角标是列表的未完成数，不是"未读提醒"：不用红底，用灰色小字贴在图标右上
+        let appearance = UITabBarAppearance()
+        for layout in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
+            layout.normal.iconColor = text
+            layout.normal.titleTextAttributes = [.foregroundColor: text]
+            layout.selected.iconColor = onFg
+            layout.selected.titleTextAttributes = [.foregroundColor: onFg]
+            for state in [layout.normal, layout.selected] {
+                state.badgeBackgroundColor = .clear
+                state.badgeTextAttributes = [.foregroundColor: state === layout.selected ? onFg : muted,
+                                             .font: UIFont.systemFont(ofSize: 10, weight: .heavy)]
+                state.badgePositionAdjustment = UIOffset(horizontal: -2, vertical: 2)
+            }
         }
+        tabs.tabBar.standardAppearance = appearance
+        tabs.tabBar.scrollEdgeAppearance = appearance
+        tabs.view.tintColor = onFg
     }
 
     private func updateVisibility(animated: Bool) {
@@ -462,32 +512,45 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
 
     private func configureItems(_ item: UINavigationItem) {
         item.largeTitleDisplayMode = .never
-        item.title = state?.title
+        // 标题（日期 + 列表名 · 数字）由网页画在导航栏这一行里，原生只放按钮
+        item.title = nil
         guard let s = state else { return }
+        let p = s.palette
 
         let avatar = UIBarButtonItem(
-            image: avatarImage(name: s.profile.name, color: color(s.profile.color) ?? .systemOrange),
-            primaryAction: UIAction(title: "空间") { [weak self] _ in self?.web.chrome.send("action", ["name": "profiles"]) }
+            image: avatarImage(name: s.profile.name, bg: color(s.profile.bg) ?? .black, fg: color(s.profile.fg) ?? .white),
+            primaryAction: UIAction(title: "空间", image: UIImage(systemName: "person.2")) { [weak self] _ in
+                self?.web.chrome.send("action", ["name": "profiles"])
+            }
         )
         avatar.accessibilityLabel = "当前空间：\(s.profile.name)，点按切换"
 
         let sync = UIBarButtonItem(
-            image: UIImage(systemName: syncSymbol(s.sync.tone)),
-            primaryAction: UIAction(title: "同步") { [weak self] _ in self?.web.chrome.send("action", ["name": "sync"]) }
+            image: syncImage(s.sync.icon),
+            primaryAction: UIAction(title: "同步", image: UIImage(systemName: "icloud")) { [weak self] _ in
+                self?.web.chrome.send("action", ["name": "sync"])
+            }
         )
         sync.accessibilityLabel = s.sync.label
-        sync.tintColor = syncTint(s.sync, colors: s.colors)
+        sync.tintColor = syncTint(s.sync, p)
         sync.badge = s.sync.conflicts > 0 ? .count(s.sync.conflicts) : nil
+        if s.sync.icon == "syncing" {
+            // 同步中：双箭头 1.1s 匀速转
+            sync.addSymbolEffect(.rotate.byLayer, options: .repeat(.continuous))
+        }
 
         item.leftBarButtonItem = avatar
         if builtVertical == true {
             // 栏竖排时「+」跟导航按钮一起由系统排进侧边那一列（HIG：常用的新建保持可见）
-            let plus = UIBarButtonItem(
-                image: UIImage(systemName: "plus"),
-                primaryAction: UIAction(title: "新建") { [weak self] _ in self?.compose() }
-            )
+            let lime = color(p.lime) ?? .systemYellow
+            let ink = color(p.limeInk) ?? .black
+            let glyph = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))?
+                .withTintColor(ink, renderingMode: .alwaysOriginal)
+            let plus = UIBarButtonItem(image: glyph, primaryAction: UIAction(title: "新建", image: UIImage(systemName: "plus")) { [weak self] _ in
+                self?.compose()
+            })
             plus.style = .prominent
-            plus.tintColor = color(s.colors[s.section])
+            plus.tintColor = lime
             if #available(iOS 27.0, *) {
                 // 竖排栏放不下时（外屏横握）按钮会收进 ⋯：新建最常用，留得最久；同步按钮带冲突角标，其次
                 plus.visibilityPriority = UIBarButtonItemVisibilityPriority(higherThan: .high)
@@ -503,48 +566,54 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         }
     }
 
+    /// ⋯ 菜单（设计 P11）：回收站、同步、空间 | 完成提示音、触感反馈
     private func overflowItems() -> [UIMenuElement] {
-        guard let m = state?.menu else { return [] }
+        guard let s = state else { return [] }
+        let m = s.menu
         let send: (String) -> UIActionHandler = { name in { [weak self] _ in self?.web.chrome.send("action", ["name": name]) } }
         let trash = UIAction(title: "回收站", subtitle: m.trash > 0 ? "\(m.trash) 项" : nil, image: UIImage(systemName: "trash"), handler: send("trash"))
-        let profiles = UIAction(title: "切换空间", image: UIImage(systemName: "arrow.left.arrow.right"), handler: send("profiles"))
-        let sync = UIAction(title: "同步", image: UIImage(systemName: "icloud"), handler: send("sync"))
+        let sync = UIAction(title: "同步", subtitle: s.sync.status, image: UIImage(systemName: "icloud"), handler: send("sync"))
+        let profiles = UIAction(title: "空间", subtitle: m.space, image: UIImage(systemName: "person.2"), handler: send("profiles"))
         let sound = UIAction(title: "完成提示音", image: UIImage(systemName: "speaker.wave.2"), state: m.sound ? .on : .off, handler: send("sound"))
         let haptics = UIAction(title: "触感反馈", image: UIImage(systemName: "iphone.radiowaves.left.and.right"), state: m.haptics ? .on : .off, handler: send("haptics"))
         return [
-            UIMenu(options: .displayInline, children: [trash, profiles, sync]),
+            UIMenu(options: .displayInline, children: [trash, sync, profiles]),
             UIMenu(options: .displayInline, children: [sound, haptics]),
         ]
     }
 
-    private func syncSymbol(_ tone: String) -> String {
-        switch tone {
-        case "busy": return "arrow.triangle.2.circlepath.icloud"
-        case "off": return "icloud.slash"
-        case "warn", "bad": return "exclamationmark.icloud"
-        default: return "icloud"
+    /// 云朵的几种状态（设计：已同步带勾、同步中双箭头、离线斜线、出错感叹号、未开启虚线）
+    private func syncImage(_ icon: String) -> UIImage? {
+        let name: String
+        switch icon {
+        case "syncing": name = "arrow.triangle.2.circlepath"
+        case "offline": name = "icloud.slash"
+        case "error": name = "exclamationmark.icloud"
+        case "off": name = "icloud.dashed"
+        default: name = "checkmark.icloud"
+        }
+        return UIImage(systemName: name) ?? UIImage(systemName: "icloud")
+    }
+
+    private func syncTint(_ s: ChromeState.Sync, _ p: ChromeState.Palette) -> UIColor {
+        if s.conflicts > 0 { return color(p.bad) ?? .systemRed }
+        switch s.icon {
+        case "ok": return color(p.ok) ?? .systemGreen
+        case "error": return color(p.bad) ?? .systemRed
+        case "offline", "off": return color(p.faint) ?? .tertiaryLabel
+        default: return color(p.text) ?? .label
         }
     }
 
-    private func syncTint(_ s: ChromeState.Sync, colors: [String: String]) -> UIColor {
-        if s.conflicts > 0 { return .systemRed }
-        switch s.tone {
-        case "ok": return color(colors["verify"]) ?? .systemTeal
-        case "warn": return UIColor(red: 0.85, green: 0.6, blue: 0, alpha: 1)
-        case "bad": return .systemRed
-        default: return .label
-        }
-    }
-
-    private func avatarImage(name: String, color: UIColor) -> UIImage {
+    private func avatarImage(name: String, bg: UIColor, fg: UIColor) -> UIImage {
         let size = CGSize(width: 30, height: 30)
         let image = UIGraphicsImageRenderer(size: size).image { _ in
-            color.setFill()
+            bg.setFill()
             UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
             let text = String(name.first ?? "?") as NSString
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: 14, weight: .bold),
-                .foregroundColor: UIColor.white,
+                .foregroundColor: fg,
             ]
             let t = text.size(withAttributes: attrs)
             text.draw(at: CGPoint(x: (size.width - t.width) / 2, y: (size.height - t.height) / 2), withAttributes: attrs)
@@ -601,6 +670,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         g["hinge"] = hinge ?? NSNull()
         g["fold"] = NSNull()
         g["bar"] = NSNull()
+        if let nav = navMetrics() { g["nav"] = nav }
         if ProcessInfo.processInfo.arguments.contains("-chromeDebug") {
             g["debug"] = "kb=\(keyboardShown) hidden=\(tabs.isTabBarHidden) vertical=\(String(describing: builtVertical))"
         }
@@ -622,6 +692,31 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         }
         #endif
         return g
+    }
+
+    /// 栏横排时导航栏那一行的位置和左右按钮占到哪：网页把标题（日期 + 列表名 · 数字）画在头像右边
+    private func navMetrics() -> [String: Any]? {
+        guard builtVertical == false, let bar = holder?.navigationController?.navigationBar, bar.window != nil, !bar.isHidden else { return nil }
+        let f = bar.convert(bar.bounds, to: view)
+        guard f.height > 0 else { return nil }
+        var leading = f.minX + view.safeAreaInsets.left + 16 + 44
+        var trailing = f.maxX - view.safeAreaInsets.right - 16 - 88
+        // 系统没有公开按钮的视图，按类名找玻璃底（找不到就用上面的估计值）
+        var glass: [CGRect] = []
+        func walk(_ v: UIView) {
+            if v.isHidden || v.alpha < 0.01 { return }
+            if String(describing: type(of: v)).contains("GlassInteraction") {
+                glass.append(v.convert(v.bounds, to: view))
+                return
+            }
+            for sub in v.subviews { walk(sub) }
+        }
+        walk(bar)
+        let lead = glass.filter { $0.midX < f.midX }
+        let trail = glass.filter { $0.midX >= f.midX }
+        if let m = lead.map(\.maxX).max() { leading = m }
+        if let m = trail.map(\.minX).min() { trailing = m }
+        return ["top": f.minY, "height": f.height, "leadingEnd": leading, "trailingStart": trailing]
     }
 
     /// 页签图标在屏幕上的位置：网页里"飞向某个分区"的动画以它为终点
