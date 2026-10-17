@@ -1,12 +1,12 @@
 import Foundation
 
-/// App 写给小组件的数据，对应 src/mobile/widgetData.ts 的 WidgetSnapshot。
+/// App 写给小组件的数据，对应 src/mobile/widgetData.ts 的 WidgetSnapshot（version 2）。
 ///
-/// 小组件不读同步文档：App 每次数据变化后把各空间 FOCUS 列表的前几条写成一份 JSON 放进 App Group，
-/// 小组件只读这份文件（写入方是 ios/App/App/FocusWidgetPlugin.swift）。字段缺了就用默认值，
-/// 两边版本对不上时也不至于整个读不出来。
+/// 小组件不读同步文档：App 每次数据变化后把各空间的 NOW、NEXT、INBOX 前几件和今天 / 连续天数
+/// 写成一份 JSON 放进 App Group，小组件只读这份文件（写入方是 ios/App/App/FocusWidgetPlugin.swift）。
+/// 字段缺了就用默认值，两边版本对不上时也不至于整个读不出来。
 struct FocusSnapshot: Decodable {
-    static let appGroup = "group.app.focus.todo"
+    static let appGroup = "group.com.nickxia.focus.todo"
     static let fileName = "widget-snapshot.json"
     static let widgetKind = "FocusList"
 
@@ -35,52 +35,83 @@ struct FocusSnapshot: Decodable {
         private enum CodingKeys: String, CodingKey { case id, title, subDone, subTotal }
     }
 
+    struct Sub: Decodable, Hashable {
+        var title: String
+        var done: Bool
+
+        init(title: String, done: Bool = false) {
+            self.title = title
+            self.done = done
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+            done = try c.decodeIfPresent(Bool.self, forKey: .done) ?? false
+        }
+
+        private enum CodingKeys: String, CodingKey { case title, done }
+    }
+
+    /// 现在这一件：FOCUS 里手动顺序排第一的未完成顶层项
+    struct Now: Decodable, Hashable {
+        var item: Item
+        /// 前几条直接子任务，未完成的在前
+        var subs: [Sub]
+
+        init(item: Item, subs: [Sub] = []) {
+            self.item = item
+            self.subs = subs
+        }
+
+        init(from decoder: Decoder) throws {
+            item = try Item(from: decoder)
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            subs = try c.decodeIfPresent([Sub].self, forKey: .subs) ?? []
+        }
+
+        private enum CodingKeys: String, CodingKey { case subs }
+    }
+
     struct Profile: Decodable, Identifiable {
         var id: String
         var name: String
-        /// 头像颜色，"#f2622e"
-        var color: String
-        /// FOCUS 里未完成的条数（含子任务），和 App 里 FOCUS 的页头、页签角标一致
+        /// 头像颜色的序号
+        var tint: Int
+        var now: Now?
+        /// NOW 之后的前几件
+        var next: [Item]
+        /// FOCUS 里未完成的顶层项总数（含 NOW）
         var open: Int
-        /// 未完成的顶层项总数（items 只带前几个）
-        var roots: Int
-        var items: [Item]
+        /// INBOX 最上面几件
+        var inbox: [Item]
+        var inboxOpen: Int
         var doneToday: Int
-
-        init(id: String, name: String, color: String, open: Int, roots: Int, items: [Item], doneToday: Int) {
-            self.id = id
-            self.name = name
-            self.color = color
-            self.open = open
-            self.roots = roots
-            self.items = items
-            self.doneToday = doneToday
-        }
+        var streak: Int
 
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
             name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
-            color = try c.decodeIfPresent(String.self, forKey: .color) ?? "#f2622e"
-            items = try c.decodeIfPresent([Item].self, forKey: .items) ?? []
-            roots = try c.decodeIfPresent(Int.self, forKey: .roots) ?? items.count
-            open = try c.decodeIfPresent(Int.self, forKey: .open) ?? roots
+            tint = try c.decodeIfPresent(Int.self, forKey: .tint) ?? 0
+            now = try c.decodeIfPresent(Now.self, forKey: .now)
+            next = try c.decodeIfPresent([Item].self, forKey: .next) ?? []
+            open = try c.decodeIfPresent(Int.self, forKey: .open) ?? (next.count + (now == nil ? 0 : 1))
+            inbox = try c.decodeIfPresent([Item].self, forKey: .inbox) ?? []
+            inboxOpen = try c.decodeIfPresent(Int.self, forKey: .inboxOpen) ?? inbox.count
             doneToday = try c.decodeIfPresent(Int.self, forKey: .doneToday) ?? 0
+            streak = try c.decodeIfPresent(Int.self, forKey: .streak) ?? 0
         }
 
-        private enum CodingKeys: String, CodingKey { case id, name, color, open, roots, items, doneToday }
+        private enum CodingKeys: String, CodingKey {
+            case id, name, tint, now, next, open, inbox, inboxOpen, doneToday, streak
+        }
     }
 
     var activeId: String
     /// 写入那天 0 点的毫秒时间戳（App 所在时区）
     var day: Double
     var profiles: [Profile]
-
-    init(activeId: String, day: Double, profiles: [Profile]) {
-        self.activeId = activeId
-        self.day = day
-        self.profiles = profiles
-    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -110,9 +141,25 @@ struct FocusSnapshot: Decodable {
         return profiles.first(where: { $0.id == activeId }) ?? profiles.first
     }
 
+    /// 写入之后过了几天（按日历）。时间线里明天、后天的条目用它推算今天完成数和连续天数
+    func daysSinceWritten(_ date: Date) -> Int {
+        let calendar = Calendar.current
+        let written = calendar.startOfDay(for: Date(timeIntervalSince1970: day / 1000))
+        return max(0, calendar.dateComponents([.day], from: written, to: calendar.startOfDay(for: date)).day ?? 0)
+    }
+
     /// 写入的那天过去了还没有新数据：今天还没完成任何事
     func doneToday(of profile: Profile, on date: Date) -> Int {
-        let written = Date(timeIntervalSince1970: day / 1000)
-        return Calendar.current.isDate(written, inSameDayAs: date) ? profile.doneToday : 0
+        daysSinceWritten(date) == 0 ? profile.doneToday : 0
+    }
+
+    /// 连续天数和 src/history.ts 的 streak 一样「今天还没完成时从昨天往回数」：
+    /// 第二天仍算上写入那天（那天完成过的话），再往后就断了
+    func streak(of profile: Profile, on date: Date) -> Int {
+        switch daysSinceWritten(date) {
+        case 0: profile.streak
+        case 1: profile.doneToday > 0 ? profile.streak : 0
+        default: 0
+        }
     }
 }

@@ -12,7 +12,7 @@ public class FocusWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
     ]
 
-    static let appGroup = "group.app.focus.todo"
+    static let appGroup = "group.com.nickxia.focus.todo"
     static let fileName = "widget-snapshot.json"
     static let widgetKind = "FocusList"
 

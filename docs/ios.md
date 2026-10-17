@@ -175,31 +175,32 @@ npm run icon:ios     # 重新生成 iOS 图标
 
 ## 主屏小组件
 
-把 FOCUS 列表放到主屏上：只展示，不能在小组件里勾选。点小组件打开 App，停在 FOCUS 页。
+把「现在这一件」放到主屏上：只展示，不能在小组件里勾选。视觉按定稿设计（`design_handoff_focus/`：README「小组件（WidgetKit）」、`screens/Widgets.jpg`、`design/FWidget.dc.html`）。荧光绿 `#D6FF3D` 只给 NOW；下面的 NEXT 是序号列表，没有勾选圈，免得看起来能点。
 
-| 浅色：大号、中号 / 小号（右边那个固定显示「读书」，列表为空） | 深色 |
+| 浅色：大号、中号 / 小号（右边那个固定显示「读书」，FOCUS 空了） | 深色 |
 | --- | --- |
 | ![](ios/widget-home-light.jpg) | ![](ios/widget-home-dark.jpg) |
 
-| iOS 26 着色（左）和透明（右） | 锁屏：一行、矩形、圆形 |
+| iOS 26 着色 | 锁屏（一行、矩形、圆形）/ FOCUS 空时中、大号列 INBOX（着色模式） |
 | --- | --- |
-| ![](ios/widget-tinted-clear.jpg) | ![](ios/widget-lock.jpg) |
+| ![](ios/widget-tinted.jpg) | ![](ios/widget-lock-empty.jpg) |
 
 ### 显示什么
 
-- **列表**：当前空间 FOCUS 里未完成的顶层项，顺序和 App 里一样；有子任务的带 `1/3` 进度（小号放不下，不显示）。放不下时最后一行变成「还有 N 条」。
-- **数字**：「N 项未完成」和 App 里 FOCUS 页头、页签角标是同一个数，含子任务。所以数字可能比列出的行数多。
-- **空间和今天完成数**：空间头像和名字、「今天完成 N」（含子任务，和导航栏一致）。过了零点自动清零。
-- **空状态**：和 App 一样的 ◉ 图标和「专注当下。从 INBOX 挑一件事放进来吧」。装好后还没打开过 App 时显示「打开 FOCUS」。
+- **NOW** = 当前空间 FOCUS 里手动顺序排第一的未完成顶层项（和 App 的 `nowOf` 一样），子任务进度 = 已完成子项 / 子项数。**NEXT** = 其后的顶层项，按顺序编号 02、03…。
+- **件数**：`1/5`、「还有 4 件」、锁屏圆形的数字都是 FOCUS 未完成的**顶层项**数（含 NOW）。
+- **今天 / 连续**：「今天 ✓4」「今天 4 件 · 连续 6 天」和 HISTORY 同一套算法（`src/history.ts` 的 `countsByDay` / `streak`，今天还没完成时从昨天往回数）。过了零点小组件自己清零、推算连续天数，不等 App 打开。
+- **空状态**：FOCUS 空了显示「Nothing now.」和「INBOX 里有 N 件可以挑」；中号右边、大号下面列 INBOX 最上面三件，点进落在 INBOX。装好后还没打开过 App 时显示「打开 FOCUS 开始」。
+- **字体**：`NOW`、`NEXT`、数字、「Nothing now.」用 Bricolage Grotesque 700 / 800（`@fontsource` 里的 latin woff2，iOS 的 CoreText 能直接注册 woff2，扩展的 `Info.plist` 用 `UIAppFonts` 声明，许可证 `Fonts/OFL.txt`）；中文和标题用系统字。字体没注册上时退回 SF Pro Rounded 粗体。
 
 | 尺寸 | 内容 |
 | --- | --- |
-| 小号 | 标题 + 头像，前 3～4 条，底部「还有 N 条」和今天完成数 |
-| 中号 | 左边未完成数、空间、今天完成；右边列表卡片，最多 4 行 |
-| 大号 | 标题、未完成数、今天完成、空间；列表卡片最多 8 行 |
-| 锁屏矩形 | `◉ FOCUS · 7` 加前两条 |
-| 锁屏一行（时间上方） | `◉ 7 · 第一条` |
-| 锁屏圆形 | ◉ 和未完成数 |
+| 小号 | 浅色整块荧光绿 / 深色底 `#141416`：`✦ NOW · 1/5`，标题贴底，子任务进度条，「还有 4 件 · 今天 ✓4」 |
+| 中号 | 左边内缩 8 的荧光绿 NOW 卡（164 宽，圆角 22），右边 NEXT 三件 +「+1 · 今天 ✓4」 |
+| 大号 | 上面 NOW 卡（184 高，标题 20，最多两条子任务），下面 NEXT 四件，底部「今天 N 件 · 连续 N 天」+ 空间头像 |
+| 锁屏圆形 | ✦ + 剩余件数，外圈 = 今天完成 /（今天完成 + 剩余） |
+| 锁屏矩形 | `✦ NOW · 1/5` + NOW 标题两行 |
+| 锁屏一行 | ✦ + NOW 标题 |
 
 ### 选空间
 
@@ -207,19 +208,19 @@ npm run icon:ios     # 重新生成 iOS 图标
 
 ### 怎么刷新
 
-- 小组件不读同步文档。App 每次数据变化后（本地增删改、同步合并进来的改动、切换空间），`widgetData.ts` 从 store 派生一份精简快照（各空间 FOCUS 的前 12 条、未完成数、今天完成数），由 `widget.ts` 交给原生插件 `FocusWidget.update`。
-- 插件把 JSON 写进 App Group `group.app.focus.todo` 的 `widget-snapshot.json`，然后调用 `WidgetCenter.reloadTimelines(ofKind: "FocusList")`。
+- 小组件不读同步文档。App 每次数据变化后（本地增删改、同步合并进来的改动、切换空间），`widgetData.ts` 从 store 派生一份精简快照（version 2：各空间的 NOW 及前三条子任务、NEXT 前 8 件、FOCUS 顶层未完成数、INBOX 前三件和总数、今天完成数、连续天数、头像序号），由 `widget.ts` 交给原生插件 `FocusWidget.update`。
+- 插件把 JSON 写进 App Group `group.com.nickxia.focus.todo` 的 `widget-snapshot.json`，然后调用 `WidgetCenter.reloadTimelines(ofKind: "FocusList")`。
 - 节流：连续改动时最多 0.8 秒写一次；内容和上次一样就不写、不刷新（插件里再比一次文件）。切到后台时还没写的那一下立即写掉。
-- 小组件的时间线在第二天 0 点再排一条，把「今天完成」清零。
+- 小组件的时间线在明天、后天 0 点各排一条：今天完成清零，连续天数按天推算（第二天还算上写入那天，再往后就断了）。
 - App 不在前台时不会同步，所以别的设备上的改动要等这台 iPhone 打开 FOCUS、同步合并之后才会出现在小组件上。
 
 ### 点开
 
-`widgetURL` 是 `focustodo://focus`（固定了空间的带 `?profile=<id>`）。`Info.plist` 注册了 `focustodo` 这个 URL scheme，`widget.ts` 监听 `appUrlOpen`（冷启动时读 `App.getLaunchUrl()`），等数据载入后切到 FOCUS 分区、收起面板和菜单。
+`widgetURL` 是 `focustodo://focus`；FOCUS 空了时中、大号列的是 INBOX，链接是 `focustodo://inbox`。固定了空间的带 `?profile=<id>`。`Info.plist` 注册了 `focustodo` 这个 URL scheme，`widget.ts` 监听 `appUrlOpen`（冷启动时读 `App.getLaunchUrl()`），等数据载入后切空间、切到对应分区、收起面板和菜单。
 
 ### 着色、透明、深色
 
-颜色取自 `mobile.css`（FOCUS 橙 `#f2622e` / 深色 `#ff7a4a`、背景、正文色），浅色深色各一套。着色和透明模式下系统去掉底色、统一上色：「FOCUS」标题、勾选圈、◉ 图标归到强调色那一组（`widgetAccentable`），空间头像改成描边，列表卡片改成半透明。
+颜色取自 `design_handoff_focus/tokens.json`：浅色白底 / 深色 `#141416`，正文、muted、分隔线各一套；空间头像按定稿的五种配色顺序取（近黑底荧光绿字在深色里反过来）。着色和透明模式下系统去掉底色：NOW 卡变成一层随系统着色的半透明（`widgetAccentable`），`✦ NOW`、序号、进度和锁屏圆形也跟着着色，其余文字白色 55%–95% 分层，头像改成半透明圆。
 
 ### 工程
 
@@ -227,7 +228,8 @@ npm run icon:ios     # 重新生成 iOS 图标
   - `FocusWidget.swift`：时间线、`@main` 入口、支持的尺寸
   - `FocusIntent.swift`：选空间的 AppIntent（`ProfileEntity`、「跟随 App」）
   - `FocusSnapshot.swift`：快照的读取（字段缺了用默认值）
-  - `FocusWidgetViews.swift`：各尺寸的界面和颜色；改视觉主要改这个文件
+  - `FocusWidgetViews.swift`：各尺寸的界面、配色、Display 字、星芒；改视觉主要改这个文件
+  - `Fonts/`：Bricolage Grotesque 700 / 800 的 woff2 和 OFL 许可证（从 `node_modules/@fontsource/bricolage-grotesque` 复制）
 - App 和扩展都有 App Group 权限（`App/App.entitlements`、`FocusWidget/FocusWidget.entitlements`）。`project.pbxproj` 只加了扩展 target、这几个文件和 App 的 `CODE_SIGN_ENTITLEMENTS`，没有写死开发团队。
 - 签名用自动签名，团队在命令行传入。模拟器构建不需要描述文件；真机构建见「已知问题」里的 App Group 一条：
 
@@ -240,16 +242,16 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -dest
 - 看 App 写的快照：
 
 ```bash
-cat "$(xcrun simctl get_app_container <UDID> app.focus.todo group.app.focus.todo)/widget-snapshot.json"
+cat "$(xcrun simctl get_app_container <UDID> app.focus.todo group.com.nickxia.focus.todo)/widget-snapshot.json"
 ```
 
 - 模拟器的输入法是拼音，`simctl io` 和 MCP 的 `text` 输不了中文。要准备带中文的测试数据，可以用 `src/sync/migrate.ts` 的 `migrateLegacy` 生成一份同步文档，App 退出后放进 `$(xcrun simctl get_app_container <UDID> app.focus.todo data)/Library/focus-doc.json` 再打开。
 - 添加小组件：主屏长按空白处 → 左上角按钮 →「添加小组件」→ 找到 FOCUS；锁屏长按 →「自定义」→ 锁定屏幕。着色 / 透明在主屏长按 → 左上角按钮 →「自定义」里切换。
+- 不点小组件也能试链接：`xcrun simctl openurl <UDID> "focustodo://inbox?profile=<空间 id>"`（系统会先问一次「在 FOCUS 中打开？」）。
 
 ## 已知问题
 
-- **真机签名还差 App Group**：用 `xcodebuild -destination 'generic/platform=iOS' DEVELOPMENT_TEAM=49G26925BS -allowProvisioningUpdates` 构建时，Xcode 已经在开发者账号里登记了 `app.focus.todo` 和 `app.focus.todo.FocusWidget`，也打开了 App Groups 能力，但描述文件里的 App Group 列表是空的（加 `REGISTER_APP_GROUPS=YES`、删掉旧描述文件重取都一样），报 “doesn't match the entitlements file's value for the com.apple.security.application-groups entitlement”。需要在 Xcode 里给 App 和 FocusWidgetExtension 两个 target 的 Signing & Capabilities → App Groups 勾上 `group.app.focus.todo` 一次（Xcode 会提示这个 id 能不能用）；如果被别的团队占用了，就换一个（例如照 Capy Pay 的 `group.com.nickxia.capypay` 起名），同时改 `App.entitlements`、`FocusWidget.entitlements`、`FocusWidgetPlugin.swift`、`FocusSnapshot.swift` 里的四处。模拟器不受影响。
-- **小组件的视觉是先按现有风格做的**：全平台重设计（Claude Design）定稿后，按小组件规格改 `FocusWidgetViews.swift`。真机上还没看过。
+- **真机签名还差一步（App Group 没进描述文件）**：App Group 已换成带个人标识的 `group.com.nickxia.focus.todo`（`App.entitlements`、`FocusWidget.entitlements`、`FocusWidgetPlugin.swift`、`FocusSnapshot.swift` 四处）。`xcodebuild -destination 'generic/platform=iOS' DEVELOPMENT_TEAM=49G26925BS -allowProvisioningUpdates` 能在开发者账号里登记 `app.focus.todo` 和 `app.focus.todo.FocusWidget`、打开 App Groups 能力并取回一年期描述文件，但两个描述文件里的 App Group 列表都是空的，构建报 “doesn't match the entitlements file's value for the com.apple.security.application-groups entitlement”。旧 id 和新 id 结果一样，加 `REGISTER_APP_GROUPS=YES`、删掉描述文件重取也一样，看起来不是 id 被别人占用，而是命令行的自动签名没有把新的 App Group 登记、分配给 App ID（Capy Pay 的 `group.com.nickxia.capypay` 是在描述文件里的，同一个团队）。另外 Mac 锁屏时 Xcode 读不到账号，命令行会报 “No Accounts”。解决：解锁 Mac，用 Xcode 打开 `ios/App/App.xcodeproj`，App 和 FocusWidgetExtension 两个 target 的 Signing & Capabilities 里 Team 选 Ning Xia，App Groups 里勾上（没有就点 + 新建）`group.com.nickxia.focus.todo`；之后命令行构建就能签名。模拟器不受影响。
 - **拖拽排序没做**：长按已用于上下文菜单。可考虑在长按菜单里加「排序」模式，或长按后拖动（类似「提醒事项」）。
 - **只在模拟器上验证过**：没有真机；模拟器用的是硬件键盘，软键盘弹出时新建卡片贴键盘、页签栏收起的效果还需要真机确认。
 - **视觉是过渡状态**：原生栏是系统样式，网页内容仍是上一版的样子，等 Claude Design 的全平台重设计定稿后再统一。双页右页放什么（完成记录 / 统计）也可以随设计调整，分页机制不用动。

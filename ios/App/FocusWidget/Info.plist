@@ -7,5 +7,11 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
+	<!-- Display 字 Bricolage Grotesque 700 / 800（OFL，见 Fonts/OFL.txt），只含拉丁字符 -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>bricolage-grotesque-latin-700-normal.woff2</string>
+		<string>bricolage-grotesque-latin-800-normal.woff2</string>
+	</array>
 </dict>
 </plist>

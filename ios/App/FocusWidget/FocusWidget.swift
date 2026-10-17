@@ -12,41 +12,57 @@ struct FocusContent {
     /// App 还没写过数据（装好后还没打开过）
     var hasData = true
     var profileName = ""
-    var profileColor = Palette.accent
-    /// 未完成的条数（含子任务），和 App 里 FOCUS 的页头一致
+    var tint = 0
+    /// 现在这一件；FOCUS 空了为 nil
+    var now: FocusSnapshot.Now?
+    var next: [FocusSnapshot.Item] = []
+    /// FOCUS 里未完成的顶层项总数（含 NOW）
     var open = 0
-    /// 未完成的顶层项总数，列表按行列的是它们
-    var roots = 0
-    var items: [FocusSnapshot.Item] = []
+    var inbox: [FocusSnapshot.Item] = []
+    var inboxOpen = 0
     var doneToday = 0
-    var url = FocusContent.focusURL
-
+    var streak = 0
     /// 点小组件：打开 App 停在 FOCUS 页
-    static let focusURL = URL(string: "focustodo://focus")!
+    var focusURL = FocusContent.url("focus")
+    /// FOCUS 空了时列的是 INBOX，点进落在 INBOX 页
+    var inboxURL = FocusContent.url("inbox")
 
-    /// 能放 capacity 行时显示哪几条、「还有 N 条」是多少。放不下时最后一行让给「还有 N 条」
-    func rows(capacity: Int) -> (items: ArraySlice<FocusSnapshot.Item>, more: Int) {
-        if roots <= capacity { return (items.prefix(capacity), 0) }
-        let shown = items.prefix(max(capacity - 1, 0))
-        return (shown, roots - shown.count)
+    static func url(_ section: String, profile: String? = nil) -> URL {
+        var c = URLComponents()
+        c.scheme = "focustodo"
+        c.host = section
+        if let profile { c.queryItems = [URLQueryItem(name: "profile", value: profile)] }
+        return c.url ?? URL(string: "focustodo://\(section)")!
+    }
+
+    /// NOW 之后还有几件没列出来（列了 shown 件 NEXT 时）
+    func more(shown: Int) -> Int {
+        max(0, open - 1 - min(shown, next.count))
     }
 
     static let noData = FocusContent(hasData: false)
 
-    /// 小组件库里的预览，和 App 第一次打开时的示例数据无关
+    /// 小组件库里的预览，和设计稿的演示数据一样
     static let sample = FocusContent(
         profileName: "工作",
-        open: 8,
-        roots: 6,
-        items: [
-            .init(id: "1", title: "整理本周的周报"),
-            .init(id: "2", title: "回复设计稿评论", subDone: 1, subTotal: 3),
-            .init(id: "3", title: "修复同步冲突的提示文案"),
-            .init(id: "4", title: "给 HISTORY 加上按列表筛选"),
-            .init(id: "5", title: "预约下周的体检"),
-            .init(id: "6", title: "读完《设计心理学》第三章"),
+        now: .init(
+            item: .init(id: "now", title: "整理多端同步的冲突规则，写成可以直接实现的清单", subDone: 1, subTotal: 2),
+            subs: [.init(title: "离线一周后的合并"), .init(title: "排序与父子移动", done: true)]),
+        next: [
+            .init(id: "2", title: "把 iOS 原型装到真机上，过一遍左滑和长按"),
+            .init(id: "3", title: "给 HISTORY 加上「从哪个列表完成」"),
+            .init(id: "4", title: "回复设计稿评论：侧栏宽度"),
+            .init(id: "5", title: "周报：本周完成的事从 HISTORY 抄"),
         ],
-        doneToday: 3)
+        open: 5,
+        inbox: [
+            .init(id: "i1", title: "小组件加「今天完成」样式"),
+            .init(id: "i2", title: "Windows 标题栏按钮间距"),
+            .init(id: "i3", title: "拖拽排序在 iOS 上怎么做"),
+        ],
+        inboxOpen: 3,
+        doneToday: 4,
+        streak: 6)
 }
 
 extension FocusEntry {
@@ -55,24 +71,25 @@ extension FocusEntry {
             self.init(date: date, content: .noData)
             return
         }
-        var url = FocusContent.focusURL
         // 选了具体空间的小组件：打开时也切到那个空间
-        if pinnedID == profile.id, var c = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-            c.queryItems = [URLQueryItem(name: "profile", value: profile.id)]
-            url = c.url ?? url
-        }
+        let pin = pinnedID == profile.id ? profile.id : nil
         self.init(date: date, content: FocusContent(
             profileName: profile.name,
-            profileColor: Color(css: profile.color) ?? Palette.accent,
+            tint: profile.tint,
+            now: profile.now,
+            next: profile.next,
             open: profile.open,
-            roots: profile.roots,
-            items: profile.items,
+            inbox: profile.inbox,
+            inboxOpen: profile.inboxOpen,
             doneToday: snapshot.doneToday(of: profile, on: date),
-            url: url))
+            streak: snapshot.streak(of: profile, on: date),
+            focusURL: FocusContent.url("focus", profile: pin),
+            inboxURL: FocusContent.url("inbox", profile: pin)))
     }
 }
 
-/// 时间线：App 每次数据变化都会让系统重新来取；另外在明天 0 点排一条，把「今天完成」清零
+/// 时间线：App 每次数据变化都会让系统重新来取；另外在明天、后天 0 点各排一条，
+/// 把「今天完成」清零、连续天数按天推算
 struct FocusProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> FocusEntry {
         FocusEntry(date: Date(), content: .sample)
@@ -88,8 +105,9 @@ struct FocusProvider: AppIntentTimelineProvider {
         let snapshot = FocusSnapshot.load()
         let now = Date()
         let calendar = Calendar.current
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now.addingTimeInterval(86_400)
-        let entries = [now, tomorrow].map { FocusEntry(date: $0, snapshot: snapshot, pinnedID: configuration.pinnedProfileID) }
+        let today = calendar.startOfDay(for: now)
+        let days = (1...2).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+        let entries = ([now] + days).map { FocusEntry(date: $0, snapshot: snapshot, pinnedID: configuration.pinnedProfileID) }
         return Timeline(entries: entries, policy: .atEnd)
     }
 }
@@ -100,11 +118,13 @@ struct FocusListWidget: Widget {
             FocusWidgetView(entry: entry)
         }
         .configurationDisplayName("FOCUS")
-        .description("FOCUS 列表里接下来要做的事。")
+        .description("现在这一件，和接下来要做的事。")
         .supportedFamilies([
             .systemSmall, .systemMedium, .systemLarge,
             .accessoryRectangular, .accessoryInline, .accessoryCircular,
         ])
+        // 留白自己控制：中、大号里的 NOW 卡只内缩 8
+        .contentMarginsDisabled()
     }
 }
 
