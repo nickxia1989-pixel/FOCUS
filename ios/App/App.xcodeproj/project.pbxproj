@@ -23,6 +23,8 @@
 		FC1D6E70A00000000000000C /* FocusWidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1D6E70A00000000000000B /* FocusWidgetViews.swift */; };
 		FC1D6E70A000000000000010 /* FocusWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FC1D6E70A00000000000000F /* FocusWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F0C5A1E22FF0000100A1B2C3 /* FocusChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C5A1E12FF0000100A1B2C3 /* FocusChrome.swift */; };
+		FC1D6E70A00000000000001D /* bricolage-grotesque-latin-700-normal.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FC1D6E70A00000000000001C /* bricolage-grotesque-latin-700-normal.woff2 */; };
+		FC1D6E70A00000000000001F /* bricolage-grotesque-latin-800-normal.woff2 in Resources */ = {isa = PBXBuildFile; fileRef = FC1D6E70A00000000000001E /* bricolage-grotesque-latin-800-normal.woff2 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -71,6 +73,9 @@
 		FC1D6E70A00000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		FC1D6E70A00000000000000E /* FocusWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FocusWidget.entitlements; sourceTree = "<group>"; };
 		FC1D6E70A00000000000000F /* FocusWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocusWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC1D6E70A00000000000001C /* bricolage-grotesque-latin-700-normal.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = bricolage-grotesque-latin-700-normal.woff2; sourceTree = "<group>"; };
+		FC1D6E70A00000000000001E /* bricolage-grotesque-latin-800-normal.woff2 */ = {isa = PBXFileReference; lastKnownFileType = file; path = bricolage-grotesque-latin-800-normal.woff2; sourceTree = "<group>"; };
+		FC1D6E70A000000000000020 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,8 +144,19 @@
 				FC1D6E70A00000000000000B /* FocusWidgetViews.swift */,
 				FC1D6E70A00000000000000D /* Info.plist */,
 				FC1D6E70A00000000000000E /* FocusWidget.entitlements */,
+				FC1D6E70A00000000000001B /* Fonts */,
 			);
 			path = FocusWidget;
+			sourceTree = "<group>";
+		};
+		FC1D6E70A00000000000001B /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				FC1D6E70A00000000000001C /* bricolage-grotesque-latin-700-normal.woff2 */,
+				FC1D6E70A00000000000001E /* bricolage-grotesque-latin-800-normal.woff2 */,
+				FC1D6E70A000000000000020 /* OFL.txt */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -244,6 +260,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FC1D6E70A00000000000001D /* bricolage-grotesque-latin-700-normal.woff2 in Resources */,
+				FC1D6E70A00000000000001F /* bricolage-grotesque-latin-800-normal.woff2 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

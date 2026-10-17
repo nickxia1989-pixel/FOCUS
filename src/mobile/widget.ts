@@ -1,7 +1,8 @@
 // 主屏小组件的接线（引入即生效，见 main.tsx）：
 // - 数据一变（本地改动、同步合并、切换空间）就把快照（widgetData.ts）交给原生插件 FocusWidget，
 //   由它写进 App Group 并刷新小组件。连续改动时节流，内容没变不写。
-// - 点小组件打开的 focustodo://focus 链接：回到 FOCUS 页（选了空间的小组件还会切到那个空间）。
+// - 点小组件打开的 focustodo://focus 链接：回到 FOCUS 页（选了空间的小组件还会切到那个空间）；
+//   FOCUS 空了时小组件列的是 INBOX，链接是 focustodo://inbox，落在 INBOX 页。
 import { App } from '@capacitor/app';
 import { registerPlugin } from '@capacitor/core';
 import { isNative } from './native';
@@ -49,7 +50,10 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- 点小组件打开 ----------
 
-/** focustodo://focus，选了空间的小组件带 ?profile=<id> */
+/** 小组件能打开的分区 */
+const WIDGET_SECTIONS = ['focus', 'inbox'] as const;
+
+/** focustodo://focus 或 focustodo://inbox，选了空间的小组件带 ?profile=<id> */
 export function openWidgetUrl(raw: string): boolean {
   let u: URL;
   try {
@@ -57,11 +61,12 @@ export function openWidgetUrl(raw: string): boolean {
   } catch {
     return false;
   }
-  if (u.protocol !== 'focustodo:' || (u.hostname || u.pathname.replace(/^\/+/, '')) !== 'focus') return false;
+  const target = (u.hostname || u.pathname.replace(/^\/+/, '')) as (typeof WIDGET_SECTIONS)[number];
+  if (u.protocol !== 'focustodo:' || !WIDGET_SECTIONS.includes(target)) return false;
   const s = useData.getState();
   const profile = u.searchParams.get('profile');
   if (profile && s.profiles.some((p) => p.id === profile)) s.switchProfile(profile);
-  s.setSection('focus');
+  s.setSection(target);
   useUi.getState().set({ sheet: null, menu: null, more: null, swipedId: null });
   return true;
 }

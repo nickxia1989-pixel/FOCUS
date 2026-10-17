@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.app.focus.todo</string>
+		<string>group.com.nickxia.focus.todo</string>
 	</array>
 </dict>
 </plist>
