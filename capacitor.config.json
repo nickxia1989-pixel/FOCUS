@@ -1,0 +1,16 @@
+{
+  "appId": "app.focus.todo",
+  "appName": "FOCUS",
+  "webDir": "dist-ios",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false,
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "none"
+    }
+  }
+}
