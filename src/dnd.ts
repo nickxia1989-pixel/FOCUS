@@ -1,133 +1,337 @@
-// 自写的指针拖拽：同层同状态内排序、拖到页签 / 侧栏上换列表、拖到 NOW 卡上设为现在。
-// 不移动兄弟节点，只画一条插入线，嵌套结构下最稳。
+// 桌面的自由拖拽（规则见 docs/drag.md，落点算法在 src/dragTree.ts）。
+// 一棵树里的任何一项都能拖到任何位置：纵坐标选空隙，横坐标按每级缩进换算深度。
+// 界面这边负责：把看得见的行摊平（带位置）、画插入线和新父项高亮、悬停展开、边缘滚动、
+// 拖到页签 / 侧栏换列表（停 800ms 切过去继续拖）、拖到 NOW 卡标题区设为现在、放下后可撤销。
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import type { ListId } from './types';
+import { goView, moveToListByDrag, setNow } from './actions';
+import { depthFromOffset, projectDrop, restRows, type DragRow, type DropProjection } from './dragTree';
+import { reduceMotion } from './fx';
+import { compareTodos, descendantIds, nowOf } from './model';
+import { showToast, useData, useUi } from './store';
+import type { ListId, Todo } from './types';
 
-export interface DragOptions {
-  id: string;
-  list: ListId;
-  /** 同层、同完成状态的兄弟 id（含自身），按当前显示顺序 */
-  siblingIds: string[];
-  /** 子孙数量，用于拖拽预览上的角标 */
-  descendantCount: number;
-  onReorder(id: string, toIndex: number): void;
-  onMoveToList(id: string, list: ListId): void;
-  onHoverTab(list: ListId | null): void;
-  /** 能拖到 NOW 卡上（FOCUS 队列里的行）：松手时给出拖拽预览的位置，用来做交接动画 */
-  onDropNow?(id: string, ghostRect: DOMRect): void;
-  onHoverNow?(over: boolean): void;
-}
-
+/** 每级缩进的像素（横向位移换算深度用；子项实际缩进约 22–26px） */
+export const INDENT = 24;
 const THRESHOLD = 5;
 const EDGE = 44;
+const HOLD_EXPAND = 600;
+const HOLD_TAB = 800;
 
-const nodeEl = (id: string) => document.querySelector<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`);
+/** 摊平后的一行，位置是滚动区内容坐标（不随滚动变） */
+interface Row extends DragRow {
+  el: HTMLElement;
+  top: number;
+  bottom: number;
+  mid: number;
+  /** 这一行内容（勾选圈）的横坐标，画插入线的左端用 */
+  x: number;
+  right: number;
+  /** 它的子项比它往右缩多少 */
+  childIndent: number;
+}
 
-export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
+/**
+ * 行上的标记（由各组件写在可拖的那一行上）：
+ * data-drag-id / data-depth / data-parent / data-list / data-done / data-collapsed / data-indent，
+ * 位置取 [data-drag-rect] 子元素（NOW 卡取标题区、GOAL 卡取标题行），没有就取自己。
+ */
+export function dragAttrs(t: Todo, depth: number, opts: { collapsed?: boolean; indent: number }) {
+  return {
+    'data-drag-id': t.id,
+    'data-depth': depth,
+    'data-parent': t.parentId ?? '',
+    'data-list': t.list,
+    'data-done': t.done ? '1' : '0',
+    'data-collapsed': opts.collapsed ? '1' : '0',
+    'data-indent': opts.indent,
+  };
+}
+
+/** 当前视图的滚动区（切换列表的交叉淡入期间旧视图还在，按 key 找新的） */
+function currentScroller(): HTMLElement | null {
+  const views = [...document.querySelectorAll<HTMLElement>('.view')];
+  return views.find((v) => v.dataset.viewKey === currentViewKey()) ?? views[views.length - 1] ?? null;
+}
+
+function currentViewKey() {
+  const s = useData.getState();
+  return `${s.profileId}:${useUi.getState().trashOpen ? 'trash' : s.prefs.activeView}`;
+}
+
+function collect(scroller: HTMLElement): Row[] {
+  const sr = scroller.getBoundingClientRect();
+  const st = scroller.scrollTop;
+  const rows: Row[] = [];
+  for (const el of scroller.querySelectorAll<HTMLElement>('[data-drag-id]')) {
+    const box = el.querySelector<HTMLElement>(':scope > [data-drag-rect]') ?? el;
+    const r = box.getBoundingClientRect();
+    if (!r.height) continue;
+    const d = el.dataset;
+    const top = r.top - sr.top + st;
+    const bottom = r.bottom - sr.top + st;
+    rows.push({
+      id: d.dragId!,
+      depth: Number(d.depth),
+      parentId: d.parent || null,
+      list: d.list as ListId,
+      done: d.done === '1',
+      collapsed: d.collapsed === '1',
+      el,
+      top,
+      bottom,
+      mid: (top + bottom) / 2,
+      x: r.left + (parseFloat(getComputedStyle(box).paddingLeft) || 0),
+      right: r.right,
+      childIndent: Number(d.indent) || INDENT,
+    });
+  }
+  return rows;
+}
+
+/** 插入线左端：缩进到落点深度 */
+function lineX(rest: Row[], gap: number, depth: number, fallback: number): number {
+  const prev = rest[gap - 1];
+  if (prev && depth === prev.depth + 1) return prev.x + prev.childIndent;
+  for (let k = gap - 1; k >= 0; k--) {
+    if (rest[k].depth === depth) return rest[k].x;
+    if (rest[k].depth < depth) break;
+  }
+  const next = rest[gap];
+  if (next && next.depth === depth) return next.x;
+  return fallback + depth * INDENT;
+}
+
+/** 在兄弟（同父、同完成状态）里排第几：撤销时放回去用 */
+function originOf(id: string) {
+  const todos = useData.getState().todos;
+  const t = todos.find((x) => x.id === id)!;
+  const sibs = todos.filter((x) => x.parentId === t.parentId && (t.parentId !== null || x.list === t.list) && x.done === t.done).sort(compareTodos);
+  return { list: t.list, parentId: t.parentId, index: Math.max(0, sibs.findIndex((x) => x.id === id)) };
+}
+
+const titleOf = (id: string | null) => (id ? useData.getState().todos.find((t) => t.id === id)?.title ?? '' : '');
+const trunc = (s: string, n = 10) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+/** 把这一项放回拖之前的位置（撤销） */
+function putBack(id: string, origin: ReturnType<typeof originOf>) {
+  if (!useData.getState().todos.some((t) => t.id === id)) return;
+  useData.getState().place(id, origin);
+}
+
+/**
+ * 在一行上按下：移动超过 5px 才开始拖。按钮、输入框、编辑中的文字不触发；
+ * 编辑中的行、播放完成动画的行不能拖。
+ */
+export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: string } = {}) {
   if (e.button !== 0) return;
-  const target = e.target as HTMLElement;
-  if (target.closest('button, input, textarea, a, [data-no-drag]')) return;
+  if ((e.target as HTMLElement).closest('button, input, textarea, a, [data-no-drag], [data-editor]')) return;
+  const ui = useUi.getState();
+  if (ui.editingId === todo.id || ui.completing[todo.id]) return;
+  const sourceRow = (e.currentTarget as HTMLElement).closest<HTMLElement>('[data-drag-id]') ?? (e.currentTarget as HTMLElement);
 
-  const row = e.currentTarget as HTMLElement;
+  const id = todo.id;
   const startX = e.clientX;
   const startY = e.clientY;
-  let started = false;
-  let ghost: HTMLElement | null = null;
-  let line: HTMLElement | null = null;
-  let grabDX = 0;
-  let grabDY = 0;
   let lastX = startX;
   let lastY = startY;
+  let alt = e.altKey;
+  let started = false;
+  let scroller: HTMLElement | null = null;
+  let rows: Row[] = [];
+  let active: Row | null = null;
+  /** 起拖时的深度和横坐标（切到别的列表后从 0 级重新算） */
+  let baseDepth = 0;
+  let baseX = startX;
+  /** 切到了别的列表：被拖的项不在这棵树里，用一行假的接在最后 */
+  let crossList = false;
+  let dirty = false;
+  let proj: DropProjection | null = null;
   let tab: ListId | null = null;
-  let overNow = false;
-  let insertAt: number | null = null;
+  let tabSince = 0;
+  let hoverRow: string | null = null;
+  let hoverSince = 0;
   let raf = 0;
-  const scroller = row.closest<HTMLElement>('.view');
-  const others = opts.siblingIds.filter((x) => x !== opts.id);
-  const fromIndex = opts.siblingIds.indexOf(opts.id);
+  let ghost: HTMLElement | null = null;
+  let line: HTMLElement | null = null;
+  let stem: HTMLElement | null = null;
+  let parentEl: HTMLElement | null = null;
+  const srcEls: HTMLElement[] = [];
+  const origin = originOf(id);
+  const descendants = descendantIds(useData.getState().todos, id).size;
+
+  const refresh = () => {
+    if (!scroller) return;
+    rows = collect(scroller);
+    if (crossList) {
+      const view = useData.getState().prefs.activeView;
+      const list = (view === 'history' ? todo.list : view) as ListId;
+      active = { id, depth: 0, parentId: null, list, done: todo.done, el: sourceRow, top: Infinity, bottom: Infinity, mid: Infinity, x: 0, right: 0, childIndent: INDENT };
+      rows = [...rows.filter((r) => r.id !== id), active];
+    } else active = rows.find((r) => r.id === id) ?? active;
+  };
 
   const start = () => {
+    scroller = currentScroller();
+    if (!scroller) return false;
+    refresh();
+    if (!active) return false;
     started = true;
-    const rect = row.getBoundingClientRect();
-    grabDX = startX - rect.left;
-    grabDY = startY - rect.top;
-    ghost = row.cloneNode(true) as HTMLElement;
-    ghost.classList.remove('lift', 'flash', 'menu-open');
-    ghost.classList.add('drag-ghost');
-    ghost.style.width = `${rect.width}px`;
-    ghost.style.left = `${rect.left}px`;
-    ghost.style.top = `${rect.top}px`;
-    if (opts.descendantCount > 0) {
-      const badge = document.createElement('span');
-      badge.className = 'drag-ghost-badge';
-      badge.textContent = `+${opts.descendantCount}`;
-      ghost.appendChild(badge);
+    baseDepth = active.depth;
+    // 被拖的那一项连同子孙变淡，原位置留着
+    const at = rows.indexOf(active);
+    for (let k = at; k < rows.length && (k === at || rows[k].depth > active.depth); k++) {
+      rows[k].el.classList.add('drag-src');
+      srcEls.push(rows[k].el);
     }
+    // 浮起的副本：序号 / 勾选圈 + 标题 + 子项数角标
+    const rr = sourceRow.getBoundingClientRect();
+    ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.innerHTML = `${opts.no ? `<span class="no">${opts.no}</span>` : '<span class="g-cb"></span>'}<span class="g-tt"></span>${
+      descendants ? `<span class="drag-ghost-badge">+${descendants}</span>` : ''
+    }`;
+    ghost.querySelector('.g-tt')!.textContent = todo.title;
+    ghost.style.width = `${Math.max(160, Math.min(Math.max(rr.width, 200), 340, window.innerWidth - startX + 20))}px`;
+    ghost.style.left = `${startX - 28}px`;
+    ghost.style.top = `${startY + 10}px`;
     document.body.appendChild(ghost);
     line = document.createElement('div');
     line.className = 'drop-line';
     document.body.appendChild(line);
-    nodeEl(opts.id)?.classList.add('is-dragging');
+    stem = document.createElement('div');
+    stem.className = 'drop-stem';
+    document.body.appendChild(stem);
     document.body.classList.add('dragging');
     window.getSelection()?.removeAllRanges();
-    raf = requestAnimationFrame(autoScroll);
+    raf = requestAnimationFrame(tick);
+    return true;
   };
 
-  const update = () => {
-    if (!ghost || !line) return;
-    ghost.style.transform = `translate(${lastX - grabDX - parseFloat(ghost.style.left)}px, ${lastY - grabDY - parseFloat(ghost.style.top)}px) rotate(-2deg)`;
+  const setParentHighlight = (el: HTMLElement | null) => {
+    if (el === parentEl) return;
+    parentEl?.classList.remove('drop-parent');
+    parentEl = el;
+    parentEl?.classList.add('drop-parent');
+  };
 
-    // 页签优先：拖到其它列表的页签上即为移动
+  const hideFeedback = () => {
+    if (line) line.style.opacity = '0';
+    if (stem) stem.style.opacity = '0';
+    setParentHighlight(null);
+  };
+  const setDropNow = (on: boolean) => {
+    if (useUi.getState().dropNow !== on) useUi.getState().set({ dropNow: on });
+  };
+
+  /** 拖到 NOW 卡标题区（第一个空隙、深度 0）= 设为现在 */
+  const isSetNow = (p: DropProjection | null) =>
+    !!p && !p.unchanged && p.list === 'focus' && p.parentId === null && p.index === 0 && nowOf(useData.getState().todos)?.id !== id;
+
+  const update = () => {
+    if (!ghost || !line || !stem || !scroller) return;
+    ghost.style.transform = `translate(${lastX - startX}px, ${lastY - startY}px) rotate(-2deg)`;
+
+    // 页签 / 侧栏优先：拖上去就是换列表；停 800ms 切过去继续拖
     const hit = document.elementFromPoint(lastX, lastY) as HTMLElement | null;
     const tabEl = hit?.closest<HTMLElement>('[data-tab-id]');
     const tabId = (tabEl?.dataset.tabId as ListId | undefined) ?? null;
-    const newTab = tabId && tabId !== opts.list ? tabId : null;
+    const viewNow = useData.getState().prefs.activeView;
+    const newTab = tabId && !(tabId === viewNow && crossList) && !(tabId === todo.list && todo.parentId === null && !crossList) ? tabId : null;
     if (newTab !== tab) {
       tab = newTab;
-      opts.onHoverTab(tab);
+      tabSince = performance.now();
+      useUi.getState().set({ dragOverTab: tab });
     }
-    // 其次是 NOW 卡：松手 = 设为现在
-    const nowHit = !tab && !!opts.onDropNow && !!hit?.closest('[data-drop-now]');
-    if (nowHit !== overNow) {
-      overNow = nowHit;
-      opts.onHoverNow?.(overNow);
-    }
-    if (tab || overNow) {
-      insertAt = null;
-      line.style.opacity = '0';
+    if (tab) {
+      proj = null;
+      hideFeedback();
+      setDropNow(false);
       return;
     }
 
-    // 在兄弟之间找插入位置
-    const rects = others.map((id) => nodeEl(id)?.getBoundingClientRect()).filter((r): r is DOMRect => !!r);
-    if (rects.length !== others.length || rects.length === 0) {
-      insertAt = null;
-      line.style.opacity = '0';
+    if (dirty) return; // 等展开 / 切换后的行重新量好
+    const sr = scroller.getBoundingClientRect();
+    const py = lastY - sr.top + scroller.scrollTop;
+    const rest = restRows(rows, id) as Row[];
+    let gap = rest.findIndex((r) => py < r.mid);
+    if (gap < 0) gap = rest.length;
+    const want = alt ? baseDepth : depthFromOffset(baseDepth, lastX - baseX, INDENT);
+    proj = projectDrop(rows, id, gap, want);
+
+    // 悬停在折叠着子项的行上 600ms：展开
+    const over = rest.find((r) => py >= r.top && py <= r.bottom);
+    const overId = over?.collapsed ? over.id : null;
+    if (overId !== hoverRow) {
+      hoverRow = overId;
+      hoverSince = performance.now();
+    }
+
+    // 拖到 NOW 卡标题区：卡片描边提示「松手设为现在」，不画插入线
+    const setNowDrop = isSetNow(proj);
+    setDropNow(setNowDrop);
+    if (!proj || proj.unchanged || setNowDrop) {
+      hideFeedback();
       return;
     }
-    let idx = rects.length;
-    for (let i = 0; i < rects.length; i++) {
-      if (lastY < rects[i].top + rects[i].height / 2) {
-        idx = i;
-        break;
-      }
-    }
-    insertAt = idx === fromIndex ? null : idx;
-    if (insertAt === null) {
-      line.style.opacity = '0';
-      return;
-    }
-    const self = nodeEl(opts.id)?.getBoundingClientRect();
-    const y = idx < rects.length ? rects[idx].top : rects[rects.length - 1].bottom;
-    const left = self?.left ?? rects[0].left;
-    const width = self?.width ?? rects[0].width;
+
+    // 插入线：深一级时紧贴上一行下面，否则贴着下一行上面
+    const prev = rest[gap - 1];
+    const next = rest[gap];
+    const yContent = prev && proj.depth > prev.depth ? prev.bottom + 1 : next ? next.top - 1 : (prev?.bottom ?? 0) + 1;
+    const y = yContent - scroller.scrollTop + sr.top;
+    const base = rest.find((r) => r.depth === 0)?.x ?? sr.left + 16;
+    const x = lineX(rest, gap, proj.depth, base);
+    const right = Math.max(...rest.map((r) => r.right), x + 80);
     line.style.opacity = '1';
-    line.style.transform = `translate(${left + 6}px, ${y - 1}px)`;
-    line.style.width = `${width - 12}px`;
+    line.style.left = `${x}px`;
+    line.style.top = `${y - 1}px`;
+    line.style.width = `${Math.max(40, right - x - 4)}px`;
+
+    // 新父项高亮 + 竖线连到插入线
+    const parent = proj.parentId ? rest.find((r) => r.id === proj!.parentId) : undefined;
+    setParentHighlight(parent?.el ?? null);
+    if (parent && parent.childIndent > 0) {
+      const pBottom = parent.bottom - scroller.scrollTop + sr.top;
+      stem.style.opacity = y > pBottom ? '1' : '0';
+      stem.style.left = `${parent.x + parent.childIndent / 2 - 1}px`;
+      stem.style.top = `${pBottom}px`;
+      stem.style.height = `${Math.max(0, y - pBottom)}px`;
+    } else stem.style.opacity = '0';
   };
 
-  function autoScroll() {
-    if (scroller && !tab && !overNow) {
+  function tick() {
+    const now = performance.now();
+    // 停在页签上 800ms：切到那个列表继续拖
+    if (tab && now - tabSince > HOLD_TAB && tab !== useData.getState().prefs.activeView) {
+      const to = tab;
+      goView(to);
+      crossList = true;
+      dirty = true;
+      baseDepth = 0;
+      baseX = lastX;
+      tabSince = Infinity;
+      setTimeout(() => {
+        scroller = currentScroller();
+        refresh();
+        dirty = false;
+        update();
+      }, 320);
+    }
+    // 悬停 600ms 展开折叠的行
+    if (hoverRow && now - hoverSince > HOLD_EXPAND) {
+      expand(hoverRow);
+      hoverRow = null;
+      dirty = true;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          refresh();
+          dirty = false;
+          update();
+        }),
+      );
+    }
+    // 拖到滚动区上下边缘：自动滚，越靠边越快
+    if (scroller && !tab) {
       const r = scroller.getBoundingClientRect();
       let dy = 0;
       if (lastY < r.top + EDGE) dy = -Math.ceil((r.top + EDGE - lastY) / 4);
@@ -137,34 +341,39 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
         update();
       }
     }
-    raf = requestAnimationFrame(autoScroll);
+    raf = requestAnimationFrame(tick);
   }
 
   const onMove = (ev: PointerEvent) => {
     lastX = ev.clientX;
     lastY = ev.clientY;
+    alt = ev.altKey;
     if (!started) {
       if (Math.hypot(lastX - startX, lastY - startY) < THRESHOLD) return;
-      start();
+      if (!start()) {
+        cleanup(false);
+        return;
+      }
     }
     ev.preventDefault();
     update();
   };
 
-  const cleanup = () => {
+  const cleanup = (wasStarted: boolean) => {
     window.removeEventListener('pointermove', onMove);
     window.removeEventListener('pointerup', onUp);
     window.removeEventListener('pointercancel', onCancel);
     window.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('keyup', onKeyUp, true);
     cancelAnimationFrame(raf);
-    ghost?.remove();
     line?.remove();
-    nodeEl(opts.id)?.classList.remove('is-dragging');
+    stem?.remove();
+    setParentHighlight(null);
+    for (const el of srcEls) el.classList.remove('drag-src');
     document.body.classList.remove('dragging');
-    opts.onHoverTab(null);
-    opts.onHoverNow?.(false);
-    if (started) {
-      // 吞掉拖拽结束后紧跟的 click，避免误触勾选/编辑
+    useUi.getState().set({ dragOverTab: null, dropNow: false });
+    if (wasStarted) {
+      // 吞掉拖拽结束后紧跟的 click，避免误触勾选 / 编辑
       const swallow = (ev: MouseEvent) => {
         ev.stopPropagation();
         ev.preventDefault();
@@ -174,29 +383,87 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
     }
   };
 
+  /** 取消：浮起的项飞回原位 */
+  const flyBack = () => {
+    const g = ghost;
+    ghost = null;
+    if (!g) return;
+    const home = sourceRow.isConnected ? sourceRow.getBoundingClientRect() : null;
+    if (!home || reduceMotion()) {
+      g.remove();
+      return;
+    }
+    g.animate([{ transform: g.style.transform, opacity: 1 }, { transform: `translate(${home.left + 28 - startX}px, ${home.top - 10 - startY}px)`, opacity: 0.2 }], {
+      duration: 180,
+      easing: 'cubic-bezier(.2,.8,.2,1)',
+      fill: 'forwards',
+    }).finished.then(() => g.remove(), () => g.remove());
+  };
+
   const onUp = () => {
+    if (!started) {
+      cleanup(false);
+      return;
+    }
     const dropTab = tab;
-    const dropNow = overNow;
-    const dropAt = insertAt;
     const ghostRect = ghost?.getBoundingClientRect();
-    cleanup();
-    if (!started) return;
-    if (dropTab) opts.onMoveToList(opts.id, dropTab);
-    else if (dropNow && ghostRect) opts.onDropNow?.(opts.id, ghostRect);
-    else if (dropAt !== null) opts.onReorder(opts.id, dropAt);
+    // 放下时按最新数据重新量一次（拖动中远端同步可能改了数据）
+    if (!dropTab && scroller && !dirty) {
+      refresh();
+      update();
+    }
+    const p = proj;
+    cleanup(true);
+    const t = useData.getState().todos.find((x) => x.id === id);
+    if (!t) {
+      flyBack();
+      return; // 被别处删掉了
+    }
+    if (dropTab) {
+      ghost?.remove();
+      ghost = null;
+      moveToListByDrag(t, dropTab);
+      offerUndo(id, origin, `已移到 ${dropTab.toUpperCase()}`);
+      return;
+    }
+    if (!p || (p.unchanged && !crossList)) {
+      flyBack();
+      return;
+    }
+    ghost?.remove();
+    ghost = null;
+    if (isSetNow(p)) {
+      setNow(t, ghostRect);
+      if (t.parentId !== null || t.list !== 'focus') offerUndo(id, origin, '已设为现在');
+      return;
+    }
+    useData.getState().place(id, { list: p.list, parentId: p.parentId, index: p.index });
+    const structure = p.parentId !== origin.parentId || p.list !== origin.list;
+    if (structure) offerUndo(id, origin, p.parentId ? `已移到「${trunc(titleOf(p.parentId))}」下` : `已移到 ${p.list.toUpperCase()} 顶层`);
   };
 
   const onCancel = () => {
     tab = null;
-    overNow = false;
-    insertAt = null;
-    cleanup();
+    cleanup(started);
+    flyBack();
   };
 
   const onKey = (ev: KeyboardEvent) => {
     if (ev.key === 'Escape') {
       ev.stopPropagation();
+      ev.preventDefault();
       onCancel();
+      return;
+    }
+    if (ev.key === 'Alt' && started) {
+      alt = true;
+      update();
+    }
+  };
+  const onKeyUp = (ev: KeyboardEvent) => {
+    if (ev.key === 'Alt' && started) {
+      alt = false;
+      update();
     }
   };
 
@@ -204,4 +471,20 @@ export function beginPointerDrag(e: ReactPointerEvent, opts: DragOptions) {
   window.addEventListener('pointerup', onUp);
   window.addEventListener('pointercancel', onCancel);
   window.addEventListener('keydown', onKey, true);
+  window.addEventListener('keyup', onKeyUp, true);
+}
+
+/** 悬停展开：FOCUS 队列里的行用本次运行的展开状态，其它按各条的折叠状态 */
+function expand(id: string) {
+  const s = useData.getState();
+  const t = s.todos.find((x) => x.id === id);
+  if (!t) return;
+  const ui = useUi.getState();
+  if (t.list === 'focus' && t.parentId === null && nowOf(s.todos)?.id !== id) ui.set({ queueOpen: { ...ui.queueOpen, [id]: true } });
+  if (t.collapsed) s.setCollapsed(id, false);
+}
+
+/** 结构变了（换父项、层级或列表）：5 秒内可以撤销，放回原来的父项和位置 */
+function offerUndo(id: string, origin: ReturnType<typeof originOf>, text: string) {
+  showToast(text, undefined, () => putBack(id, origin));
 }

@@ -245,14 +245,14 @@ export function Toast() {
           exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
           transition={{ duration: 0.22, ease: EASE }}
         >
-          {toast.undoEntry && (
+          {(toast.undoEntry || toast.undo) && (
             <svg className="ring" viewBox="0 0 22 22" aria-hidden>
               <circle className="bg" cx="11" cy="11" r="9" />
               <circle className="fg" cx="11" cy="11" r="9" />
             </svg>
           )}
           <span>{toast.text}</span>
-          {toast.undoEntry && (
+          {(toast.undoEntry || toast.undo) && (
             <button onClick={undoDelete} title={`撤销（${isMac ? '⌘' : 'Ctrl+'}Z）`}>
               撤销
             </button>

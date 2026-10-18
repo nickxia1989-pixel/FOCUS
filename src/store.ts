@@ -568,6 +568,8 @@ export interface ToastState {
   text: string;
   /** 可撤销的删除：对应的回收站条目 */
   undoEntry?: string;
+  /** 别的可撤销操作（拖动换了位置）：撤销时调用 */
+  undo?: () => void;
 }
 
 export interface JoinPrompt {
@@ -644,6 +646,6 @@ export function flashRow(id: string) {
 }
 
 let toastKey = 0;
-export function showToast(text: string, undoEntry?: string) {
-  useUi.getState().set({ toast: { key: ++toastKey, text, undoEntry } });
+export function showToast(text: string, undoEntry?: string, undo?: () => void) {
+  useUi.getState().set({ toast: { key: ++toastKey, text, undoEntry, undo } });
 }

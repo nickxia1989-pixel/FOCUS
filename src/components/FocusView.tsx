@@ -1,6 +1,7 @@
 import { AnimatePresence } from 'motion/react';
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import { deleteWithUndo, goView, sendToVerify, toggleTodo } from '../actions';
+import { dragAttrs, startTreeDrag } from '../dnd';
 import { DRAFT_ID } from '../editing';
 import { withDraft } from '../outline';
 import { runHandoff } from '../fx';
@@ -33,6 +34,12 @@ function NowSub({ todo, depth }: { todo: Todo; depth: number }) {
       className={`now-sub ${todo.done ? 'd' : ''} ${menuOpen ? 'menu-open' : ''} ${editing ? 'edit' : ''}`}
       style={{ paddingLeft: depth * 22 } as CSSProperties}
       data-node-id={todo.id}
+      {...dragAttrs(todo, depth + 1, { indent: 22 })}
+      onPointerDown={(e) => {
+        // 卡片本身也能拖：子任务上按下的只拖子任务
+        e.stopPropagation();
+        startTreeDrag(e, todo);
+      }}
       onContextMenu={(e) => openMenuAt(e, todo, false, 'nowSub')}
       onDoubleClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return;
@@ -118,21 +125,25 @@ function NowCard({ todo, index, pos, total }: { todo: Todo; index: TreeIndex; po
       ref={ref}
       className={`now ${completing ? 'is-completing' : ''} ${dropNow ? 'is-drop' : ''}`}
       data-now-id={todo.id}
-      data-drop-now
+      {...dragAttrs(todo, 0, { indent: 0 })}
+      onPointerDown={(e) => startTreeDrag(e, todo)}
       onContextMenu={(e) => {
         if ((e.target as HTMLElement).closest('.now-sub')) return;
         openMenuAt(e, todo);
       }}
     >
-      <div className="now-top">
-        <span>NOW · 现在就做这件</span>
-        <span>
-          {pad2(pos)}/{pad2(total)}
-        </span>
+      {/* 标题区：拖到这里 = 设为现在（摊平时 NOW 这一行的位置） */}
+      <div className="now-head" data-drag-rect>
+        <div className="now-top">
+          <span>NOW · 现在就做这件</span>
+          <span>
+            {pad2(pos)}/{pad2(total)}
+          </span>
+        </div>
+        <h2 className="now-title" onDoubleClick={() => startEdit(todo)} title="双击编辑" data-edit-id={todo.id}>
+          {editing ? <TitleEditor todo={todo} /> : <span className="strike">{todo.title}</span>}
+        </h2>
       </div>
-      <h2 className="now-title" onDoubleClick={() => startEdit(todo)} title="双击编辑" data-edit-id={todo.id}>
-        {editing ? <TitleEditor todo={todo} /> : <span className="strike">{todo.title}</span>}
-      </h2>
       {kids.length >= 2 && (
         <div className="now-prog" aria-label={`子任务 ${kids.filter((k) => k.done).length}/${kids.length}`}>
           {[...kids.filter((k) => k.done), ...kids.filter((k) => !k.done)].map((k) => (
@@ -216,10 +227,10 @@ export function FocusView() {
           {withDraft(queue, draft, 'focus', null).map((t) => {
             if (t === 'draft') return <DraftRow key={draftKey(draft!)} />;
             const i = n++;
-            return <TodoNode key={t.id} todo={t} depth={0} index={index} siblings={queue} variant="queue" no={i + 1} fade={fadeAt(i - 1)} />;
+            return <TodoNode key={t.id} todo={t} depth={0} index={index} variant="queue" no={i + 1} fade={fadeAt(i - 1)} />;
           })}
         </AnimatePresence>
-        <DoneGroup list="focus" done={done} index={index} roots={roots} />
+        <DoneGroup list="focus" done={done} index={index} />
       </div>
     </>
   );
