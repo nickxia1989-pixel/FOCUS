@@ -9,6 +9,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
+        // 「外观」偏好（跟随系统 / 浅色 / 深色）在网页加载前就设好，首屏不闪
+        window?.overrideUserInterfaceStyle = FocusAppearance.saved
         window?.rootViewController = FocusRoot.make()
         window?.makeKeyAndVisible()
 
@@ -38,6 +40,32 @@ class MainViewController: CAPBridgeViewController {
     }
 }
 
+/// 「外观」偏好：设在 window 上，原生页签栏、导航栏按钮、状态栏和 WebView 的 prefers-color-scheme 一起变。
+/// 网页的偏好存在 Capacitor Preferences 里，这里另存一份给下次启动时在网页加载前用。
+enum FocusAppearance {
+    private static let key = "focus.appearance"
+
+    static func style(_ name: String?) -> UIUserInterfaceStyle {
+        switch name {
+        case "light": return .light
+        case "dark": return .dark
+        default: return .unspecified
+        }
+    }
+
+    static var saved: UIUserInterfaceStyle { style(UserDefaults.standard.string(forKey: key)) }
+
+    @MainActor static func apply(_ name: String) {
+        UserDefaults.standard.set(name, forKey: key)
+        let style = style(name)
+        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+            for window in scene.windows where window.overrideUserInterfaceStyle != style {
+                window.overrideUserInterfaceStyle = style
+            }
+        }
+    }
+}
+
 private final class TaskBox: @unchecked Sendable {
     var id: UIBackgroundTaskIdentifier = .invalid
 }
@@ -56,6 +84,7 @@ public class FocusNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "keychainDelete", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "beginBackgroundTask", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "endBackgroundTask", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setAppearance", returnType: CAPPluginReturnPromise),
     ]
 
     private let service = "app.focus.todo.sync"
@@ -107,6 +136,14 @@ public class FocusNativePlugin: CAPPlugin, CAPBridgedPlugin {
             }
             self.tasks[box.id.rawValue] = box.id
             call.resolve(["id": box.id.rawValue])
+        }
+    }
+
+    @objc func setAppearance(_ call: CAPPluginCall) {
+        let name = call.getString("style") ?? "system"
+        DispatchQueue.main.async {
+            FocusAppearance.apply(name)
+            call.resolve()
         }
     }
 

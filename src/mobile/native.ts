@@ -28,10 +28,24 @@ export const haptic = {
   warning() {
     if (isNative && hapticsOn) safe(Haptics.notification({ type: NotificationType.Warning }));
   },
+  /** 选择变化（切页签、拖动经过新位置）。iOS 的选择反馈要先 start 才会响，拖动期间用 selectionBegin / End 包住 */
   selection() {
-    if (isNative && hapticsOn) safe(Haptics.selectionChanged());
+    if (!isNative || !hapticsOn) return;
+    if (!selecting) safe(Haptics.selectionStart());
+    safe(Haptics.selectionChanged());
+    if (!selecting) safe(Haptics.selectionEnd());
+  },
+  selectionBegin() {
+    selecting = true;
+    if (isNative && hapticsOn) safe(Haptics.selectionStart());
+  },
+  selectionEnd() {
+    selecting = false;
+    if (isNative) safe(Haptics.selectionEnd());
   },
 };
+
+let selecting = false;
 
 /** 把软键盘高度写到 CSS 变量 --kb，底部的输入卡片跟着上移 */
 export function trackKeyboard() {

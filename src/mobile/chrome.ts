@@ -5,10 +5,11 @@
 import { registerPlugin } from '@capacitor/core';
 import { create } from 'zustand';
 import { composeTarget, openRoots } from './components/Chrome';
-import { avatarColors, type Section } from './data';
+import { avatarColors, type Appearance, type Section } from './data';
 import { goSection, openComposer } from './actions';
 import { statusOf } from './components/SyncSheets';
 import { activeOf, useData } from './store';
+import { isDark, onThemeChange } from './theme';
 import { useUi } from './ui';
 
 /** 原生在页面脚本运行前打的标记（FocusChromePlugin.markNative） */
@@ -90,7 +91,7 @@ function snapshot() {
   for (const l of ['focus', 'verify', 'inbox'] as const) counts[l] = openRoots(profile.todos, l);
   const css = getComputedStyle(document.documentElement);
   const v = (name: string) => css.getPropertyValue(name).trim();
-  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = isDark();
   const st = statusOf(d.syncStatus, d.local.sync.enabled);
   const conflicts = d.conflicts.length;
   const short: Record<string, string> = { ok: '已同步', busy: '同步中', warn: '离线', bad: '出错', off: '未开启' };
@@ -116,7 +117,13 @@ function snapshot() {
       label: conflicts ? `有 ${conflicts} 个冲突需要决定` : st.text,
       status: conflicts ? `${conflicts} 个冲突` : (short[st.tone] ?? ''),
     },
-    menu: { trash: profile.trash.length, sound: d.prefs.sound, haptics: d.prefs.haptics, space: profile.name },
+    menu: {
+      trash: profile.trash.length,
+      sound: d.prefs.sound,
+      haptics: d.prefs.haptics,
+      space: profile.name,
+      appearance: d.prefs.appearance,
+    },
     modal: !!(ui.sheet || ui.menu || ui.more || ui.composer.open),
     pulse: ui.pulse,
   };
@@ -141,6 +148,11 @@ function onAction(name: string) {
       break;
     case 'haptics':
       d.setPrefs({ haptics: !d.prefs.haptics });
+      break;
+    case 'appearance:system':
+    case 'appearance:light':
+    case 'appearance:dark':
+      d.setPrefs({ appearance: name.slice('appearance:'.length) as Appearance });
       break;
   }
 }
@@ -180,6 +192,6 @@ export function initChrome() {
   useData.subscribe(schedule);
   useUi.subscribe(schedule);
   // 浅色 / 深色切换后主题色跟着变
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule);
+  onThemeChange(schedule);
   schedule();
 }

@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { childrenOf, nowOf, type TreeIndex } from '../../model';
 import type { Todo } from '../../types';
 import { deleteWithUndo, sendToFocus, setNow, startEdit, toggleTest, toggleTodo } from '../actions';
 import { CheckIcon, ChevronDownIcon, EyeCheckIcon, MoveIcon, SparkIcon, TrashIcon, UncheckIcon, UpIcon } from '../icons';
+import { beginDrag, dragGroup } from '../drag';
+import { draftAfter, draftFirstUnder, editNext, indentItem, outdentItem, revealInput } from '../edit';
 import { activeOf, useData } from '../store';
 import { restored, saveTransient } from '../transient';
 import { rectOf, useRefitOnWidth, useUi } from '../ui';
+import { DraftRow, composing, useBlurOnOutside } from './EditRows';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 
 export const nodeMotion = {
@@ -62,6 +65,9 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
   const editing = useUi((s) => s.editingId === todo.id);
   const menuOpen = useUi((s) => s.menu?.todoId === todo.id);
   const isNew = useUi((s) => !!s.added[todo.id]);
+  // 回车开出来的空行：接在这一项后面（同级），或者是这一项下面的第一个子项
+  const draftNext = useUi((s) => draftAfter(s.draft, todo));
+  const draftChild = useUi((s) => draftFirstUnder(s.draft, todo.id));
 
   const checked = todo.done || completing;
   const testing = !!todo.testing && !checked;
@@ -70,6 +76,7 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
   const spark = depth === 0 && !checked && (todo.list === 'inbox' || todo.list === 'verify');
 
   const rowRef = useRef<HTMLDivElement>(null);
+  const nodeRef = useRef<HTMLDivElement>(null);
   const openMenu = (moveFirst = false) => {
     const el = rowRef.current;
     if (!el) return;
@@ -82,8 +89,21 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
     .join(' ');
 
   return (
-    <motion.div {...nodeMotion} className={`node ${isNew ? 'is-new' : ''}`} data-node-id={todo.id}>
-      <SwipeRow id={todo.id} leading={leading} trailing={trailing} onLongPress={() => openMenu()} disabled={editing}>
+    <motion.div
+      {...nodeMotion}
+      ref={nodeRef}
+      className={`node ${isNew ? 'is-new' : ''}`}
+      data-node-id={todo.id}
+      data-drag-group={checked ? undefined : dragGroup(todo)}
+    >
+      <SwipeRow
+        id={todo.id}
+        leading={leading}
+        trailing={trailing}
+        onLongPress={() => openMenu()}
+        onDragStart={(x, y) => (nodeRef.current && rowRef.current ? beginDrag(todo, nodeRef.current, rowRef.current, x, y) : null)}
+        disabled={editing}
+      >
         <div
           ref={rowRef}
           data-anchor={todo.id}
@@ -151,8 +171,9 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
       </SwipeRow>
       {below}
 
-      {children.length > 0 && !todo.collapsed && (
+      {(children.length > 0 || draftChild) && !todo.collapsed && (
         <div className="children">
+          {draftChild && <DraftRow kind="row" depth={depth + 1} />}
           <AnimatePresence initial={false}>
             {children.map((c) => (
               <TodoNode key={c.id} todo={c} depth={depth + 1} index={index} />
@@ -160,11 +181,12 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
           </AnimatePresence>
         </div>
       )}
+      {draftNext && <DraftRow kind="row" depth={depth} />}
     </motion.div>
   );
 }
 
-/** 原地编辑标题：回车或失焦保存，Esc 取消 */
+/** 原地编辑标题：失焦保存，Esc 取消；回车开下一行、Tab 调层级 */
 export function TitleEditor({ todo }: { todo: Todo }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const cancelled = useRef(false);
@@ -194,17 +216,8 @@ export function TitleEditor({ todo }: { todo: Todo }) {
     if (useUi.getState().editingId === todo.id) useUi.getState().set({ editingId: null });
   };
 
-  // iOS 上点空白处不会让输入框失焦：点到编辑框以外的任何地方都结束编辑
-  useEffect(() => {
-    const onDown = (e: PointerEvent) => {
-      const el = ref.current;
-      if (!el || el.contains(e.target as Node)) return;
-      if (document.activeElement === el) el.blur();
-      else commit();
-    };
-    document.addEventListener('pointerdown', onDown, true);
-    return () => document.removeEventListener('pointerdown', onDown, true);
-  }, []);
+  // iOS 上点空白处不会让输入框失焦：点到编辑框（和工具条）以外的任何地方都结束编辑
+  useBlurOnOutside(ref, commit);
 
   return (
     <textarea
@@ -213,20 +226,26 @@ export function TitleEditor({ todo }: { todo: Todo }) {
       data-edit-input={todo.id}
       defaultValue={initial}
       rows={1}
-      enterKeyHint="done"
+      enterKeyHint="next"
       onInput={(e) => {
         fit();
         saveTransient({ editing: { id: todo.id, text: e.currentTarget.value } });
       }}
       onFocus={() => {
         // 键盘弹出后把正在编辑的行滚到可见处（WebView 不随键盘缩小）
-        setTimeout(() => ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);
+        setTimeout(() => revealInput(ref.current), 320);
       }}
       onBlur={commit}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+        if (composing(e)) return;
+        // Enter：保存并在后面开一个同级空行；Tab / Shift+Tab：缩进 / 反缩进（规则见 edit.ts）
+        if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
-          ref.current?.blur();
+          editNext(todo);
+        } else if (e.key === 'Tab') {
+          e.preventDefault();
+          if (e.shiftKey) outdentItem(todo);
+          else indentItem(todo);
         } else if (e.key === 'Escape') {
           cancelled.current = true;
           ref.current?.blur();

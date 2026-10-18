@@ -1,7 +1,9 @@
 // 可左右滑动、可长按的行容器：右滑露出主操作，左滑露出一组按钮，滑过一大半直接执行。
 // 纵向滚动交给浏览器（touch-action: pan-y），横向手势和长按自己处理。
+// 长按浮起后手指不动就松开 = 上下文菜单；浮起后再移动超过 DRAG_SLOP = 拖动排序（见 drag.ts）。
 import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { useEffect, useRef, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { DRAG_SLOP, type DragSession } from '../drag';
 import { haptic } from '../native';
 import { useUi } from '../ui';
 
@@ -23,6 +25,8 @@ interface Props {
   /** 左滑：从左到右排列，最后一个是滑到底时执行的操作（例如删除） */
   trailing?: SwipeAction[];
   onLongPress?(el: HTMLElement): void;
+  /** 浮起后拖动（x、y 是按下的那一点）：返回拖动会话；不能拖时返回 null */
+  onDragStart?(x: number, y: number): DragSession | null;
   disabled?: boolean;
   children: ReactNode;
 }
@@ -38,11 +42,11 @@ interface Gesture {
   x0: number;
   y0: number;
   base: number;
-  mode: 'pending' | 'swipe' | 'scroll' | 'press';
+  mode: 'pending' | 'swipe' | 'scroll' | 'press' | 'drag';
   timer: ReturnType<typeof setTimeout>;
 }
 
-export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disabled, children }: Props) {
+export function SwipeRow({ id, leading = null, trailing = [], onLongPress, onDragStart, disabled, children }: Props) {
   const x = useMotionValue(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -53,6 +57,19 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
   const fullRef = useRef<'lead' | 'trail' | null>(null);
   const leadRef = useRef<HTMLDivElement>(null);
   const trailRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<DragSession | null>(null);
+
+  // 浮起之后（菜单、拖动）别让页面跟着手指滚动：iOS 上只有不被动的 touchmove 能拦住
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const onMove = (e: TouchEvent) => {
+      const m = gesture.current?.mode;
+      if (m === 'press' || m === 'drag') e.preventDefault();
+    };
+    el.addEventListener('touchmove', onMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onMove);
+  }, []);
 
   // 别的行被滑开、或点了别处：收回
   useEffect(() => {
@@ -76,6 +93,14 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
     gesture.current = null;
     if (!g) return;
     clearTimeout(g.timer);
+    if (g.mode === 'drag') {
+      suppressClick.current = true;
+      const session = drag.current;
+      drag.current = null;
+      if (cancelled) session?.cancel();
+      else session?.end();
+      return;
+    }
     if (g.mode === 'press') {
       suppressClick.current = true;
       return;
@@ -123,6 +148,10 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
       g.mode = 'press';
       haptic.medium();
       settle(0);
+      // 菜单盖上来以后手指的移动还归这一行（要靠它判断是不是开始拖）
+      try {
+        wrapRef.current?.setPointerCapture(g.pointerId);
+      } catch {}
       onLongPress(wrapRef.current!);
     }, LONG_PRESS_MS);
     gesture.current = { pointerId: e.pointerId, x0: e.clientX, y0: e.clientY, base: x.get(), mode: 'pending', timer };
@@ -133,6 +162,20 @@ export function SwipeRow({ id, leading = null, trailing = [], onLongPress, disab
     if (!g || e.pointerId !== g.pointerId) return;
     const dx = e.clientX - g.x0;
     const dy = e.clientY - g.y0;
+    if (g.mode === 'drag') {
+      drag.current?.move(e.clientX, e.clientY);
+      return;
+    }
+    if (g.mode === 'press') {
+      if (!onDragStart || Math.hypot(dx, dy) <= DRAG_SLOP) return;
+      // 以按下的那一点为准算手指相对行的位置，浮起后先挪的那几 pt 不丢
+      const session = onDragStart(g.x0, g.y0);
+      if (!session) return;
+      g.mode = 'drag';
+      drag.current = session;
+      session.move(e.clientX, e.clientY);
+      return;
+    }
     if (g.mode === 'pending') {
       if (Math.abs(dx) > SLOP && Math.abs(dx) > Math.abs(dy) * 1.2 && (leading || trailing.length)) {
         g.mode = 'swipe';

@@ -8,6 +8,7 @@ import { goSection, openComposer } from '../actions';
 import { avatarColors, SECTIONS, type Profile, type Section } from '../data';
 import { MoreIcon, PlusIcon, SectionIcons, SwapIcon, TrashIcon } from '../icons';
 import { activeOf, useData, useTodos } from '../store';
+import { useDark } from '../theme';
 import { restored, saveTransient } from '../transient';
 import { rectOf, useUi } from '../ui';
 import { SyncButton } from './SyncSheets';
@@ -25,17 +26,8 @@ const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周�
 /** 新建时默认放进哪个列表：HISTORY 页里新建的进 FOCUS */
 export const composeTarget = (s: Section): ListId => (s === 'history' ? 'focus' : s);
 
-const isDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
-
 export function Avatar({ profile, size = 30 }: { profile: Profile; size?: number }) {
-  const [dark, setDark] = useState(isDark);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const on = () => setDark(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  const c = avatarColors(profile.tint, dark);
+  const c = avatarColors(profile.tint, useDark());
   return (
     <span
       className="avatar"

@@ -79,47 +79,46 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b0b0c;
-    --surface: #18181a;
-    --surface-2: #222225;
-    --surface-3: #2c2c30;
-    --text: #f4f4ef;
-    --text-muted: #8e8e88;
-    --text-faint: #55554f;
-    --line: rgba(255, 255, 255, 0.07);
+/* 深色：<html data-theme="dark">（theme.ts 按「外观」偏好和系统外观设） */
+:root[data-theme='dark'] {
+  --bg: #0b0b0c;
+  --surface: #18181a;
+  --surface-2: #222225;
+  --surface-3: #2c2c30;
+  --text: #f4f4ef;
+  --text-muted: #8e8e88;
+  --text-faint: #55554f;
+  --line: rgba(255, 255, 255, 0.07);
 
-    --c-focus: #f4f4ef;
-    --c-verify: #b8a6ff;
-    --c-verify-soft: rgba(184, 166, 255, 0.16);
-    --c-inbox: #8fd3ff;
-    --c-inbox-soft: rgba(143, 211, 255, 0.14);
-    --c-goal: #ff8a65;
-    --c-goal-soft: rgba(255, 138, 101, 0.15);
-    --c-history: #f2e2b8;
-    --c-history-soft: rgba(242, 226, 184, 0.13);
+  --c-focus: #f4f4ef;
+  --c-verify: #b8a6ff;
+  --c-verify-soft: rgba(184, 166, 255, 0.16);
+  --c-inbox: #8fd3ff;
+  --c-inbox-soft: rgba(143, 211, 255, 0.14);
+  --c-goal: #ff8a65;
+  --c-goal-soft: rgba(255, 138, 101, 0.15);
+  --c-history: #f2e2b8;
+  --c-history-soft: rgba(242, 226, 184, 0.13);
 
-    --ok: #7ee2a0;
-    --bad: #ff6369;
-    --scrim: rgba(0, 0, 0, 0.45);
-    --pop: rgba(40, 40, 44, 0.88);
-    --spark: var(--lime);
+  --ok: #7ee2a0;
+  --bad: #ff6369;
+  --scrim: rgba(0, 0, 0, 0.45);
+  --pop: rgba(40, 40, 44, 0.88);
+  --spark: var(--lime);
 
-    --glass: rgba(38, 38, 42, 0.52);
-    --glass-stroke: rgba(255, 255, 255, 0.13);
-    --glass-hi: rgba(255, 255, 255, 0.22);
-    --glass-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
-    --tab-on-bg: rgba(214, 255, 61, 0.17);
-    --tab-on-fg: #d6ff3d;
-    --edge: 11, 11, 12;
+  --glass: rgba(38, 38, 42, 0.52);
+  --glass-stroke: rgba(255, 255, 255, 0.13);
+  --glass-hi: rgba(255, 255, 255, 0.22);
+  --glass-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  --tab-on-bg: rgba(214, 255, 61, 0.17);
+  --tab-on-fg: #d6ff3d;
+  --edge: 11, 11, 12;
 
-    --heat-1: #2e3a10;
-    --heat-2: #56701a;
-    --heat-3: #9dc22a;
-    --heat-4: #d6ff3d;
-    color-scheme: dark;
-  }
+  --heat-1: #2e3a10;
+  --heat-2: #56701a;
+  --heat-3: #9dc22a;
+  --heat-4: #d6ff3d;
+  color-scheme: dark;
 }
 
 /* 增强对比度：玻璃描边加深 */
@@ -131,8 +130,8 @@
   }
 }
 
-@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root {
+@media (prefers-contrast: more) {
+  :root[data-theme='dark'] {
     --glass-stroke: rgba(255, 255, 255, 0.3);
     --line: rgba(255, 255, 255, 0.18);
     --text-muted: #b0b0aa;
@@ -202,11 +201,9 @@ textarea {
   caret-color: var(--text);
 }
 
-@media (prefers-color-scheme: dark) {
-  input,
-  textarea {
-    caret-color: var(--lime);
-  }
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] textarea {
+  caret-color: var(--lime);
 }
 
 /* 液态玻璃 */
@@ -857,7 +854,8 @@ textarea {
   background: currentColor;
 }
 
-.now-subs {
+.now-subs,
+.now-sub-node {
   display: flex;
   flex-direction: column;
   gap: 9px;
@@ -926,9 +924,70 @@ textarea {
   align-self: flex-start;
   font: 600 13px/1 var(--font);
   padding: 6px 10px;
-  margin-left: 22px;
   border-radius: 999px;
   background: var(--now-sub);
+}
+
+/* 子任务按层级缩进；右边的小眼睛切换待验证 */
+.now-sub {
+  padding-left: calc(var(--depth, 0) * 26px);
+}
+
+.sub-eye {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 22px;
+  margin: -2px -4px -2px 0;
+  border-radius: 11px;
+  color: inherit;
+  opacity: 0.38;
+  transition:
+    opacity 0.2s,
+    background 0.2s,
+    color 0.2s;
+}
+
+.sub-eye::after {
+  content: '';
+  position: absolute;
+  inset: -10px -8px;
+}
+
+.sub-eye svg {
+  width: 17px;
+  height: 17px;
+}
+
+.sub-eye.on {
+  opacity: 1;
+  background: var(--now-verify);
+  color: var(--now);
+}
+
+/* 子任务下面常驻的「+ 子任务」 */
+.now-sub-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1px;
+}
+
+.now-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 13px/1 var(--font);
+  padding: 6px 11px 6px 8px;
+  border-radius: 999px;
+  border: 1.4px dashed color-mix(in srgb, var(--now-ink) 35%, transparent);
+}
+
+.now-add svg {
+  width: 15px;
+  height: 15px;
 }
 
 .now-act {
@@ -2132,6 +2191,35 @@ textarea {
   margin: 6px 10px;
 }
 
+.mi-static {
+  height: 36px;
+  pointer-events: none;
+}
+
+/* ⋯ 菜单里的「外观」：三段式选择 */
+.seg {
+  display: flex;
+  gap: 3px;
+  margin: 0 10px 6px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.seg button {
+  flex: 1;
+  height: 30px;
+  border-radius: 9px;
+  font: 600 13px/1 var(--font);
+  color: var(--text-muted);
+}
+
+.seg button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
 .tg {
   flex: none;
   position: relative;
@@ -2877,5 +2965,180 @@ textarea {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ============ 编辑：空行、工具条、抖一下 ============ */
+
+/* 回车开出来的空行（还没建）：圆圈是虚线 */
+.is-draft .check,
+.is-draft .sc {
+  box-shadow: none;
+  border: 1.6px dashed var(--text-faint);
+}
+
+.now-sub.is-draft .sc {
+  border-color: color-mix(in srgb, var(--now-ink) 45%, transparent);
+}
+
+.q-row.is-draft {
+  opacity: 1;
+}
+
+.row-edit::placeholder {
+  color: var(--text-faint);
+}
+
+.now .row-edit::placeholder {
+  color: color-mix(in srgb, var(--now-ink) 45%, transparent);
+}
+
+/* 键盘上方的工具条：反缩进 / 缩进 / 上移 / 下移 / 完成 */
+.edit-bar {
+  position: fixed;
+  z-index: 60;
+  left: max(10px, calc(env(safe-area-inset-left) + 8px));
+  right: max(10px, calc(env(safe-area-inset-right) + 8px));
+  bottom: calc(var(--inset-bottom) + 10px);
+  max-width: 460px;
+  margin: 0 auto;
+  height: 50px;
+  padding: 0 6px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.edit-bar button {
+  flex: 1;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  color: var(--text);
+}
+
+.edit-bar button:active {
+  background: var(--surface-2);
+}
+
+.edit-bar svg {
+  width: 22px;
+  height: 22px;
+}
+
+.edit-bar .edit-done {
+  flex: 1.3;
+  font: 700 15px/1 var(--font);
+  background: var(--lime);
+  color: #0b0b0c;
+}
+
+.shake {
+  animation: shake 0.38s var(--ease);
+}
+
+@keyframes shake {
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake {
+    animation: none;
+  }
+}
+
+/* ============ 拖动排序 ============ */
+
+/* 拖动中：不选字、不出系统菜单 */
+.is-dragging,
+.is-dragging * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 被拖的那一项留下等高的空位 */
+.drag-source {
+  visibility: hidden;
+}
+
+/* 手指下面浮起的副本 */
+.drag-ghost {
+  position: fixed;
+  z-index: 90;
+  pointer-events: none;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.08);
+  transform-origin: 50% 50%;
+  transition: box-shadow 0.18s;
+}
+
+.drag-ghost.is-landing {
+  transition:
+    transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.16s;
+  box-shadow: none;
+}
+
+.drag-ghost > * {
+  visibility: visible !important;
+}
+
+.drag-ghost.is-row > .row {
+  background: var(--surface);
+}
+
+.drag-ghost.is-row > .row::before,
+.drag-ghost.is-row > .row::after {
+  display: none;
+}
+
+.drag-ghost.is-q > .q-row {
+  background: var(--surface);
+  padding-left: 12px;
+  padding-right: 12px;
+  opacity: 1 !important;
+}
+
+/* NOW 卡上的子任务：副本带着卡的荧光绿 */
+.drag-ghost.is-sub {
+  background: var(--now);
+  color: var(--now-ink);
+  padding: 8px 12px;
+  --c: var(--now-ink);
+}
+
+.drag-ghost.is-sub > .now-sub {
+  padding-left: 0;
+}
+
+/* 从「接下来」拖到 NOW 卡上：卡亮一圈，松手就设为现在 */
+.now.drop-target {
+  box-shadow:
+    0 0 0 3px var(--bg),
+    0 0 0 6px var(--lime-ink);
+  transition: box-shadow 0.15s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drag-ghost,
+  .drag-ghost.is-landing {
+    transition: none;
   }
 }

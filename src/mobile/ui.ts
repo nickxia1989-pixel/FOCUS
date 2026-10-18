@@ -15,10 +15,20 @@ export interface TodoMenu {
   todoId: string;
   /** 长按时那一行的位置，菜单和"抬起"的预览卡片据此定位 */
   rect: Rect;
-  /** 从 HISTORY 打开时只给少量操作 */
-  from: 'list' | 'history';
+  /** 从 HISTORY 打开时只给少量操作；NOW 卡上的子任务是另一组（完成、编辑、待验证、升一级、删除） */
+  from: 'list' | 'history' | 'sub';
   /** 直接展开「移到…」子菜单（左滑点「移动」时） */
   moveFirst?: boolean;
+}
+
+/**
+ * 编辑时回车开出来的空行（还没真正新建）：有内容再回车才建，建在 afterId 后面；afterId 为空时是父项下的第一条。
+ * 空行可以缩进 / 反缩进，只是换个位置，还没写进数据。
+ */
+export interface Draft {
+  list: ListId;
+  parentId: string | null;
+  afterId: string | null;
 }
 
 export interface ComposerState {
@@ -38,6 +48,11 @@ interface UiState {
   /** 正在播放完成动画、还没写入数据的项 */
   completing: Record<string, true>;
   editingId: string | null;
+  draft: Draft | null;
+  /** NOW 卡上子任务收起了的那件（太多时可以收起） */
+  subsFolded: Record<string, true>;
+  /** 正在拖动排序的那一项 */
+  draggingId: string | null;
   /** 当前滑开着操作按钮的行，同时只开一行 */
   swipedId: string | null;
   menu: TodoMenu | null;
@@ -62,6 +77,9 @@ interface UiState {
 export const useUi = create<UiState>((set) => ({
   completing: {},
   editingId: null,
+  draft: null,
+  subsFolded: {},
+  draggingId: null,
   swipedId: null,
   menu: null,
   composer: { open: false, list: 'focus', parentId: null },
@@ -122,4 +140,14 @@ export function toggleExpanded(id: string) {
   if (cur[id]) delete cur[id];
   else cur[id] = true;
   useUi.getState().set({ expanded: cur });
+}
+
+/** 元素所在的滚动页（单页时是 .screen；双页时左右两页各自滚动） */
+export function scrollParent(el: Element | null): HTMLElement | null {
+  for (let p = el?.parentElement; p; p = p.parentElement) {
+    if (!p.matches('.screen, .pane-l, .pane-r')) continue;
+    const oy = getComputedStyle(p).overflowY;
+    if (oy === 'auto' || oy === 'scroll') return p;
+  }
+  return null;
 }

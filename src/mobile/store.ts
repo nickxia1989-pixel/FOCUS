@@ -139,6 +139,8 @@ interface DataState extends Derived {
   sendToFocus(id: string): void;
   /** 设为现在：移到 FOCUS 第 1 位 */
   setNow(id: string): void;
+  /** 拖动排序：在同组兄弟（未完成 / 已完成各一组）里挪到第 toIndex 位 */
+  reorder(id: string, toIndex: number): void;
   /** 缩进（Tab）：挂到上一个同级下面，成为它的最后一个子项 */
   indent(id: string): void;
   /** 反缩进（Shift+Tab）：升一级，排在原父项后面 */
@@ -311,6 +313,7 @@ export const useData = create<DataState>((set, get) => {
     move: (id, list) => run((st, ctx) => O.moveTodo(st, ctx, id, list)),
     sendToFocus: (id) => run((st, ctx) => O.sendToFocus(st, ctx, id)),
     setNow: (id) => run((st, ctx) => O.setNow(st, ctx, id)),
+    reorder: (id, toIndex) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex)),
     indent: (id) => run((st, ctx) => O.indentTodo(st, ctx, id)),
     outdent: (id) => run((st, ctx) => O.outdentTodo(st, ctx, id)),
     markForTest: (id) => run((st, ctx) => O.markForTest(st, ctx, id)),

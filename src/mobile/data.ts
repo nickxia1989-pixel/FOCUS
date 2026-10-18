@@ -27,7 +27,11 @@ export interface MobilePrefs {
   doneCollapsed: Partial<Record<ListId, boolean>>;
   /** 新建 FOCUS 顶层项时排在 NOW 之后（关掉 = 新建并设为现在）；只存本机，默认开 */
   insertAfterNow: boolean;
+  /** 外观：跟随系统 / 浅色 / 深色；只存本机，默认跟随系统 */
+  appearance: Appearance;
 }
+
+export type Appearance = 'system' | 'light' | 'dark';
 
 /** 落盘的完整快照（存储适配层只认这个形状） */
 export interface MobileSnapshot {
@@ -55,6 +59,7 @@ export const DEFAULT_PREFS: MobilePrefs = {
   haptics: true,
   doneCollapsed: {},
   insertAfterNow: true,
+  appearance: 'system',
 };
 
 export const DAY = 24 * 60 * 60 * 1000;
