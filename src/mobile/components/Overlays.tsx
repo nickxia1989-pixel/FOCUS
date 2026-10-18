@@ -416,7 +416,7 @@ export function Toast() {
       () => {
         if (useUi.getState().toast?.key === toast.key) useUi.getState().set({ toast: null });
       },
-      toast.undoEntry ? 5000 : 2400,
+      toast.undoEntry || toast.undo ? 5000 : 2400,
     );
     return () => clearTimeout(t);
   }, [toast]);
@@ -433,8 +433,15 @@ export function Toast() {
             transition={{ type: 'spring', stiffness: 460, damping: 34 }}
           >
             <span className="toast-text">{toast.text}</span>
-            {toast.undoEntry && (
-              <button className="toast-undo" onClick={undoDelete}>
+            {(toast.undoEntry || toast.undo) && (
+              <button
+                className="toast-undo"
+                onClick={() => {
+                  if (!toast.undo) return undoDelete();
+                  useUi.getState().set({ toast: null });
+                  toast.undo();
+                }}
+              >
                 撤销
               </button>
             )}
