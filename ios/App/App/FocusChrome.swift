@@ -2,14 +2,14 @@ import UIKit
 import WebKit
 import Capacitor
 
-// 原生外壳：iOS 26 起，页签栏、「+」、导航栏上的空间 / 同步 / ⋯ 都用系统控件，拿到真正的 Liquid Glass；
+// 原生外壳：iOS 26 起，页签栏、页签栏上方的新建输入条、导航栏上的头像 / 云朵都用系统控件，拿到真正的 Liquid Glass；
 // 在 iPhone Duo 上，系统会把它们和状态栏一起竖排到侧边那一列（合上的外屏、横着的内屏）。
 // 网页（MainViewController）垫在最底下铺满全屏，外壳的页签控制器叠在上面，只有栏本身接触摸。
 //
 // 和网页的约定（src/mobile/chrome.ts）：
 // - 网页 → 原生：FocusChrome.setState({ json }) 推当前分区、角标、空间、同步状态、有没有弹层等；
-// - 原生 → 网页：事件 tab（点了页签）、action（点了 + / 空间 / 同步 / 菜单项）、
-//   geometry（栏占掉的边距、折痕、铰链、栏竖排在哪侧、页签图标的位置）。
+// - 原生 → 网页：事件 tab（点了页签）、action（点了输入条 / + / 同步 / 菜单项）、
+//   geometry（栏占掉的边距、输入条的位置、折痕、铰链、栏竖排在哪侧、页签图标的位置）。
 // 页面开始加载前注入 data-chrome="native"，网页据此不画自己的页签和导航栏按钮。
 //
 // iPhone Duo 的接口（竖排栏、铰链、折痕）是 iOS 27.1 SDK 才有的，用 `#if canImport(UIKit, _version:)` 包起来：
@@ -96,15 +96,13 @@ struct ChromeState: Decodable, Equatable {
         var conflicts: Int
         /// 无障碍说明，例如「离线：改动已保存在本机……」
         var label: String
-        /// ⋯ 菜单里「同步」右边的短状态，例如「已同步」
+        /// 头像菜单里「同步」下面的短状态，例如「已同步」
         var status: String
     }
     struct Menu: Decodable, Equatable {
         var trash: Int
         var sound: Bool
         var haptics: Bool
-        /// 当前空间名（⋯ 菜单里「空间」右边）
-        var space: String
         /// 外观：system / light / dark
         var appearance: String
     }
@@ -128,6 +126,27 @@ struct ChromeState: Decodable, Equatable {
     var profile: Profile
     var sync: Sync
     var menu: Menu
+    /// 头像菜单上半的空间列表
+    struct Space: Decodable, Equatable {
+        var id: String
+        var name: String
+        var bg: String
+        var fg: String
+        /// FOCUS 里未完成的顶层项数
+        var count: Int
+        var current: Bool
+    }
+    /// 新建输入条的内容；HISTORY 页为 null（不显示输入条）
+    struct Accessory: Decodable, Equatable {
+        /// 这一页的提示语，例如「接下来要做…」
+        var hint: String
+        /// 新建会落到哪个列表（focus / verify / inbox / goal）
+        var list: String
+        /// 列表英文名，例如 FOCUS
+        var label: String
+    }
+    var spaces: [Space]
+    var accessory: Accessory?
     /// 网页上开着面板、菜单或新建卡片：原生栏让开
     var modal: Bool
     /// 分区"收到东西"的计数，变了就让那个页签弹一下
@@ -152,9 +171,6 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
     static func icon(_ name: String) -> UIImage? {
         UIImage(systemName: name) ?? UIImage(named: name)?.withRenderingMode(.alwaysTemplate)
     }
-    /// 「+」圆钮的直径和它与页签栏之间的空隙（设计：64 / 12；系统页签栏高 62，跟它齐）
-    private static let plusSize: CGFloat = 62
-    private static let plusGap: CGFloat = 12
 
     private let web: MainViewController
     private let overlay = PassthroughView()
@@ -165,10 +181,8 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
     private var holder: ChromeHolderController?
     /// 当前这套栏是按竖排搭的
     private var builtVertical: Bool?
-    /// 栏横排时页签栏右边的「+」：荧光绿的玻璃圆钮、近黑的 +。
-    /// 设计里它是第 6 个 search 角色的页签，但系统页签栏在手机上超过 5 个就折出「更多」（iOS 27 实测，search / prominent 都一样），
-    /// 所以不做成页签，自己放一颗玻璃圆钮
-    private let plusButton = UIButton(configuration: .prominentGlass())
+    /// 新建输入条（页签栏上方的 bottom accessory，设计方案 A）：荧光绿 +、这一页的提示语、新建落到哪个列表
+    private let accessoryView = NewItemAccessoryView()
     private var hosts: [WeakHost] = []
     private var state: ChromeState?
     private var keyboardShown = false
@@ -177,8 +191,6 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
     private var hinge: String?
     private var lastGeometry: NSDictionary?
     private var geometryQueued = false
-    /// 给「+」腾出来的右侧宽度：页签控制器的右边界往里收这么多
-    private var plusSlot: CGFloat = 0
 
     init(web: MainViewController) {
         self.web = web
@@ -221,17 +233,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         }
         view.addSubview(overlay)
 
-        // 深色下玻璃按钮会把前景色改成白色：图标用原色渲染，浅色深色都是近黑
-        let ink = UIColor(red: 0x0B / 255, green: 0x0B / 255, blue: 0x0C / 255, alpha: 1)
-        plusButton.configuration?.image = UIImage(
-            systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 25, weight: .semibold))?
-            .withTintColor(ink, renderingMode: .alwaysOriginal)
-        plusButton.tintColor = UIColor(red: 0xD6 / 255, green: 1, blue: 0x3D / 255, alpha: 1)
-        plusButton.configuration?.baseForegroundColor = ink
-        plusButton.configuration?.cornerStyle = .capsule
-        plusButton.accessibilityLabel = "新建"
-        plusButton.addAction(UIAction { [weak self] _ in self?.compose() }, for: .primaryActionTriggered)
-        overlay.addSubview(plusButton)
+        accessoryView.onTap = { [weak self] in self?.compose() }
 
         web.chrome.onState = { [weak self] s in self?.apply(s) }
         web.chrome.onDebugRebuild = { [weak self] in
@@ -273,7 +275,6 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         if let built = builtVertical, built != barsVertical {
             DispatchQueue.main.async { [weak self] in self?.updatePlacement() }
         }
-        layoutPlus()
         queueGeometry()
     }
 
@@ -281,8 +282,9 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
 
     /// 按栏横排 / 竖排搭一套页签栏和导航栏。两种排法要的层级不一样：
     /// - 竖排（Duo 外屏、横着的内屏）：系统标准的"页签控制器里每个页签一个导航控制器"，
-    ///   系统才会把导航栏按钮和页签栏排进同一列、空间不够时自动收进 ⋯（外屏横握时就不够）。「+」是导航栏上的 prominent 按钮。
-    /// - 横排（iPhone、Duo 内屏竖握）：导航栏在外层、页签控制器装在里面，这样能只把页签栏收窄，给旁边的「+」圆钮让位。
+    ///   系统才会把导航栏按钮和页签栏排进同一列、空间不够时自动收进 ⋯（外屏横握时就不够）。
+    /// - 横排（iPhone、Duo 内屏竖握）：导航栏在外层、页签控制器装在里面（页签栏独占一整行）。
+    /// 新建是页签栏上方的输入条（bottom accessory），见 updateAccessory。
     /// Duo 开合、旋转时栏的排法会变，整套重搭；网页不动，选中的页签、角标从最近一份网页状态重新填。
     private func build(vertical: Bool) {
         // 重搭前记住网页里谁在接键盘（正在编辑的条目）：新搭的栏不能把它抢走
@@ -330,7 +332,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         addChild(top)
         top.view.frame = overlay.bounds
         top.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        overlay.insertSubview(top.view, belowSubview: plusButton)
+        overlay.addSubview(top.view)
         top.didMove(toParent: self)
         root = top
         configureItems()
@@ -338,6 +340,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         if tabs.isTabBarHidden != (keyboardShown || state?.modal == true) {
             tabs.setTabBarHidden(keyboardShown || state?.modal == true, animated: false)
         }
+        updateAccessory(animated: false)
     }
 
     private func wrapInNav(_ vc: UIViewController) -> UINavigationController {
@@ -354,10 +357,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
 
     private func makeHost() -> ChromeHostController {
         let host = ChromeHostController()
-        host.onLayout = { [weak self] in
-            self?.layoutPlus()
-            self?.queueGeometry()
-        }
+        host.onLayout = { [weak self] in self?.queueGeometry() }
         hosts.removeAll { $0.host == nil }
         hosts.append(WeakHost(host: host))
         configureItems(host.navigationItem)
@@ -372,45 +372,45 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         queueGeometry()
     }
 
+    /// 点新建输入条（或竖条里的「+」）
     private func compose() {
-        // 键盘被系统收起（收起键、下滑）后 WebView 不再是第一响应者，网页里再 focus 输入框也弹不出键盘：
-        // 先把它要回来，网页打开新建卡片时键盘才会跟着起来
-        if let webView = web.webView, !webView.isFirstResponder { webView.becomeFirstResponder() }
+        takeFirstResponder()
         web.chrome.send("action", ["name": "compose"])
     }
 
-    /// 栏横排 / 竖排切换（Duo 开合、旋转）：「+」在横排时是页签栏旁的圆钮，竖排时是侧边栏里的按钮（系统摆放）
+    /// 键盘被系统收起（收起键、下滑）后 WebView 不再是第一响应者，网页里再 focus 输入框也弹不出键盘：
+    /// 先把它要回来，网页打开新建卡片 / 新建空间时键盘才会跟着起来
+    private func takeFirstResponder() {
+        if let webView = web.webView, !webView.isFirstResponder { webView.becomeFirstResponder() }
+    }
+
+    /// 栏横排 / 竖排切换（Duo 开合、旋转）：整套重搭
     private func updatePlacement() {
         let vertical = barsVertical
-        plusSlot = vertical ? 0 : Self.plusSize + Self.plusGap
         if builtVertical != vertical { build(vertical: vertical) }
-        plusButton.isHidden = vertical
         layoutTabs()
         queueGeometry()
     }
 
-    /// 横排时页签控制器铺满导航栏下面的根页面，右边收进 plusSlot
+    /// 横排时页签控制器铺满导航栏下面的根页面
     private func layoutTabs() {
-        if let holder {
-            let b = holder.view.bounds
-            let leading = view.effectiveUserInterfaceLayoutDirection == .rightToLeft
-            let frame = CGRect(x: leading ? plusSlot : 0, y: 0, width: b.width - plusSlot, height: b.height)
-            if tabs.view.frame != frame { tabs.view.frame = frame }
-        }
-        layoutPlus()
+        if let holder, tabs.view.frame != holder.view.bounds { tabs.view.frame = holder.view.bounds }
     }
 
-    /// 「+」和页签栏的胶囊对齐：同高、垂直居中，离页签栏的空隙和胶囊离屏幕边的一样
-    private func layoutPlus() {
-        guard builtVertical == false else { return }
-        let size = Self.plusSize
-        let platter = tabPlatter().map { $0.convert($0.bounds, to: overlay) }
-        let midY = platter?.midY ?? (view.bounds.maxY - view.safeAreaInsets.bottom - 8 - size / 2)
-        let margin = platter.map { max(8, $0.minX - view.safeAreaInsets.left) } ?? 16
-        let right = view.bounds.maxX - view.safeAreaInsets.right - margin
-        plusButton.bounds = CGRect(x: 0, y: 0, width: size, height: size)
-        plusButton.center = CGPoint(x: right - size / 2, y: midY)
+    /// 新建输入条：页签栏上方的 bottom accessory。HISTORY 页不显示；键盘起来时（编辑标题）先拿掉，
+    /// 网页弹层（新建卡片、面板）打开时整个原生栏层已经淡出
+    private func updateAccessory(animated: Bool) {
+        let acc = state?.accessory
+        if let acc, let p = state?.palette { accessoryView.configure(acc, palette: p) { [weak self] in self?.color($0) } }
+        let want = acc != nil && !keyboardShown && accessoryFits
+        guard want != (tabs.bottomAccessory != nil) else { return }
+        tabs.setBottomAccessory(want ? UITabAccessory(contentView: accessoryView) : nil, animated: animated)
+        queueGeometry()
     }
+
+    /// 输入条放得下吗：栏竖排（Duo）时系统不把它放进竖条，而是横贯两页底部、跨过折痕（27.1 模拟器实测），
+    /// 所以不设，退回竖条里的「+」（见 configureItems）。启动参数 -accessoryVertical 强制挂上，用来复核系统摆法
+    private var accessoryFits: Bool { builtVertical == false || ProcessInfo.processInfo.arguments.contains("-accessoryVertical") }
 
     // MARK: 网页状态
 
@@ -418,7 +418,8 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         let old = state
         state = s
         applyTabs(s, tint: old?.palette != s.palette)
-        if old?.profile != s.profile || old?.sync != s.sync || old?.menu != s.menu || old?.palette != s.palette {
+        if old?.profile != s.profile || old?.sync != s.sync || old?.menu != s.menu || old?.palette != s.palette
+            || old?.spaces != s.spaces || old?.accessory != s.accessory {
             configureItems()
         }
         if let old {
@@ -470,11 +471,10 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
     private func updateVisibility(animated: Bool) {
         let modal = state?.modal ?? false
         let hideBar = modal || keyboardShown
+        updateAccessory(animated: animated)
         if tabs.isTabBarHidden != hideBar {
             if hideBar { frozenBottom = (lastGeometry?["insets"] as? [String: Any])?["bottom"] as? CGFloat }
             tabs.setTabBarHidden(hideBar, animated: animated)
-            let move = { self.plusButton.transform = hideBar ? CGAffineTransform(translationX: 0, y: 140) : .identity }
-            if animated { UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseInOut, animations: move) } else { move() }
             if !hideBar {
                 frozenBottom = nil
                 queueGeometry()
@@ -522,13 +522,12 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         guard let s = state else { return }
         let p = s.palette
 
+        // 点头像直接弹菜单（没有 primaryAction，菜单就是点按的动作）
         let avatar = UIBarButtonItem(
             image: avatarImage(name: s.profile.name, bg: color(s.profile.bg) ?? .black, fg: color(s.profile.fg) ?? .white),
-            primaryAction: UIAction(title: "空间", image: UIImage(systemName: "person.2")) { [weak self] _ in
-                self?.web.chrome.send("action", ["name": "profiles"])
-            }
+            menu: nil
         )
-        avatar.accessibilityLabel = "当前空间：\(s.profile.name)，点按切换"
+        avatar.accessibilityLabel = "当前空间：\(s.profile.name)，空间和设置"
 
         let sync = UIBarButtonItem(
             image: syncImage(s.sync.icon),
@@ -544,18 +543,25 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
             sync.addSymbolEffect(.rotate.byLayer, options: .repeat(.continuous))
         }
 
+        // 头像 = 空间 + 设置合并菜单（设计方案 A，替代原来的 ⋯ 溢出菜单和点头像开空间面板）；右上只留一颗云朵
+        avatar.menu = UIMenu(children: [UIDeferredMenuElement.uncached { [weak self] completion in
+            completion(self?.avatarMenuItems() ?? [])
+        }])
         item.leftBarButtonItem = avatar
-        if builtVertical == true {
-            // 栏竖排时「+」跟导航按钮一起由系统排进侧边那一列（HIG：常用的新建保持可见）
+        item.additionalOverflowItems = nil
+        if builtVertical == true && !accessoryFits {
+            // 栏竖排（Duo 外屏、内屏横握）时放不下输入条：退回竖条里一颗荧光绿 prominent「+」，系统把它排在头像、云朵下面
             let lime = color(p.lime) ?? .systemYellow
             let ink = color(p.limeInk) ?? .black
-            let glyph = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .semibold))?
+            let glyph = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(weight: .bold))?
                 .withTintColor(ink, renderingMode: .alwaysOriginal)
             let plus = UIBarButtonItem(image: glyph, primaryAction: UIAction(title: "新建", image: UIImage(systemName: "plus")) { [weak self] _ in
                 self?.compose()
             })
             plus.style = .prominent
             plus.tintColor = lime
+            plus.sharesBackground = false
+            plus.accessibilityLabel = "新建"
             if #available(iOS 27.0, *) {
                 // 竖排栏放不下时（外屏横握）按钮会收进 ⋯：新建最常用，留得最久；同步按钮带冲突角标，其次
                 plus.visibilityPriority = UIBarButtonItemVisibilityPriority(higherThan: .high)
@@ -565,20 +571,34 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         } else {
             item.rightBarButtonItems = [sync]
         }
-        // ⋯ 用系统的溢出菜单（HIG：自己的 ⋯ 菜单并进系统的），在 Duo 的竖排栏里也由系统摆放
-        item.additionalOverflowItems = UIDeferredMenuElement.uncached { [weak self] completion in
-            completion(self?.overflowItems() ?? [])
-        }
     }
 
-    /// ⋯ 菜单（设计 P11）：回收站、同步、空间 | 外观、完成提示音、触感反馈
+    /// 头像菜单：上半是空间（当前打勾、FOCUS 件数、最后「新建空间…」），下半是回收站、同步、外观、提示音、触感
+    private func avatarMenuItems() -> [UIMenuElement] {
+        guard let s = state else { return [] }
+        let send: (String) -> UIActionHandler = { name in { [weak self] _ in self?.web.chrome.send("action", ["name": name]) } }
+        let spaces: [UIMenuElement] = s.spaces.map { sp in
+            UIAction(
+                title: sp.name,
+                subtitle: sp.count > 0 ? "\(sp.count) 件在 FOCUS" : "FOCUS 空着",
+                image: avatarImage(name: sp.name, bg: color(sp.bg) ?? .black, fg: color(sp.fg) ?? .white),
+                state: sp.current ? .on : .off,
+                handler: send("space:\(sp.id)"))
+        }
+        let newSpace = UIAction(title: "新建空间…", image: UIImage(systemName: "plus")) { [weak self] _ in
+            self?.takeFirstResponder()
+            self?.web.chrome.send("action", ["name": "newSpace"])
+        }
+        return [UIMenu(title: "空间", options: .displayInline, children: spaces + [newSpace])] + overflowItems()
+    }
+
+    /// 头像菜单的下半：回收站、同步 | 外观、完成提示音、触感反馈（原来 ⋯ 菜单里的事都在这里）
     private func overflowItems() -> [UIMenuElement] {
         guard let s = state else { return [] }
         let m = s.menu
         let send: (String) -> UIActionHandler = { name in { [weak self] _ in self?.web.chrome.send("action", ["name": name]) } }
         let trash = UIAction(title: "回收站", subtitle: m.trash > 0 ? "\(m.trash) 项" : nil, image: UIImage(systemName: "trash"), handler: send("trash"))
         let sync = UIAction(title: "同步", subtitle: s.sync.status, image: UIImage(systemName: "icloud"), handler: send("sync"))
-        let profiles = UIAction(title: "空间", subtitle: m.space, image: UIImage(systemName: "person.2"), handler: send("profiles"))
         let sound = UIAction(title: "完成提示音", image: UIImage(systemName: "speaker.wave.2"), state: m.sound ? .on : .off, handler: send("sound"))
         let haptics = UIAction(title: "触感反馈", image: UIImage(systemName: "iphone.radiowaves.left.and.right"), state: m.haptics ? .on : .off, handler: send("haptics"))
         let looks: [(String, String)] = [("system", "跟随系统"), ("light", "浅色"), ("dark", "深色")]
@@ -589,10 +609,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
             children: looks.map { key, title in
                 UIAction(title: title, state: m.appearance == key ? .on : .off, handler: send("appearance:\(key)"))
             })
-        return [
-            UIMenu(options: .displayInline, children: [trash, sync, profiles]),
-            UIMenu(options: .displayInline, children: [appearance, sound, haptics]),
-        ]
+        return [UIMenu(options: .displayInline, children: [trash, sync, appearance, sound, haptics])]
     }
 
     /// 云朵的几种状态（设计：已同步带勾、同步中双箭头、离线斜线、出错感叹号、未开启虚线）
@@ -670,8 +687,6 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
                 right: max(0, b.maxX - safe.maxX - sys.right)
             )
         }
-        // 「+」那一格只在底栏那一行，内容不用让
-        extra.right = max(0, extra.right - plusSlot)
         if let frozenBottom { extra.bottom = frozenBottom }
 
         var g: [String: Any] = [
@@ -684,6 +699,11 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         g["fold"] = NSNull()
         g["bar"] = NSNull()
         if let nav = navMetrics() { g["nav"] = nav }
+        // 新建输入条在哪：网页的新建卡片从这里长出来、收回这里
+        if tabs.bottomAccessory != nil, accessoryView.window != nil, !tabs.isTabBarHidden {
+            let f = accessoryView.convert(accessoryView.bounds, to: view)
+            g["accessory"] = ["left": f.minX, "right": view.bounds.maxX - f.maxX, "bottom": view.bounds.maxY - f.maxY, "height": f.height]
+        }
         if ProcessInfo.processInfo.arguments.contains("-chromeDebug") {
             g["debug"] = "kb=\(keyboardShown) hidden=\(tabs.isTabBarHidden) vertical=\(String(describing: builtVertical))"
         }
@@ -871,5 +891,96 @@ private extension UIResponder {
 
     @objc private func captureCurrentResponder() {
         UIResponder.found = self
+    }
+}
+
+// MARK: - 新建输入条
+
+/// 页签栏上方的新建输入条（UITabAccessory 的内容）：左边荧光绿 34 圆里一个近黑「+」，中间这一页的提示语，
+/// 右边小字是新建会落到哪个列表。页签栏滚动收起、输入条并到它旁边（inline）时只剩「+ 提示语」。整条可点。
+@available(iOS 26.0, *)
+final class NewItemAccessoryView: UIView {
+    var onTap: (() -> Void)?
+    private let plus = UIView()
+    private let plusGlyph = UIImageView()
+    private let hint = UILabel()
+    private let target = UILabel()
+    private let targetIcon = UIImageView()
+    private var stack: UIStackView!
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        plus.layer.cornerRadius = 17
+        plus.translatesAutoresizingMaskIntoConstraints = false
+        plusGlyph.translatesAutoresizingMaskIntoConstraints = false
+        plusGlyph.contentMode = .center
+        plus.addSubview(plusGlyph)
+        hint.font = .systemFont(ofSize: 15)
+        hint.lineBreakMode = .byTruncatingTail
+        hint.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // 多出来的宽度都给提示语，右边的列表名靠右
+        hint.setContentHuggingPriority(UILayoutPriority(1), for: .horizontal)
+        target.font = .systemFont(ofSize: 10.5, weight: .heavy)
+        target.setContentHuggingPriority(.required, for: .horizontal)
+        targetIcon.contentMode = .scaleAspectFit
+        targetIcon.translatesAutoresizingMaskIntoConstraints = false
+        let right = UIStackView(arrangedSubviews: [targetIcon, target])
+        right.spacing = 4
+        right.alignment = .center
+        right.setContentHuggingPriority(.required, for: .horizontal)
+        right.setContentCompressionResistancePriority(.required, for: .horizontal)
+        stack = UIStackView(arrangedSubviews: [plus, hint, right])
+        stack.spacing = 10
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            plus.widthAnchor.constraint(equalToConstant: 34),
+            plus.heightAnchor.constraint(equalToConstant: 34),
+            plusGlyph.centerXAnchor.constraint(equalTo: plus.centerXAnchor),
+            plusGlyph.centerYAnchor.constraint(equalTo: plus.centerYAnchor),
+            targetIcon.widthAnchor.constraint(equalToConstant: 12),
+            targetIcon.heightAnchor.constraint(equalToConstant: 12),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        isAccessibilityElement = true
+        accessibilityTraits = .button
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped)))
+        registerForTraitChanges([UITraitTabAccessoryEnvironment.self]) { (self: Self, _: UITraitCollection) in
+            self.updateEnvironment()
+        }
+        updateEnvironment()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    @objc private func tapped() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        onTap?()
+    }
+
+    /// inline（并到收起的页签栏旁边）时只剩「+ 提示语」
+    private func updateEnvironment() {
+        let inline = traitCollection.tabAccessoryEnvironment == .inline
+        stack.arrangedSubviews.last?.isHidden = inline
+    }
+
+    func configure(_ acc: ChromeState.Accessory, palette p: ChromeState.Palette, color: (String) -> UIColor?) {
+        let lime = color(p.lime) ?? .systemYellow
+        let ink = UIColor(red: 0x0B / 255, green: 0x0B / 255, blue: 0x0C / 255, alpha: 1)
+        let muted = color(p.muted) ?? .secondaryLabel
+        let text = color(p.text) ?? .label
+        plus.backgroundColor = lime
+        plusGlyph.image = UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold))?
+            .withTintColor(ink, renderingMode: .alwaysOriginal)
+        hint.text = acc.hint
+        hint.textColor = muted
+        target.attributedText = NSAttributedString(string: acc.label, attributes: [.kern: 0.6, .foregroundColor: text.withAlphaComponent(0.7)])
+        let icon = ChromeShellController.sections.first { $0.id == acc.list }.flatMap { ChromeShellController.icon($0.symbol) }
+        targetIcon.image = icon?.withTintColor(text.withAlphaComponent(0.7), renderingMode: .alwaysOriginal)
+        accessibilityLabel = "新建：\(acc.hint)，放进 \(acc.label)"
     }
 }

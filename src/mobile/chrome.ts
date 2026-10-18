@@ -4,9 +4,9 @@
 // 原生外壳不在时（浏览器、iOS 26 之前）nativeChrome 为 false，网页照旧自己画页签。
 import { registerPlugin } from '@capacitor/core';
 import { create } from 'zustand';
-import { composeTarget, openRoots } from './components/Chrome';
+import { composeTarget, newBarOf, openRoots } from './components/Chrome';
 import { avatarColors, type Appearance, type Section } from './data';
-import { goSection, openComposer } from './actions';
+import { goSection, openComposer, switchSpace } from './actions';
 import { statusOf } from './components/SyncSheets';
 import { activeOf, useData } from './store';
 import { isDark, onThemeChange } from './theme';
@@ -32,6 +32,8 @@ export interface ChromeGeometry {
   targets: Partial<Record<Section, Point>>;
   /** 栏横排时导航栏那一行：网页把标题画在头像右边、按钮左边 */
   nav: { top: number; height: number; leadingEnd: number; trailingStart: number } | null;
+  /** 新建输入条（页签栏上方的 bottom accessory）的位置：新建卡片从这里长出来 */
+  accessory?: { left: number; right: number; bottom: number; height: number } | null;
 }
 
 const EMPTY: ChromeGeometry = {
@@ -64,6 +66,14 @@ function applyGeometry(raw: Partial<ChromeGeometry>) {
   else delete root.dataset.hinge;
   if (geo.bar) root.dataset.bar = geo.bar;
   else delete root.dataset.bar;
+  // 新建卡片关着时就停在输入条的位置（透明），打开时从这里长到键盘上面
+  if (geo.accessory) {
+    root.dataset.acc = '';
+    root.style.setProperty('--acc-left', `${geo.accessory.left}px`);
+    root.style.setProperty('--acc-right', `${geo.accessory.right}px`);
+    root.style.setProperty('--acc-bottom', `${geo.accessory.bottom}px`);
+    root.style.setProperty('--acc-h', `${geo.accessory.height}px`);
+  } else delete root.dataset.acc;
   if (geo.nav) {
     root.style.setProperty('--nav-top', `${geo.nav.top}px`);
     root.style.setProperty('--nav-h', `${geo.nav.height}px`);
@@ -117,11 +127,20 @@ function snapshot() {
       label: conflicts ? `有 ${conflicts} 个冲突需要决定` : st.text,
       status: conflicts ? `${conflicts} 个冲突` : (short[st.tone] ?? ''),
     },
+    // 头像菜单上半的空间列表
+    spaces: d.profiles.map((p) => ({
+      id: p.id,
+      name: p.name,
+      ...avatarColors(p.tint, dark),
+      count: openRoots(p.todos, 'focus'),
+      current: p.id === profile.id,
+    })),
+    // 新建输入条（HISTORY 页为 null）
+    accessory: newBarOf(d.prefs.section),
     menu: {
       trash: profile.trash.length,
       sound: d.prefs.sound,
       haptics: d.prefs.haptics,
-      space: profile.name,
       appearance: d.prefs.appearance,
     },
     modal: !!(ui.sheet || ui.menu || ui.more || ui.composer.open),
@@ -149,11 +168,16 @@ function onAction(name: string) {
     case 'haptics':
       d.setPrefs({ haptics: !d.prefs.haptics });
       break;
+    case 'newSpace':
+      ui.set({ sheet: 'profiles', spaceAdd: true, menu: null, swipedId: null, editingId: null });
+      break;
     case 'appearance:system':
     case 'appearance:light':
     case 'appearance:dark':
       d.setPrefs({ appearance: name.slice('appearance:'.length) as Appearance });
       break;
+    default:
+      if (name.startsWith('space:')) switchSpace(name.slice('space:'.length));
   }
 }
 

@@ -13,6 +13,7 @@ import {
   sendToFocus,
   setNow,
   startEdit,
+  switchSpace,
   toggleTest,
   toggleTodo,
   undoDelete,
@@ -27,10 +28,10 @@ import {
   EyeCheckIcon,
   HapticIcon,
   MoveIcon,
+  PlusIcon,
   OutdentIcon,
   SectionIcons,
   SoundIcon,
-  SpacesIcon,
   SubtaskIcon,
   TrashIcon,
   UncheckIcon,
@@ -39,6 +40,7 @@ import {
 import { activeOf, useData, useTodos } from '../store';
 import { useUi, type Rect } from '../ui';
 import type { Appearance } from '../data';
+import { Avatar, openRoots } from './Chrome';
 import { statusOf } from './SyncSheets';
 
 /** 读安全区（env() 只能在 CSS 里取，借一个探针元素） */
@@ -303,12 +305,15 @@ export function MoreMenu() {
   const anchor = useUi((s) => s.more);
   const prefs = useData((s) => s.prefs);
   const trashCount = useData((s) => activeOf(s)?.trash.length ?? 0);
-  const space = useData((s) => activeOf(s)?.name ?? '');
+  const profiles = useData((s) => s.profiles);
+  const activeId = useData((s) => s.activeId);
   const status = useData((s) => s.syncStatus);
   const enabled = useData((s) => s.local.sync.enabled);
   const close = () => useUi.getState().set({ more: null });
   const vw = typeof window !== 'undefined' ? window.innerWidth : 400;
-  const w = Math.min(250, vw - 24);
+  const w = Math.min(286, vw - 24);
+  // 从左上的头像弹出时左对齐，从右上的 ⋯ 弹出时右对齐
+  const fromLeft = !!anchor && anchor.left + anchor.width / 2 < vw / 2;
   const st = statusOf(status, enabled);
   const short: Record<string, string> = { ok: '已同步', busy: '同步中', warn: '离线', bad: '出错', off: '未开启' };
   return (
@@ -327,9 +332,11 @@ export function MoreMenu() {
             role="menu"
             style={{
               top: anchor.top + anchor.height + 8,
-              left: Math.min(Math.max(anchor.left + anchor.width - w, 12), vw - w - 12),
+              left: Math.min(Math.max(fromLeft ? anchor.left : anchor.left + anchor.width - w, 12), vw - w - 12),
               width: w,
-              transformOrigin: 'top right',
+              transformOrigin: fromLeft ? 'top left' : 'top right',
+              maxHeight: `calc(100% - ${anchor.top + anchor.height + 24}px)`,
+              overflowY: 'auto',
             }}
             initial={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -337,6 +344,24 @@ export function MoreMenu() {
             transition={{ type: 'spring', stiffness: 540, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* 上半：空间（当前打勾、FOCUS 件数、最后「新建空间…」）——设计方案 A 的头像菜单 */}
+            <div className="mi-head">空间</div>
+            {profiles.map((p) => {
+              const n = openRoots(p.todos, 'focus');
+              return (
+                <button key={p.id} className="mi" role="menuitemradio" aria-checked={p.id === activeId} onClick={() => switchSpace(p.id)}>
+                  <Avatar profile={p} size={24} />
+                  <span className="mi-label">{p.name}</span>
+                  <em>{n > 0 ? n : ''}</em>
+                  {p.id === activeId && <CheckIcon width={16} height={16} />}
+                </button>
+              );
+            })}
+            <button className="mi" onClick={() => useUi.getState().set({ more: null, sheet: 'profiles', spaceAdd: true })}>
+              <PlusIcon />
+              <span className="mi-label">新建空间…</span>
+            </button>
+            <div className="mi-sep" />
             <button className="mi" onClick={() => useUi.getState().set({ more: null, sheet: 'trash' })}>
               <TrashIcon />
               <span className="mi-label">回收站</span>
@@ -347,12 +372,6 @@ export function MoreMenu() {
               <span className="mi-label">同步</span>
               <em>{short[st.tone]}</em>
             </button>
-            <button className="mi" onClick={() => useUi.getState().set({ more: null, sheet: 'profiles' })}>
-              <SpacesIcon />
-              <span className="mi-label">空间</span>
-              <em>{space} ›</em>
-            </button>
-            <div className="mi-sep" />
             <div className="mi mi-static">
               <AppearanceIcon />
               <span className="mi-label">外观</span>

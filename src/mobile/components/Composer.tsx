@@ -8,6 +8,7 @@ import { haptic, onKeyboard } from '../native';
 import { useData, useTodos } from '../store';
 import { restored, saveTransient } from '../transient';
 import { pulse, useRefitOnWidth, useUi } from '../ui';
+import { NEW_HINT } from './Chrome';
 
 export function Composer() {
   const { open, list, parentId } = useUi((s) => s.composer);
@@ -109,7 +110,8 @@ export function Composer() {
             ref={ref}
             value={text}
             rows={1}
-            placeholder={parent ? '子任务…' : meta.placeholder}
+            // 接着输入条上的提示语；FOCUS 关掉「排在现在之后」时新建的就是 NOW
+            placeholder={parent ? '子任务…' : list === 'focus' && !afterNow ? meta.placeholder : NEW_HINT[list]}
             enterKeyHint="send"
             onChange={(e) => {
               setText(e.target.value);

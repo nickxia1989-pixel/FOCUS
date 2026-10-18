@@ -1,6 +1,6 @@
 // 外框：滚动页（标题、左右两页）、网页这一层的导航栏、网页版页签栏 / 侧栏、空间头像
 import { motion } from 'motion/react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { completedSince, startOfToday } from '../../model';
 import { LISTS, type ListId } from '../../types';
 import { nativeChrome } from '../chrome';
@@ -25,6 +25,19 @@ const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周�
 
 /** 新建时默认放进哪个列表：HISTORY 页里新建的进 FOCUS */
 export const composeTarget = (s: Section): ListId => (s === 'history' ? 'focus' : s);
+
+/** 新建输入条（页签栏上方）每一页的提示语，新建卡的占位字接着用它；HISTORY 页不显示输入条 */
+export const NEW_HINT: Record<ListId, string> = {
+  focus: '接下来要做…',
+  verify: '做完了、还要测一下的事…',
+  inbox: '想到什么，先丢进来…',
+  goal: '写下一个长期目标…',
+};
+
+export function newBarOf(section: Section): { hint: string; list: ListId; label: string } | null {
+  if (section === 'history') return null;
+  return { hint: NEW_HINT[section], list: section, label: SECTION_META[section].label };
+}
 
 export function Avatar({ profile, size = 30 }: { profile: Profile; size?: number }) {
   const c = avatarColors(profile.tint, useDark());
@@ -252,13 +265,10 @@ export function Screen({
       <div className="navbar">
         <div className="navbar-bg" style={{ opacity: scrolled ? 1 : 0, transition: 'opacity .2s' }} />
         <div className="navbar-row">
-          {/* 原生外壳在时头像、云朵、⋯ 是原生的玻璃按钮，这里只画标题 */}
+          {/* 原生外壳在时头像、云朵是原生的玻璃按钮，这里只画标题 */}
           {!nativeChrome && !wide && (
-            <button
-              className="gbtn glass"
-              aria-label={`当前空间：${profile.name}，点按切换`}
-              onClick={() => useUi.getState().set({ sheet: 'profiles' })}
-            >
+            // 头像 = 空间 + 设置合并菜单（设计方案 A；⋯ 并进来了）
+            <button className="gbtn glass" aria-label={`当前空间：${profile.name}，空间和设置`} onClick={openMore}>
               <Avatar profile={profile} size={30} />
             </button>
           )}
@@ -266,20 +276,24 @@ export function Screen({
             <span className="nav-title-date">{date}</span>
             <b className="nav-title-main">{title}</b>
           </div>
-          {!nativeChrome && (
-            <div className="gcap glass">
-              {/* 大屏没有底部页签栏和 + 钮，新建放在这里 */}
-              {wide && (
+          {!nativeChrome &&
+            (wide ? (
+              // 大屏（侧栏）没有底部页签栏和输入条，也没有导航栏里的头像：新建和菜单放在右上胶囊里
+              <div className="gcap glass">
                 <button aria-label="新建" onClick={() => openComposer(composeTarget(section))}>
                   <PlusIcon />
                 </button>
-              )}
-              <SyncButton />
-              <button aria-label="更多" onClick={openMore}>
-                <MoreIcon />
-              </button>
-            </div>
-          )}
+                <SyncButton />
+                <button aria-label="空间和设置" onClick={openMore}>
+                  <MoreIcon />
+                </button>
+              </div>
+            ) : (
+              // 窄屏：右上只留一颗玻璃云朵
+              <div className="gcap gcap-one glass">
+                <SyncButton />
+              </div>
+            ))}
         </div>
       </div>
       {!spread && <div className="edge-fade" />}
@@ -293,17 +307,59 @@ const BADGED = new Set<Section>(['focus', 'verify', 'inbox']);
 
 export function TabBar({ section, hidden }: { section: Section; hidden: boolean }) {
   const counts = useCounts();
+  const bar = newBarOf(section);
   return (
     <div className="tabbar-wrap" inert={hidden} aria-hidden={hidden}>
+      {bar && <NewBar bar={bar} />}
       <nav className="tabbar glass" aria-label="分区">
         {SECTIONS.map((s) => (
           <TabButton key={s} section={s} active={s === section} count={BADGED.has(s) ? counts[s] : 0} />
         ))}
       </nav>
-      <button className="fab" aria-label="新建" onClick={() => openComposer(composeTarget(section))}>
-        <PlusIcon />
-      </button>
     </div>
+  );
+}
+
+/**
+ * 网页自己画栏时（iOS 26 之前、浏览器、-cssChrome）的新建输入条：页签栏上方一条玻璃胶囊，
+ * 和原生的 bottom accessory 一样。位置写进 --acc-*，新建卡片从这里长出来
+ */
+function NewBar({ bar }: { bar: { hint: string; list: ListId; label: string } }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const Icon = SectionIcons[bar.list];
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const write = () => {
+      const r = el.getBoundingClientRect();
+      root.dataset.acc = '';
+      root.style.setProperty('--acc-left', `${r.left}px`);
+      root.style.setProperty('--acc-right', `${window.innerWidth - r.right}px`);
+      root.style.setProperty('--acc-bottom', `${window.innerHeight - r.bottom}px`);
+      root.style.setProperty('--acc-h', `${r.height}px`);
+    };
+    write();
+    const ro = new ResizeObserver(write);
+    ro.observe(el);
+    window.addEventListener('resize', write);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', write);
+      delete root.dataset.acc;
+    };
+  }, []);
+  return (
+    <button ref={ref} className="newbar glass" onClick={() => openComposer(bar.list)}>
+      <span className="newbar-plus" aria-hidden>
+        <PlusIcon />
+      </span>
+      <span className="newbar-hint">{bar.hint}</span>
+      <span className="newbar-target">
+        <Icon />
+        {bar.label}
+      </span>
+    </button>
   );
 }
 

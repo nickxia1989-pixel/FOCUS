@@ -218,6 +218,18 @@ export function restoreFromTrash(entryId: string) {
   showToast(`已恢复到 ${listLabel(list)}`);
 }
 
+/** 切换空间（头像菜单） */
+export function switchSpace(id: string) {
+  const d = useData.getState();
+  useUi.getState().set({ menu: null, more: null, swipedId: null, editingId: null });
+  if (id === d.activeId) return;
+  const p = d.profiles.find((x) => x.id === id);
+  if (!p) return;
+  haptic.light();
+  d.switchProfile(id);
+  showToast(`已切换到「${p.name}」`);
+}
+
 // ---------- 新建输入卡片 ----------
 
 /**
