@@ -63,7 +63,7 @@ function useShortcuts() {
         requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('add-input')?.focus()));
         return;
       }
-      if (mod && e.key.toLowerCase() === 'z' && !isTyping(e) && useUi.getState().toast?.undoEntry) {
+      if (mod && e.key.toLowerCase() === 'z' && !isTyping(e) && (useUi.getState().toast?.undoEntry || useUi.getState().toast?.undo)) {
         e.preventDefault();
         undoDelete();
       }
@@ -136,6 +136,7 @@ export default function App() {
                 <motion.div
                   key={viewKey}
                   className="view"
+                  data-view-key={viewKey}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0, transition: { duration: 0.16, delay: 0.06, ease: EASE } }}
                   exit={{ opacity: 0, y: 4, transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } }}

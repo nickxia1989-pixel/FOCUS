@@ -223,6 +223,28 @@ export function moveTodoTo(todo: Todo, list: ListId) {
   useData.getState().move(todo.id, list);
 }
 
+/**
+ * 拖到页签 / 侧栏的列表上：整棵移过去成顶层。
+ * FOCUS 排在 NOW 之后（送进 FOCUS），VERIFY 和其它列表排在最前（放进 VERIFY 等于送去验证：回到未完成）。
+ */
+export function moveToListByDrag(todo: Todo, list: ListId) {
+  if (list === 'focus') {
+    sendToFocus(todo);
+    return;
+  }
+  const el = isNow(todo) ? nowCardOf(todo.id) : rowOf(todo.id);
+  if (isNow(todo)) {
+    const next = nextAfter(todo.id);
+    if (next) {
+      prepareHandoff(next.id, rowOf(next.id), 60);
+      setExitMode(next.id, 'instant');
+    }
+  } else setExitMode(todo.id, 'collapse');
+  if (list === 'verify' && soundOn()) chime(0.5, 0.6);
+  flyToTab(el, list);
+  useData.getState().place(todo.id, { list, parentId: null, index: 0 });
+}
+
 // ---------- 设为现在 ----------
 
 /**
@@ -283,10 +305,13 @@ export function deleteWithUndo(todo: Todo) {
   showToast(`已删除「${truncate(todo.title, 14)}」${extra}`, entryId);
 }
 
+/** 提示条上的「撤销」（⌘Z 也走这里）：删除的从回收站放回，拖动的放回原位 */
 export function undoDelete() {
   const { toast } = useUi.getState();
-  if (!toast?.undoEntry) return;
-  useData.getState().restoreTrash(toast.undoEntry);
+  if (!toast) return;
+  if (toast.undoEntry) useData.getState().restoreTrash(toast.undoEntry);
+  else if (toast.undo) toast.undo();
+  else return;
   useUi.getState().set({ toast: null });
 }
 

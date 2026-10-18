@@ -1,11 +1,11 @@
 import { AnimatePresence, motion, type Variants } from 'motion/react';
-import { useMemo, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
-import { moveTodoTo, sendToFocus, sendToVerify, setNow, toggleTodo } from '../actions';
+import { useMemo, type CSSProperties, type MouseEvent } from 'react';
+import { sendToFocus, sendToVerify, setNow, toggleTodo } from '../actions';
 import { beginEdit, startAddChild } from '../editing';
 import { withDraft, type Draft } from '../outline';
-import { beginPointerDrag } from '../dnd';
+import { dragAttrs, startTreeDrag } from '../dnd';
 import { exitModes, type ExitMode } from '../fx';
-import { childrenOf, descendantIds, type TreeIndex } from '../model';
+import { childrenOf, type TreeIndex } from '../model';
 import { useData, useUi, type MenuState } from '../store';
 import type { Todo } from '../types';
 import { LIST_COLOR, LIST_SOFT } from './copy';
@@ -36,38 +36,6 @@ export function nodeVariants(id: string): Variants {
 
 export const presenceProps = { initial: false, custom: exitModes } as const;
 
-/** 同层排序、拖到页签换列表；FOCUS 队列的行还能拖到 NOW 卡上设为现在 */
-export function useRowDrag(todo: Todo, siblings: Todo[], opts: { queueOffset?: number; canDropNow?: boolean } = {}) {
-  return (e: PointerEvent) => {
-    const ui = useUi.getState();
-    if (ui.editingId === todo.id || ui.completing[todo.id]) return;
-    const all = useData.getState().todos;
-    const offset = opts.queueOffset ?? 0;
-    beginPointerDrag(e, {
-      id: todo.id,
-      list: todo.list,
-      siblingIds: siblings.filter((s) => s.done === todo.done).map((s) => s.id),
-      descendantCount: descendantIds(all, todo.id).size,
-      // 队列不含 NOW：插入位置要跳过它
-      onReorder: (id, to) => useData.getState().reorder(id, to + offset),
-      onMoveToList: (id, list) => {
-        const t = useData.getState().todos.find((x) => x.id === id);
-        if (t) moveTodoTo(t, list);
-      },
-      onHoverTab: (list) => useUi.getState().set({ dragOverTab: list }),
-      ...(opts.canDropNow
-        ? {
-            onHoverNow: (over: boolean) => useUi.getState().set({ dropNow: over }),
-            onDropNow: (id: string, rect: DOMRect) => {
-              const t = useData.getState().todos.find((x) => x.id === id);
-              if (t) setNow(t, rect);
-            },
-          }
-        : {}),
-    });
-  };
-}
-
 export function openMenuAt(e: MouseEvent, todo: Todo, fromButton = false, kind?: MenuState['kind']) {
   e.preventDefault();
   e.stopPropagation();
@@ -92,8 +60,6 @@ interface Props {
   todo: Todo;
   depth: number;
   index: TreeIndex;
-  /** 同层兄弟（已排序），拖拽时取同状态的子集 */
-  siblings: Todo[];
   /** queue = FOCUS「接下来」的行（序号、逐行变淡、悬停出现设为现在） */
   variant?: 'list' | 'queue';
   /** 队列序号（02、03…） */
@@ -102,7 +68,7 @@ interface Props {
 }
 
 /** 一行待办和它的子项 */
-export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, fade = 1 }: Props) {
+export function TodoNode({ todo, depth, index, variant = 'list', no, fade = 1 }: Props) {
   const children = childrenOf(index, todo.id);
   const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
@@ -121,7 +87,6 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
     else cur[todo.id] = true;
     useUi.getState().set({ queueOpen: cur });
   };
-  const onPointerDown = useRowDrag(todo, siblings, queue ? { queueOffset: 1, canDropNow: true } : {});
 
   const checked = todo.done || completing;
   const testing = !!todo.testing && !checked;
@@ -161,7 +126,8 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
       <div
         className={rowClass}
         style={{ '--c': color, '--cs': LIST_SOFT[todo.list] } as CSSProperties}
-        onPointerDown={onPointerDown}
+        {...dragAttrs(todo, depth, { collapsed: children.length > 0 && folded, indent: 26 })}
+        onPointerDown={(e) => startTreeDrag(e, todo, queue && no !== undefined ? { no: String(no).padStart(2, '0') } : {})}
         onContextMenu={(e) => openMenuAt(e, todo)}
         onDoubleClick={(e) => {
           if ((e.target as HTMLElement).closest('button')) return;
@@ -244,7 +210,7 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
               c === 'draft' ? (
                 <DraftRow key={draftKey(draft!)} />
               ) : (
-                <TodoNode key={c.id} todo={c} depth={depth + 1} index={index} siblings={children} />
+                <TodoNode key={c.id} todo={c} depth={depth + 1} index={index} />
               ),
             )}
           </AnimatePresence>

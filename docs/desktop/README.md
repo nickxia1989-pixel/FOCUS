@@ -40,6 +40,14 @@
 | `mac-25-now-subtask-menu.jpg` | NOW 卡子任务的右键菜单：完成、编辑、待验证、升一级、删除 |
 | `mac-26-appearance-menu.jpg` | `⋯` 菜单「外观」：跟随系统 / 浅色 / 深色 |
 | `mac-27-keys.jpg` | `⋯` 菜单「快捷键与编辑…」 |
+| `mac-28-drag-reorder.jpg` | 自由拖拽：同级排序，插入线在深度 0 |
+| `mac-29-drag-depth1-parent.jpg` | 往右拖一级：插入线缩进到深度 1，新父项（03）高亮，竖线连到插入线；折叠的 03 悬停 600ms 自动展开了 |
+| `mac-30-drag-depth2.jpg` | 再往右一级：深度 2，挂到「在 completedFrom…」下面 |
+| `mac-31-drag-undo.jpg` | 换了父项：「已移到「…」下 · 撤销」，5 秒内可撤销 |
+| `mac-32-drag-into-now.jpg` | 队列里的项拖进 NOW 卡的子任务：NOW 卡作为新父项描边 |
+| `mac-33-drag-subtask-out.jpg` | NOW 卡上的子任务拖出来，成队列里的一项（深度 0） |
+| `mac-34-drag-set-now.jpg` | 拖到 NOW 卡标题区 = 设为现在（卡片描边，不画插入线） |
+| `mac-35-drag-to-tab.jpg` | 拖到 INBOX 页签上换列表（停 800ms 会切过去继续拖） |
 | `mac-sync-states.jpg` | 标题栏云朵的六种状态 |
 
 ## Windows
