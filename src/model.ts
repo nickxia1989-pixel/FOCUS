@@ -295,6 +295,45 @@ export function outdentTodo(todos: Todo[], id: string): Todo[] {
   return at >= 0 ? reorderTodo(next, id, at + 1) : next;
 }
 
+/** 自由拖拽的落点：挂到 parentId 下（顶层为 null），排在同级、同完成状态的第 index 位 */
+export interface PlaceTarget {
+  list: ListId;
+  parentId: string | null;
+  index: number;
+}
+
+/**
+ * 放到任意位置（自由拖拽）：子孙跟着走；index 超出范围就排到最后。
+ * 挂到自己或自己的子孙下面、父项不存在时原样返回。放进折叠着的父项时自动展开。
+ * VERIFY 的顶层项本身就是待测：
+ * - VERIFY 里的顶层项放成子项时打上待测标记，「待验证」不丢；
+ * - 放成 VERIFY 顶层时去掉待测标记；从别的列表放进来的，和「送去验证」一样回到未完成。
+ */
+export function placeTodo(todos: Todo[], id: string, target: PlaceTarget): Todo[] {
+  const t = todos.find((x) => x.id === id);
+  if (!t) return todos;
+  const subtree = descendantIds(todos, id);
+  const parent = target.parentId ? todos.find((x) => x.id === target.parentId) : undefined;
+  if (target.parentId && (!parent || parent.id === id || subtree.has(parent.id))) return todos;
+  const parentId = parent?.id ?? null;
+  const list = parent ? parent.list : target.list;
+  let next = todos;
+  if (t.parentId !== parentId || t.list !== list) {
+    let patch: Partial<Todo> = { parentId, list };
+    if (!parent && list === 'verify') {
+      patch.testing = false;
+      if (t.list !== 'verify') patch = { ...patch, done: false, completedAt: null, completedFrom: undefined };
+    } else if (parent && t.parentId === null && t.list === 'verify' && list === 'verify' && !t.done) patch.testing = true;
+    next = todos.map((x) => {
+      if (x.id === id) return { ...x, ...patch };
+      if (subtree.has(x.id) && x.list !== list) return { ...x, list };
+      if (x.id === parentId && x.collapsed) return { ...x, collapsed: false };
+      return x;
+    });
+  }
+  return reorderTodo(next, id, target.index);
+}
+
 export function deleteTodo(todos: Todo[], id: string): Todo[] {
   const subtree = descendantIds(todos, id);
   return todos.filter((t) => t.id !== id && !subtree.has(t.id));

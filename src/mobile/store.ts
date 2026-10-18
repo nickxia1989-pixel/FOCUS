@@ -1,7 +1,7 @@
 // iOS 版的状态：数据以可同步的文档为准（../sync），列表操作全部走 ../sync/ops，与桌面端同一条路径。
 // 对界面仍然暴露原来的形状：profiles（各自带可见 todos 与回收站）、activeId、prefs。
 import { create } from 'zustand';
-import type { Placement } from '../model';
+import type { Placement, PlaceTarget } from '../model';
 import { newClock, type ClockState, type VV } from '../sync/clock';
 import {
   createProfile as docCreateProfile,
@@ -145,6 +145,8 @@ interface DataState extends Derived {
   indent(id: string): void;
   /** 反缩进（Shift+Tab）：升一级，排在原父项后面 */
   outdent(id: string): void;
+  /** 自由拖拽：放到任意父项下的第 index 位（落点用 src/dragTree.ts 的 projectDrop 算） */
+  place(id: string, target: PlaceTarget): void;
   markForTest(id: string): void;
   unmarkTest(id: string): void;
   /** base：开始编辑时的 clock.knowledge，编辑期间远端也改了标题时变成冲突 */
@@ -316,6 +318,7 @@ export const useData = create<DataState>((set, get) => {
     reorder: (id, toIndex) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex)),
     indent: (id) => run((st, ctx) => O.indentTodo(st, ctx, id)),
     outdent: (id) => run((st, ctx) => O.outdentTodo(st, ctx, id)),
+    place: (id, target) => run((st, ctx) => O.placeTodo(st, ctx, id, target)),
     markForTest: (id) => run((st, ctx) => O.markForTest(st, ctx, id)),
     unmarkTest: (id) => run((st, ctx) => O.unmarkTest(st, ctx, id)),
     rename: (id, title, base = null) => run((st, ctx) => O.renameTodo(st, ctx, id, title, base)),

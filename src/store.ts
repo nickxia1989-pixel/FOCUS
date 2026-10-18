@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as M from './model';
-import type { Placement } from './model';
+import type { Placement, PlaceTarget } from './model';
 import { api, backupStore, loadLegacyData, loadLegacyProfiles, loadStore, saveStore, saveStoreSync } from './platform';
 import { newClock, type ClockState, type VV } from './sync/clock';
 import {
@@ -232,6 +232,8 @@ interface DataStore extends Derived {
   indent(id: string): void;
   /** 反缩进（Shift+Tab）：升一级，排在原父项后面 */
   outdent(id: string): void;
+  /** 自由拖拽：放到任意父项下的第 index 位（落点用 src/dragTree.ts 的 projectDrop 算） */
+  place(id: string, target: PlaceTarget): void;
   markForTest(id: string): void;
   unmarkTest(id: string): void;
   reorder(id: string, toIndex: number): void;
@@ -435,6 +437,7 @@ export const useData = create<DataStore>((set, get) => {
     setNow: (id) => run((st, ctx) => O.setNow(st, ctx, id)),
     indent: (id) => run((st, ctx) => O.indentTodo(st, ctx, id)),
     outdent: (id) => run((st, ctx) => O.outdentTodo(st, ctx, id)),
+    place: (id, target) => run((st, ctx) => O.placeTodo(st, ctx, id, target)),
     markForTest: (id) => run((st, ctx) => O.markForTest(st, ctx, id)),
     unmarkTest: (id) => run((st, ctx) => O.unmarkTest(st, ctx, id)),
     reorder: (id, toIndex) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex)),

@@ -112,6 +112,7 @@ export const sendToFocus = simple(M.sendToFocus);
 export const setNow = simple(M.setNow);
 export const indentTodo = simple(M.indentTodo);
 export const outdentTodo = simple(M.outdentTodo);
+export const placeTodo = simple(M.placeTodo);
 
 /**
  * 改标题。base 传开始编辑时的 clock.knowledge：编辑期间远端也改了这条标题时会变成冲突，不会悄悄覆盖远端。
