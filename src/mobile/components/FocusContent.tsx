@@ -7,7 +7,7 @@ import type { Todo } from '../../types';
 import { completeNow, openComposer, sendToVerify, startEdit, toggleTest, toggleTodo } from '../actions';
 import { listHistoryDays } from '../data';
 import { CheckIcon, ChevronDownIcon, EyeCheckIcon, PlusIcon } from '../icons';
-import { beginDrag, dragGroup, DRAG_SLOP, type DragSession } from '../drag';
+import { beginDrag, DRAG_SLOP, dragRowProps, type DragSession } from '../drag';
 import { draftAfter, draftFirstUnder } from '../edit';
 import { haptic } from '../native';
 import { useTodos } from '../store';
@@ -170,7 +170,12 @@ function NowCard({ todo, index, total }: { todo: Todo; index: TreeIndex; total: 
   const folded = useUi((s) => !!s.subsFolded[todo.id]) && kids.length > FOLD_AT;
   const draftChild = useUi((s) => draftFirstUnder(s.draft, todo.id));
   const ref = useRef<HTMLDivElement>(null);
-  const press = useLongPress(ref, () => openMenu(todo, ref.current));
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const press = useLongPress(
+    ref,
+    () => openMenu(todo, ref.current),
+    (x, y) => (ref.current && titleRef.current ? beginDrag(todo, ref.current, titleRef.current, x, y) : null),
+  );
   const shown = folded ? kids.slice(0, 3) : kids;
   const more = kids.length - shown.length;
   const setFolded = (v: boolean) => {
@@ -200,7 +205,12 @@ function NowCard({ todo, index, total }: { todo: Todo; index: TreeIndex; total: 
           {pad2(1)} / {pad2(total)}
         </span>
       </div>
-      <h2 className="now-title" onClick={() => !editing && !handoff && startEdit(todo.id)}>
+      <h2
+        ref={titleRef}
+        className="now-title"
+        {...dragRowProps(todo, 0, false)}
+        onClick={() => !editing && !handoff && startEdit(todo.id)}
+      >
         {editing ? <TitleEditor todo={todo} /> : <span className="strike">{todo.title}</span>}
       </h2>
       {kids.length > 0 && (
@@ -273,11 +283,11 @@ function NowSub({ todo, index, depth }: { todo: Todo; index: TreeIndex; depth: n
         ref={nodeRef}
         className="now-sub-node"
         data-node-id={todo.id}
-        data-drag-group={checked ? undefined : dragGroup(todo, 'now')}
       >
         <div
           ref={ref}
           className={`now-sub ${checked ? 'done' : ''} ${menuOpen ? 'lifted' : ''} ${isNew ? 'is-new' : ''}`}
+          {...dragRowProps(todo, depth + 1, false)}
           data-anchor={todo.id}
           style={{ '--depth': depth } as CSSProperties}
           {...press}
@@ -330,8 +340,6 @@ function QueueNode({ todo, no, fade, index }: { todo: Todo; no: number; fade: nu
   const draftChild = useUi((s) => draftFirstUnder(s.draft, todo.id));
   const rowRef = useRef<HTMLDivElement>(null);
   const nodeRef = useRef<HTMLDivElement>(null);
-  // 拖动松手那一刻不播位置动画：让位后的样子就是新顺序
-  const dragging = useUi((s) => s.draggingId !== null);
   const open = (moveFirst = false) => openMenu(todo, rowRef.current, moveFirst);
   const { leading, trailing } = rowSwipes(todo, completing, open);
   const doneKids = kids.filter((k) => k.done).length;
@@ -343,13 +351,12 @@ function QueueNode({ todo, no, fade, index }: { todo: Todo; no: number; fade: nu
       layout="position"
       className={`q-node ${isNew ? 'is-new' : ''}`}
       data-node-id={todo.id}
-      data-drag-group={dragGroup(todo)}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, height: 0 }}
-      transition={dragging ? { duration: 0 } : { duration: 0.3, ease: [0.2, 0.8, 0.2, 1], delay: 0 }}
+      transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1], delay: 0 }}
     >
-      <div data-drag-body>
+      <div>
         <SwipeRow
           id={todo.id}
           leading={leading}
@@ -364,6 +371,7 @@ function QueueNode({ todo, no, fade, index }: { todo: Todo; no: number; fade: nu
             ref={rowRef}
             data-anchor={todo.id}
             className={`q-row ${completing ? 'done' : ''} ${menuOpen ? 'lifted' : ''}`}
+            {...dragRowProps(todo, 0, kids.length > 0 && !expanded)}
             style={{ opacity: completing ? 1 : fade } as CSSProperties}
           >
             <span className="q-no">{pad2(no)}</span>
@@ -386,7 +394,7 @@ function QueueNode({ todo, no, fade, index }: { todo: Todo; no: number; fade: nu
             {draftChild && <DraftRow kind="row" />}
             <AnimatePresence initial={false}>
               {kids.map((c) => (
-                <TodoNode key={c.id} todo={c} depth={0} index={index} />
+                <TodoNode key={c.id} todo={c} depth={0} base={1} index={index} />
               ))}
             </AnimatePresence>
           </div>

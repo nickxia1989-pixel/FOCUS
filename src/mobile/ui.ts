@@ -42,6 +42,8 @@ export interface ToastState {
   text: string;
   /** 可撤销的删除：对应的回收站条目 */
   undoEntry?: string;
+  /** 别的可撤销操作（拖动换了父项）：点「撤销」时执行 */
+  undo?: () => void;
 }
 
 interface UiState {
@@ -102,6 +104,11 @@ export function pulse(section: Section) {
 let toastKey = 0;
 export function showToast(text: string, undoEntry?: string) {
   useUi.getState().set({ toast: { key: ++toastKey, text, undoEntry } });
+}
+
+/** 带「撤销」的提示条（5 秒） */
+export function showUndoToast(text: string, undo: () => void) {
+  useUi.getState().set({ toast: { key: ++toastKey, text, undo } });
 }
 
 export const rectOf = (el: Element): Rect => {

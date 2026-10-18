@@ -3060,7 +3060,7 @@ textarea {
   }
 }
 
-/* ============ 拖动排序 ============ */
+/* ============ 自由拖拽（docs/drag.md） ============ */
 
 /* 拖动中：不选字、不出系统菜单 */
 .is-dragging,
@@ -3070,7 +3070,7 @@ textarea {
   -webkit-touch-callout: none;
 }
 
-/* 被拖的那一项留下等高的空位 */
+/* 被拖的那一项（连同子孙）留下等高的空位 */
 .drag-source {
   visibility: hidden;
 }
@@ -3081,27 +3081,37 @@ textarea {
   z-index: 90;
   pointer-events: none;
   border-radius: 16px;
-  overflow: hidden;
   box-shadow:
     0 14px 34px rgba(0, 0, 0, 0.18),
     0 2px 6px rgba(0, 0, 0, 0.08);
   transform-origin: 50% 50%;
-  transition: box-shadow 0.18s;
+  transition:
+    box-shadow 0.18s,
+    opacity 0.15s;
+}
+
+.drag-ghost > :first-child {
+  border-radius: 16px;
+  overflow: hidden;
+  visibility: visible !important;
+}
+
+/* 拖出列表区：松手就取消 */
+.drag-ghost.is-out {
+  opacity: 0.5;
 }
 
 .drag-ghost.is-landing {
   transition:
     transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.16s;
+    box-shadow 0.16s,
+    opacity 0.16s;
   box-shadow: none;
-}
-
-.drag-ghost > * {
-  visibility: visible !important;
 }
 
 .drag-ghost.is-row > .row {
   background: var(--surface);
+  padding-left: 16px;
 }
 
 .drag-ghost.is-row > .row::before,
@@ -3116,19 +3126,108 @@ textarea {
   opacity: 1 !important;
 }
 
-/* NOW 卡上的子任务：副本带着卡的荧光绿 */
-.drag-ghost.is-sub {
+/* NOW 卡上的子任务、NOW 自己：副本带着卡的荧光绿 */
+.drag-ghost.is-sub > .now-sub,
+.drag-ghost.is-now > .now-title {
   background: var(--now);
   color: var(--now-ink);
-  padding: 8px 12px;
+  padding: 9px 12px;
   --c: var(--now-ink);
 }
 
-.drag-ghost.is-sub > .now-sub {
-  padding-left: 0;
+.drag-ghost.is-now > .now-title {
+  font-size: 18px;
 }
 
-/* 从「接下来」拖到 NOW 卡上：卡亮一圈，松手就设为现在 */
+/* 子孙数角标 */
+.drag-count {
+  position: absolute;
+  top: -9px;
+  right: -6px;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font: 800 12px/1 var(--font-display);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* 插入线：左端缩进到落点深度，带一个小圆点；深度变化时左右滑动 */
+.drop-line {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 89;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 2px;
+  background: var(--text);
+  box-shadow: 0 0 0 1.5px var(--bg);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.12s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.12s;
+}
+
+.drop-line::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -3.5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2.5px solid var(--text);
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.drop-line.on,
+.drop-guide.on {
+  opacity: 1;
+}
+
+/* 从新父项连到插入线的竖线：「会挂在它下面」 */
+.drop-guide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 88;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--text-faint);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+/* 新父项：淡淡的底色 */
+.row.drop-parent,
+.q-row.drop-parent {
+  background: color-mix(in srgb, var(--lime) 24%, var(--surface));
+}
+
+.q-row.drop-parent {
+  border-radius: 12px;
+}
+
+.now-sub.drop-parent {
+  border-radius: 8px;
+  background: rgba(11, 11, 12, 0.09);
+  box-shadow: 0 0 0 4px rgba(11, 11, 12, 0.09);
+}
+
+.now:has(.now-title.drop-parent) {
+  box-shadow: inset 0 0 0 2px rgba(11, 11, 12, 0.35);
+}
+
+/* 拖到 NOW 卡的标题区：卡亮一圈，松手就设为现在 */
 .now.drop-target {
   box-shadow:
     0 0 0 3px var(--bg),
@@ -3138,7 +3237,8 @@ textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .drag-ghost,
-  .drag-ghost.is-landing {
+  .drag-ghost.is-landing,
+  .drop-line {
     transition: none;
   }
 }

@@ -4,7 +4,7 @@ import { childrenOf, nowOf, type TreeIndex } from '../../model';
 import type { Todo } from '../../types';
 import { deleteWithUndo, sendToFocus, setNow, startEdit, toggleTest, toggleTodo } from '../actions';
 import { CheckIcon, ChevronDownIcon, EyeCheckIcon, MoveIcon, SparkIcon, TrashIcon, UncheckIcon, UpIcon } from '../icons';
-import { beginDrag, dragGroup } from '../drag';
+import { beginDrag, dragRowProps } from '../drag';
 import { draftAfter, draftFirstUnder, editNext, indentItem, outdentItem, revealInput } from '../edit';
 import { activeOf, useData } from '../store';
 import { restored, saveTransient } from '../transient';
@@ -57,9 +57,11 @@ interface Props {
   goal?: boolean;
   /** 行下面再挂点东西（GOAL 卡的「写下于」） */
   below?: ReactNode;
+  /** 树里的深度 = base + depth（「接下来」里展开的子项从 1 起算，但缩进从 0 画） */
+  base?: number;
 }
 
-export function TodoNode({ todo, depth, index, goal, below }: Props) {
+export function TodoNode({ todo, depth, index, goal, below, base = 0 }: Props) {
   const children = childrenOf(index, todo.id);
   const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
@@ -94,7 +96,6 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
       ref={nodeRef}
       className={`node ${isNew ? 'is-new' : ''}`}
       data-node-id={todo.id}
-      data-drag-group={checked ? undefined : dragGroup(todo)}
     >
       <SwipeRow
         id={todo.id}
@@ -108,6 +109,7 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
           ref={rowRef}
           data-anchor={todo.id}
           className={rowClass}
+          {...dragRowProps(todo, base + depth, children.length > 0 && !!todo.collapsed)}
           style={{ '--depth': depth, '--c': `var(--c-${todo.list})` } as CSSProperties}
         >
           <button
@@ -176,7 +178,7 @@ export function TodoNode({ todo, depth, index, goal, below }: Props) {
           {draftChild && <DraftRow kind="row" depth={depth + 1} />}
           <AnimatePresence initial={false}>
             {children.map((c) => (
-              <TodoNode key={c.id} todo={c} depth={depth + 1} index={index} />
+              <TodoNode key={c.id} todo={c} depth={depth + 1} base={base} index={index} />
             ))}
           </AnimatePresence>
         </div>
