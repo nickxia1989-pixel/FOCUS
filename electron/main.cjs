@@ -13,8 +13,9 @@ const FORCED = (process.env.FOCUS_FORCE_PLATFORM || '').toLowerCase();
 const uiPlatform = FORCED === 'win' || FORCED === 'win32' ? 'win32' : FORCED === 'mac' || FORCED === 'darwin' ? 'darwin' : process.platform;
 const macChrome = uiPlatform === 'darwin';
 
-// 开发截图用：FOCUS_FORCE_THEME=dark|light 固定浅色 / 深色，不传就跟随系统
-if (['dark', 'light'].includes(process.env.FOCUS_FORCE_THEME)) nativeTheme.themeSource = process.env.FOCUS_FORCE_THEME;
+// 开发截图用：FOCUS_FORCE_THEME=dark|light 固定浅色 / 深色，优先于界面里的「外观」设置
+const FORCED_THEME = ['dark', 'light'].includes(process.env.FOCUS_FORCE_THEME) ? process.env.FOCUS_FORCE_THEME : null;
+if (FORCED_THEME) nativeTheme.themeSource = FORCED_THEME;
 
 const DEFAULT_SIZE = { width: 384, height: 680 };
 
@@ -488,6 +489,13 @@ ipcMain.handle('win:setAlwaysOnTop', (_e, flag) => {
   return win.isAlwaysOnTop();
 });
 ipcMain.handle('app:openDataDir', () => shell.openPath(userDir()));
+// ⋯ 菜单「外观」：跟随系统 / 浅色 / 深色。设 nativeTheme.themeSource，窗口外框、系统控件和页面的
+// prefers-color-scheme 都跟着变；返回实际生效的（开发开关优先）
+ipcMain.handle('app:setTheme', (_e, source) => {
+  if (FORCED_THEME) return FORCED_THEME;
+  nativeTheme.themeSource = ['system', 'light', 'dark'].includes(source) ? source : 'system';
+  return nativeTheme.themeSource;
+});
 ipcMain.handle('app:version', () => app.getVersion());
 
 // ---------- 生命周期 ----------

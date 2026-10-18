@@ -2,9 +2,24 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { openTrash } from '../actions';
 import { api, isElectron, isMac, os } from '../platform';
-import { useData, useUi } from '../store';
+import { useData, useUi, type Appearance } from '../store';
 import type { SyncStatus } from '../sync/engine';
-import { AppGlyph, CloseIcon, CloudStateIcon, FolderIcon, MinimizeIcon, MoreIcon, PinIcon, SoundIcon, TrashIcon, type CloudState } from './icons';
+import {
+  AppGlyph,
+  CheckIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  CloudStateIcon,
+  FolderIcon,
+  KeyboardIcon,
+  MinimizeIcon,
+  MoreIcon,
+  PinIcon,
+  SoundIcon,
+  ThemeIcon,
+  TrashIcon,
+  type CloudState,
+} from './icons';
 
 /** 云朵的六种状态，对应同步面板里 statusText 的 tone */
 export function cloudState(status: SyncStatus | null, enabled: boolean, conflicts: number): CloudState {
@@ -24,6 +39,8 @@ export const CLOUD_LABEL: Record<CloudState, string> = {
   conflict: '有冲突需要你决定',
   off: '未开启同步',
 };
+
+const APPEARANCE_LABEL: Record<Appearance, string> = { system: '跟随系统', light: '浅色', dark: '深色' };
 
 const CLOUD_SHORT: Record<CloudState, string> = {
   ok: '已同步',
@@ -80,6 +97,9 @@ function MainMenu({ onClose }: { onClose(): void }) {
   const sound = useData((s) => s.settings.sound);
   const trashCount = useData((s) => s.trash.reduce((n, e) => n + e.items.length, 0));
   const { state } = useCloud();
+  const appearance = useData((s) => s.local.appearance);
+  /** 「外观」子菜单：顶到哪一行 */
+  const [themeAt, setThemeAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (api) void api.version().then(setVersion);
@@ -116,6 +136,7 @@ function MainMenu({ onClose }: { onClose(): void }) {
       <button
         className="mi"
         role="menuitem"
+        onMouseEnter={() => setThemeAt(null)}
         onClick={() => {
           onClose();
           openTrash();
@@ -129,6 +150,7 @@ function MainMenu({ onClose }: { onClose(): void }) {
         <button
           className="mi"
           role="menuitem"
+          onMouseEnter={() => setThemeAt(null)}
           onClick={() => {
             onClose();
             useUi.getState().set({ syncOpen: true, conflictsOpen: false, menu: null });
@@ -140,7 +162,26 @@ function MainMenu({ onClose }: { onClose(): void }) {
         </button>
       )}
       <div className="msep" />
-      <button className="mi" role="menuitemcheckbox" aria-checked={sound} onClick={() => useData.getState().setSettings({ sound: !sound })}>
+      <button
+        className={`mi ${themeAt !== null ? 'hl' : ''}`}
+        role="menuitem"
+        aria-haspopup="menu"
+        aria-expanded={themeAt !== null}
+        onMouseEnter={(e) => setThemeAt(e.currentTarget.offsetTop)}
+        onClick={(e) => setThemeAt(themeAt === null ? e.currentTarget.offsetTop : null)}
+      >
+        <ThemeIcon />
+        外观
+        <em>{APPEARANCE_LABEL[appearance]}</em>
+        <ChevronRightIcon className="chev" />
+      </button>
+      <button
+        className="mi"
+        role="menuitemcheckbox"
+        aria-checked={sound}
+        onMouseEnter={() => setThemeAt(null)}
+        onClick={() => useData.getState().setSettings({ sound: !sound })}
+      >
         <SoundIcon />
         完成提示音
         <span className={`tg ${sound ? 'on' : ''}`} />
@@ -149,6 +190,7 @@ function MainMenu({ onClose }: { onClose(): void }) {
         <button
           className="mi"
           role="menuitem"
+          onMouseEnter={() => setThemeAt(null)}
           onClick={() => {
             void api!.openDataDir();
             onClose();
@@ -159,9 +201,37 @@ function MainMenu({ onClose }: { onClose(): void }) {
         </button>
       )}
       <div className="msep" />
+      <button
+        className="mi"
+        role="menuitem"
+        onMouseEnter={() => setThemeAt(null)}
+        onClick={() => {
+          onClose();
+          useUi.getState().set({ keysOpen: true, menu: null });
+        }}
+      >
+        <KeyboardIcon />
+        快捷键与编辑…
+      </button>
       <div className="mcap">
         FOCUS {version || ''} · {mod}1–5 切换列表
       </div>
+      {themeAt !== null && (
+        <div className="pop sub-pop" role="menu" style={{ top: themeAt - 6 }}>
+          {(['system', 'light', 'dark'] as const).map((a) => (
+            <button
+              key={a}
+              className="mi"
+              role="menuitemradio"
+              aria-checked={appearance === a}
+              onClick={() => useData.getState().setAppearance(a)}
+            >
+              {appearance === a ? <CheckIcon /> : <span className="mi-blank" />}
+              {APPEARANCE_LABEL[a]}
+            </button>
+          ))}
+        </div>
+      )}
     </motion.div>
   );
 }

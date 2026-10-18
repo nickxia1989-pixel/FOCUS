@@ -1,13 +1,15 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, type CSSProperties, type ReactElement, type SVGProps } from 'react';
-import { startAddChild, toggleTodo } from '../actions';
+import { toggleTodo } from '../actions';
+import { startAddChild } from '../editing';
+import { withDraft } from '../outline';
 import { buildIndex, childrenOf, rootsOf, type TreeIndex } from '../model';
 import { useData, useUi } from '../store';
 import type { ListId, Todo, ViewId } from '../types';
 import { LIST_COLOR, LIST_SOFT, VIEW_COPY } from './copy';
 import { CheckIcon, ChevronIcon, MoreIcon, PlusIcon, SparkIcon, ViewIcons } from './icons';
-import { AddBar, ChildAdder, TitleEditor } from './Inputs';
-import { nodeVariants, openMenuAt, presenceProps, startEdit, TodoNode, useRowDrag } from './TodoNode';
+import { AddBar, DraftRow, TitleEditor } from './Inputs';
+import { draftKey, nodeVariants, openMenuAt, presenceProps, startEdit, TodoNode, useRowDrag } from './TodoNode';
 
 /** 叠放的空卡片插画：描边斜线卡 + 两张灰卡 + 星芒（或列表图标） */
 export function EmptyArt({ view = 'focus', icon }: { view?: ViewId; icon?: (p: SVGProps<SVGSVGElement>) => ReactElement }) {
@@ -96,13 +98,13 @@ function GoalCard({ todo, index, siblings }: { todo: Todo; index: TreeIndex; sib
   const children = childrenOf(index, todo.id);
   const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
-  const addingChild = useUi((s) => s.addingChildOf === todo.id);
+  const draft = useUi((s) => (s.draft?.parentId === todo.id ? s.draft : null));
   const menuOpen = useUi((s) => s.menu?.todoId === todo.id);
   const flash = useUi((s) => !!s.flash[todo.id]);
   const variants = useMemo(() => nodeVariants(todo.id), [todo.id]);
   const onPointerDown = useRowDrag(todo, siblings);
   const checked = todo.done || completing;
-  const open = (children.length > 0 && !todo.collapsed) || addingChild;
+  const open = (children.length > 0 && !todo.collapsed) || !!draft;
 
   return (
     <motion.div layout="position" variants={variants} initial="initial" animate="enter" exit="exit" className="node" data-node-id={todo.id}>
@@ -127,11 +129,13 @@ function GoalCard({ todo, index, siblings }: { todo: Todo; index: TreeIndex; sib
           >
             <CheckIcon />
           </button>
-          <span className="tt">{editing ? <TitleEditor todo={todo} /> : <span className="tt-text">{todo.title}</span>}</span>
+          <span className="tt" data-edit-id={todo.id}>
+            {editing ? <TitleEditor todo={todo} /> : <span className="tt-text">{todo.title}</span>}
+          </span>
           {!editing && (
             <span className="acts">
               <span className="hov">
-                <button className="mini" title="添加子项" onClick={() => startAddChild(todo)}>
+                <button className="mini" title="添加子项" onClick={() => startAddChild(todo.id)}>
                   <PlusIcon />
                 </button>
                 <button className="mini" title="更多操作" onClick={(e) => openMenuAt(e, todo, true)}>
@@ -153,14 +157,15 @@ function GoalCard({ todo, index, siblings }: { todo: Todo; index: TreeIndex; sib
         <div className="m">{writtenOn(todo.createdAt)}</div>
         {open && (
           <div className="children" onPointerDown={(e) => e.stopPropagation()}>
-            {addingChild && <ChildAdder parent={todo} />}
-            {!todo.collapsed && (
-              <AnimatePresence {...presenceProps}>
-                {children.map((c) => (
+            <AnimatePresence {...presenceProps}>
+              {withDraft(todo.collapsed ? [] : children, draft, todo.list, todo.id).map((c) =>
+                c === 'draft' ? (
+                  <DraftRow key={draftKey(draft!)} />
+                ) : (
                   <TodoNode key={c.id} todo={c} depth={1} index={index} siblings={children} />
-                ))}
-              </AnimatePresence>
-            )}
+                ),
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
@@ -171,6 +176,7 @@ function GoalCard({ todo, index, siblings }: { todo: Todo; index: TreeIndex; sib
 /** VERIFY / INBOX / GOAL：列表头 → 新建框 → 行（GOAL 是卡片） */
 export function ListView({ list }: { list: Exclude<ListId, 'focus'> }) {
   const todos = useData((s) => s.todos);
+  const draft = useUi((s) => (s.draft?.parentId === null && s.draft.list === list ? s.draft : null));
   const index = useMemo(() => buildIndex(todos), [todos]);
   const roots = rootsOf(index, list);
   const open = roots.filter((t) => !t.done);
@@ -185,8 +191,10 @@ export function ListView({ list }: { list: Exclude<ListId, 'focus'> }) {
       ) : (
         <div className={`rows ${list === 'goal' ? 'goals' : 'list'}`}>
           <AnimatePresence {...presenceProps}>
-            {open.map((t) =>
-              list === 'goal' ? (
+            {withDraft(open, draft, list, null).map((t) =>
+              t === 'draft' ? (
+                <DraftRow key={draftKey(draft!)} />
+              ) : list === 'goal' ? (
                 <GoalCard key={t.id} todo={t} index={index} siblings={roots} />
               ) : (
                 <TodoNode key={t.id} todo={t} depth={0} index={index} siblings={roots} />

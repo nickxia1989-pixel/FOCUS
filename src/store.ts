@@ -23,6 +23,7 @@ import { emptyMeta, normalizeMeta, type SyncMeta, type SyncStatus } from './sync
 import { parseDoc } from './sync/file';
 import { migrateLegacy, type LegacyProfile } from './sync/migrate';
 import * as O from './sync/ops';
+import type { Draft } from './outline';
 import { sanitizeTrash } from './trash';
 import { DEFAULT_PROFILE_ID, VIEW_IDS, type ListId, type Prefs, type Profile, type Settings, type Todo, type TrashEntry, type ViewId } from './types';
 
@@ -56,8 +57,9 @@ function seedTodos(now: number): Todo[] {
   add('拖动一行可以排序；拖到荧光绿的 NOW 卡上，就换成「现在」', 'focus', null, 1);
   add('把鼠标移到这一行：可以直接勾掉、设为现在 ↑，或送去验证', 'focus', null, 2);
   const now1 = add('先做完这一件：点左下角的黑色圆钮，下一件会自动接上来', 'focus', null, 3);
-  add('做完但还要测一下？点右边的「送去验证」', 'focus', now1, 4);
-  add('子任务也可以单独勾掉', 'focus', now1, 5);
+  // 子项按创建顺序排（先加的在上面）
+  add('子任务也可以单独勾掉；双击编辑，回车接着写下一条，Tab 缩进', 'focus', now1, 4);
+  add('做完但还要测一下？点右边的「送去验证」', 'focus', now1, 5);
   add('右键或点 ⋯ 查看更多操作，双击文字可以编辑', 'inbox', null, 6);
   add('拖到上面的页签（宽窗口是左侧栏）上，就移到那个列表', 'inbox', null, 7);
   add('点右边的星芒，把这条送进 FOCUS，排在「现在」之后', 'inbox', null, 8);
@@ -85,7 +87,12 @@ export interface LocalState {
   sync: { enabled: boolean; meta: SyncMeta; replacePending?: boolean };
   /** 已经自动弹出过的冲突，不重复弹 */
   prompted: string[];
+  /** 外观：跟随系统 / 浅色 / 深色（只存本机，不同步） */
+  appearance: Appearance;
 }
+
+export type Appearance = 'system' | 'light' | 'dark';
+const APPEARANCES: Appearance[] = ['system', 'light', 'dark'];
 
 function parsePrefs(raw: unknown): Prefs {
   const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<Prefs> & { activeList?: string };
@@ -113,6 +120,7 @@ function parseLocal(raw: unknown): LocalState | null {
     pristine: !!r.pristine,
     sync: { enabled: !!r.sync?.enabled, meta: normalizeMeta(r.sync?.meta), replacePending: !!r.sync?.replacePending },
     prompted: Array.isArray(r.prompted) ? r.prompted.filter((x) => typeof x === 'string').slice(-200) : [],
+    appearance: APPEARANCES.includes(r.appearance as Appearance) ? (r.appearance as Appearance) : 'system',
   };
 }
 
@@ -127,6 +135,7 @@ const freshLocal = (deviceId: string, nonce: string): LocalState => ({
   pristine: false,
   sync: { enabled: false, meta: emptyMeta() },
   prompted: [],
+  appearance: 'system',
 });
 
 /** v1（每个 profile 一个文件 + 回收站）→ 迁移用的中间形式 */
@@ -204,6 +213,8 @@ interface DataStore extends Derived {
   init(): Promise<void>;
   setPrefs(p: Partial<Prefs>): void;
   setSettings(p: Partial<Settings>): void;
+  /** 外观：跟随系统 / 浅色 / 深色，立即生效（App 里接到 Electron 的 nativeTheme） */
+  setAppearance(a: Appearance): void;
   switchProfile(id: string): Promise<void>;
   createProfile(name: string): Promise<string | null>;
   renameProfile(id: string, name: string): void;
@@ -366,12 +377,18 @@ export const useData = create<DataStore>((set, get) => {
       commit(s.doc, s.clock, { ...s.local, settings: { ...s.local.settings, ...p } }, false);
     },
 
+    setAppearance(a) {
+      const s = get();
+      if (s.local.appearance === a) return;
+      commit(s.doc, s.clock, { ...s.local, appearance: a }, false);
+    },
+
     async switchProfile(id) {
       const s = get();
       if (id === s.profileId || !s.profiles.some((p) => p.id === id)) return;
       useUi.getState().set({
         editingId: null,
-        addingChildOf: null,
+        draft: null,
         completing: {},
         menu: null,
         mainMenuOpen: false,
@@ -539,6 +556,8 @@ export interface MenuState {
   x: number;
   y: number;
   todoId: string;
+  /** nowSub：NOW 卡上子任务的精简菜单 */
+  kind?: 'nowSub';
 }
 
 export interface ToastState {
@@ -557,7 +576,8 @@ export interface JoinPrompt {
 
 interface UiStore {
   editingId: string | null;
-  addingChildOf: string | null;
+  /** 编辑时回车打开的空行（还没真正新建），见 src/outline.ts */
+  draft: Draft | null;
   /** 正在播放完成动画、还没写入数据的项 */
   completing: Record<string, true>;
   menu: MenuState | null;
@@ -572,6 +592,8 @@ interface UiStore {
   syncOpen: boolean;
   /** 冲突处理面板 */
   conflictsOpen: boolean;
+  /** 快捷键与编辑说明 */
+  keysOpen: boolean;
   /** 第一次加入已有数据的云端：选合并还是以云端为准 */
   join: JoinPrompt | null;
   dragOverTab: ListId | null;
@@ -588,7 +610,7 @@ interface UiStore {
 
 export const useUi = create<UiStore>((set) => ({
   editingId: null,
-  addingChildOf: null,
+  draft: null,
   completing: {},
   menu: null,
   toast: null,
@@ -597,6 +619,7 @@ export const useUi = create<UiStore>((set) => ({
   mainMenuOpen: false,
   syncOpen: false,
   conflictsOpen: false,
+  keysOpen: false,
   join: null,
   dragOverTab: null,
   dropNow: false,

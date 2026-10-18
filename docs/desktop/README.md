@@ -9,6 +9,7 @@
 - Windows 截图是在 Mac 上用 `FOCUS_FORCE_PLATFORM=win` 画的 Windows 标题栏（无边框窗口），字体回落到苹方；真实 Windows 上是 Segoe UI Variable + 微软雅黑 UI，窗口圆角 8 和阴影由 Win11 画。
 - 同步是真的：本机 `npm run dev:webdav` 测试服务器 + 4 个实例（「MacBook Pro」「iPhone 17 Pro」「DESKTOP-WIN11」「Surface Laptop」）。冲突面板里的三个冲突是两个实例离线时各改各的造出来的。
 - 示例数据是演示用的，和设计稿一致。
+- 2026-10-18 第二轮（大纲式编辑、NOW 卡子任务、外观）后重拍了全部画面；`mac-14`、`mac-sync-states`、`win-W6` 只有面板和标题栏、没有变化，沿用第一轮的截图。
 
 ## Mac
 
@@ -33,6 +34,12 @@
 | `mac-17-undo-toast-dark.jpg` | 17 · 删除后 5 秒可撤销，圆环倒计时 |
 | `mac-18-regular-light.jpg` / `mac-18b-regular-inbox-light.jpg` | 18 · 宽窗口（≥ 520）：左侧栏 + 更大的 NOW 卡 |
 | `mac-19-regular-history-dark.jpg` / `mac-19b-regular-focus-dark.jpg` | 19 · 宽窗口深色 |
+| `mac-22-edit-enter-new-line.jpg` | 编辑子任务时回车：保存，并在后面开一个同层级的空行接着写 |
+| `mac-23-edit-tab-indent.jpg` | 编辑「接下来」第 03 行时按 Tab：挂到上一条下面，编辑框不关 |
+| `mac-24-now-subtask-hover.jpg` | NOW 卡子任务悬停：「待验证」开关和删除；底部常驻「+ 添加子任务」 |
+| `mac-25-now-subtask-menu.jpg` | NOW 卡子任务的右键菜单：完成、编辑、待验证、升一级、删除 |
+| `mac-26-appearance-menu.jpg` | `⋯` 菜单「外观」：跟随系统 / 浅色 / 深色 |
+| `mac-27-keys.jpg` | `⋯` 菜单「快捷键与编辑…」 |
 | `mac-sync-states.jpg` | 标题栏云朵的六种状态 |
 
 ## Windows

@@ -70,8 +70,9 @@
   color-scheme: light;
 }
 
+/* 深色：跟随系统时看系统设置；⋯ 菜单「外观」选了浅色 / 深色时由根节点的 data-theme 决定 */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --spark: #d6ff3d;
     --bg: #0b0b0c;
     --sf: #18181a;
@@ -112,6 +113,46 @@
   }
 }
 
+:root[data-theme='dark'] {
+  --spark: #d6ff3d;
+  --bg: #0b0b0c;
+  --sf: #18181a;
+  --sf2: #222225;
+  --sf3: #2c2c30;
+  --tx: #f4f4ef;
+  --mu: #8e8e88;
+  --fa: #55554f;
+  --ln: rgba(255, 255, 255, 0.07);
+
+  --verify: #b8a6ff;
+  --verify-s: rgba(184, 166, 255, 0.16);
+  --inbox: #8fd3ff;
+  --inbox-s: rgba(143, 211, 255, 0.14);
+  --goal: #ff8a65;
+  --goal-s: rgba(255, 138, 101, 0.15);
+  --hist: #f2e2b8;
+  --hist-s: rgba(242, 226, 184, 0.13);
+
+  --ok: #7ee2a0;
+  --warn: #ffc53d;
+  --bad: #ff6369;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --pop: #232326;
+  --pop-ln: rgba(255, 255, 255, 0.1);
+  --shadow: 0 14px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  --h1: #2e3a10;
+  --h2: #56701a;
+  --h3: #9dc22a;
+  --h4: #d6ff3d;
+
+  --av0-bg: #f4f4ef;
+  --av0-fg: #0b0b0c;
+
+  --toast: #2a2a2e;
+  color-scheme: dark;
+}
+
 /* Windows：无边框 36 高标题栏，底色冷一点，系统字换成 Segoe / 微软雅黑 */
 :root.os-win {
   --sys: 'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
@@ -121,9 +162,13 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root.os-win {
+  :root.os-win:not([data-theme='light']) {
     --bg: #121213;
   }
+}
+
+:root.os-win[data-theme='dark'] {
+  --bg: #121213;
 }
 
 /* ============ 基础 ============ */
@@ -470,14 +515,24 @@ textarea {
 }
 
 @media (prefers-color-scheme: dark) {
-  .pill.on {
+  :root:not([data-theme='light']) .pill.on {
     background: var(--c-on);
     color: #0b0b0c;
   }
-  .pill.on svg,
-  .pill.on em {
+  :root:not([data-theme='light']) .pill.on svg,
+  :root:not([data-theme='light']) .pill.on em {
     color: #0b0b0c;
   }
+}
+
+:root[data-theme='dark'] .pill.on {
+  background: var(--c-on);
+  color: #0b0b0c;
+}
+
+:root[data-theme='dark'] .pill.on svg,
+:root[data-theme='dark'] .pill.on em {
+  color: #0b0b0c;
 }
 
 .pill.drop,
@@ -753,20 +808,81 @@ textarea {
 }
 
 .now-sub {
+  position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 12.5px;
   line-height: 1.35;
   min-width: 0;
+  min-height: 20px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  border-radius: 8px;
+}
+
+.now-sub > .sc {
+  margin-top: 1px;
+}
+
+.now-sub > em {
+  margin-top: -1px;
+}
+
+.now-sub .sub-acts {
+  display: none;
+  gap: 1px;
+  margin-left: auto;
+  margin-top: -1px;
+  flex: none;
+}
+
+.now-sub:hover .sub-acts,
+.now-sub.menu-open .sub-acts {
+  display: flex;
+}
+
+.nmini {
+  width: 22px;
+  height: 20px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: rgba(11, 11, 12, 0.5);
+  transition: background 0.1s, color 0.1s;
+}
+
+.nmini:hover {
+  background: rgba(11, 11, 12, 0.08);
+  color: #0b0b0c;
+}
+
+.nmini.on {
+  color: var(--now-v);
+}
+
+.nmini svg {
+  width: 15px;
+  height: 15px;
+}
+
+.now-sub.draft .sc {
+  box-shadow: inset 0 0 0 1.5px rgba(11, 11, 12, 0.35);
+}
+
+.now-sub textarea::placeholder {
+  color: rgba(11, 11, 12, 0.42);
 }
 
 .now-sub .tt {
   min-width: 0;
   flex: 0 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+}
+
+.now-sub.edit .tt,
+.now-sub.draft .tt {
+  flex: 1;
 }
 
 .now-sub .sc {
@@ -817,15 +933,38 @@ textarea {
   opacity: 1;
 }
 
+.now-adder {
+  align-items: center;
+  opacity: 0.6;
+  transition: opacity 0.12s;
+}
+
+.now-adder:hover,
+.now-adder:focus-within {
+  opacity: 1;
+}
+
+.now-adder .plus {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
 .now-adder input {
   flex: 1;
   min-width: 0;
   border: 0;
   outline: none;
-  background: rgba(255, 255, 255, 0.55);
+  background: transparent;
   border-radius: 8px;
-  padding: 3px 8px;
+  padding: 2px 6px;
+  margin-left: -6px;
   font-size: 12.5px;
+  color: #0b0b0c;
+}
+
+.now-adder input:focus {
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .now-adder input::placeholder {
@@ -1337,23 +1476,6 @@ textarea {
   width: 1.5px;
   border-radius: 1px;
   background: var(--ln);
-}
-
-.child-adder .row {
-  border-top: 1px solid var(--ln);
-}
-
-.child-adder input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  font-size: 13.5px;
-}
-
-.child-adder input::placeholder {
-  color: var(--fa);
 }
 
 .is-dragging > .row {
@@ -2958,4 +3080,81 @@ body.dragging .row.q:hover .cb {
 
 body.dragging .node.qn:hover {
   opacity: var(--fade, 1);
+}
+
+/* 空行：编辑时回车打开，还没真正新建 */
+.row.draft .cb {
+  box-shadow: inset 0 0 0 1.6px var(--sf3);
+}
+
+.row.draft textarea::placeholder {
+  color: var(--fa);
+}
+
+.rows.goals > .draft-node .row.draft {
+  border-top: 0;
+  margin-bottom: 8px;
+  border-radius: 16px;
+  background: var(--sf);
+  box-shadow: 0 0 0 2px var(--tx);
+  padding: 12px;
+}
+
+/* 快捷键面板 */
+.keys {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 12px;
+}
+
+.keys .kr {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ln);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.keys .kr:last-child {
+  border-bottom: 0;
+}
+
+.keys kbd {
+  flex: none;
+  min-width: 96px;
+  font: 700 11.5px/1.6 var(--disp);
+  color: var(--tx);
+  white-space: nowrap;
+}
+
+.keys .kr span {
+  color: var(--mu);
+}
+
+.keys-h {
+  font: 800 11px/1 var(--disp);
+  letter-spacing: 0.06em;
+  color: var(--fa);
+  padding: 6px 4px 0;
+}
+
+/* ⋯ 菜单里「外观」的子菜单：贴在主菜单左边 */
+.sub-pop {
+  position: absolute;
+  right: calc(100% - 4px);
+  min-width: 150px;
+  width: auto;
+}
+
+.mi-blank {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.mi > svg.chev {
+  width: 13px;
+  height: 13px;
 }

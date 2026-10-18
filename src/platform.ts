@@ -51,6 +51,8 @@ interface FocusApi {
   readAgentOutbox(): Promise<string | null>;
   onAgentOutbox(cb: () => void): () => void;
   openDataDir(): Promise<string>;
+  /** 外观：设 Electron 的 nativeTheme.themeSource（窗口外框、系统控件跟着变）；返回实际生效的（开发开关 FOCUS_FORCE_THEME 优先） */
+  setThemeSource?(source: 'system' | 'light' | 'dark'): Promise<'system' | 'light' | 'dark'>;
   version(): Promise<string>;
 }
 
