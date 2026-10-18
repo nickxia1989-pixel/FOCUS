@@ -278,6 +278,83 @@ body{margin:0}
 .p-tr .m{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mu)}
 .p-tr .m i{width:8px;height:8px;border-radius:50%;background:var(--c)}
 .p-tr .a{display:flex;gap:8px;margin-top:4px}
+
+/* —— 导航方案（nav）：v1 现状 / acc 底部配件栏 / list 列表里新建 / top 顶栏单钮 —— */
+.p-tabs.full{width:auto;right:16px}
+.p-innerP .p-tabs.full{left:50%;right:auto;margin-left:-190px;width:380px}
+.p-acc{position:absolute;left:16px;right:16px;bottom:98px;height:50px;border-radius:25px;display:flex;align-items:center;gap:10px;padding:0 8px 0 8px;z-index:20;font-size:15px;color:var(--mu)}
+.p-innerP .p-acc{left:50%;right:auto;margin-left:-190px;width:380px}
+.p-acc .pl{width:34px;height:34px;border-radius:50%;background:var(--lime);color:#0B0B0C;display:grid;place-items:center;flex:none}
+.p-acc .pl svg{width:18px;height:18px}
+.p-acc em{margin-left:auto;font:800 10.5px/1 var(--disp);letter-spacing:.06em;font-style:normal;color:var(--mu);padding-right:8px;display:flex;align-items:center;gap:4px}
+.p-acc em svg{width:12px;height:12px}
+.p-acc.acc-on .p-edge{bottom:0}
+.p-gone{display:none}
+.p-gbtn{width:44px;height:44px;border-radius:50%;border:0;padding:0;display:grid;place-items:center;color:var(--tx);flex:none}
+.p-gbtn svg{width:21px;height:21px}
+.p-gbtn.ok{color:var(--ok)}
+.p-gbtn.plus{background:rgba(214,255,61,.9);color:#0B0B0C;box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 0 0 1px rgba(255,255,255,.3),0 8px 20px rgba(120,160,0,.25)}
+.p-gbtn.plus svg{width:22px;height:22px}
+.p-right-x{margin-left:auto;display:flex;gap:10px;align-items:center}
+.p-dot{position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2.5px var(--bg)}
+.p-gav,.p-vcap button{position:relative}
+.p-vcap .p-dot{right:6px;bottom:4px}
+.p-vplus{width:52px;height:52px;margin-top:10px;border-radius:50%;border:0;display:grid;place-items:center;color:#0B0B0C;padding:0;background:rgba(214,255,61,.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 8px 20px rgba(120,160,0,.25)}
+.p-vplus svg{width:22px;height:22px}
+.p-qadd{display:flex;align-items:center;gap:10px;padding:13px 6px;font-size:16px;color:var(--fa);border-top:1px solid var(--ln)}
+.p-qadd .ic{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fa);display:grid;place-items:center;flex:none;color:var(--mu)}
+.p-qadd .ic svg{width:14px;height:14px}
+.p-qadd small{margin-left:auto;font:700 11px/1 var(--disp);letter-spacing:.04em;color:var(--fa);display:flex;align-items:center;gap:4px}
+.p-qadd small svg{width:12px;height:12px}
+.p-qadd.edit{color:var(--tx);border-radius:14px;background:var(--sf);border-color:transparent;box-shadow:0 0 0 2px var(--tx)}
+.p-qadd.edit .ic{box-shadow:inset 0 0 0 1.8px var(--tx)}
+.p-cadd{display:flex;align-items:center;gap:12px;padding:12px 14px 12px 16px;font-size:16px;color:var(--fa)}
+.p-cadd .ic{width:23px;height:23px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fa);display:grid;place-items:center;flex:none}
+.p-cadd .ic svg{width:13px;height:13px}
+.p-pull{display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0 16px}
+.p-pull b{display:inline-flex;align-items:center;gap:6px;height:36px;border-radius:18px;padding:0 16px 0 12px;background:var(--lime);color:#0B0B0C;font:700 14px/1 var(--sys)}
+.p-pull b svg{width:16px;height:16px}
+.p-pull span{font-size:11.5px;color:var(--mu)}
+.p-tedge{position:absolute;left:0;right:0;top:0;height:150px;z-index:15;pointer-events:none;background:linear-gradient(to bottom,rgba(var(--edge),.96) 55%,rgba(var(--edge),0))}
+.p-ktool{position:absolute;left:0;right:0;z-index:42;height:52px;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--kb);box-shadow:0 -1px 0 var(--ln)}
+.p-ktool .p-chip{height:34px}
+.p-ktool .ok{margin-left:auto;width:40px;height:34px;border-radius:17px;border:0;background:var(--lime);color:#0B0B0C;display:grid;place-items:center;padding:0}
+.p-ktool .ok svg{width:18px;height:18px}
+.p-acct{position:absolute;z-index:41;width:286px;border-radius:26px;background:var(--pop);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:inset 0 1px 0 var(--glassHi),inset 0 0 0 1px var(--glassLn),0 20px 50px rgba(0,0,0,.25);padding:8px}
+.p-acct .cap{font:800 10.5px/1 var(--disp);letter-spacing:.08em;color:var(--mu);padding:8px 12px 6px;display:flex;justify-content:space-between}
+.p-acct .sp{display:flex;align-items:center;gap:12px;height:48px;padding:0 12px;border-radius:14px;font-size:16px}
+.p-acct .sp i{width:30px;height:30px;border-radius:50%;font:700 13px/30px var(--sys);text-align:center;font-style:normal;flex:none}
+.p-acct .sp small{margin-left:auto;font:700 12px/1 var(--disp);color:var(--mu)}
+.p-acct .sp svg{width:18px;height:18px;margin-left:6px}
+.p-acct .sp.on{background:rgba(127,127,127,.14)}
+.p-acct .p-mi{height:42px;font-size:15px}
+.p-acct .p-mi svg{width:19px;height:19px}
+.p-acct .stat{color:var(--ok)}
+/* —— iPhone 横屏 —— */
+.p-phoneL{border-radius:62px;box-shadow:0 0 0 1.5px #3A3B3F,0 0 0 6px #1B1C1F,0 0 0 7px #4A4B50,0 40px 80px rgba(0,0,0,.26)}
+.p-phoneL .p-scr{border-radius:60px}
+.p-phoneL .p-isl{top:138px;left:11px;margin-left:0;width:37px;height:126px}
+.p-phoneL .p-sb{display:none}
+.p-phoneL .p-nav{top:12px;left:62px;right:62px}
+.p-phoneL .p-left{left:62px;width:360px;top:66px;padding:0}
+.p-phoneL .p-right{left:446px;width:366px;top:62px;padding:0}
+.p-phoneL .p-left .p-ohead,.p-phoneL .p-left .p-stats,.p-phoneL .p-subs{display:none}
+.p-phoneL .p-now{padding:14px 16px;gap:10px;border-radius:24px}
+.p-phoneL .p-now h2{font-size:20px}
+.p-phoneL .p-done{width:44px;height:44px}
+.p-phoneL .p-done svg{width:21px;height:21px}
+.p-phoneL .p-vb{height:34px;font-size:13px}
+.p-phoneL .p-qr{padding:9px 6px;font-size:15px}
+.p-phoneL .p-qh{padding:4px 6px 6px}
+.p-phoneL .p-edge{height:110px}
+.p-phoneL .p-tabs{bottom:12px;height:54px;width:330px;left:50%;margin-left:-165px}
+.p-phoneL .p-tabs .p-tab{height:46px;font-size:8.5px}
+.p-phoneL .p-tabs .p-tab svg{width:20px;height:20px}
+.p-phoneL .p-fab{bottom:12px;width:54px;height:54px;right:auto;left:50%;margin-left:177px}
+.p-phoneL .p-tabs.withacc{margin-left:-326px}
+.p-phoneL .p-acc{bottom:14px;height:50px;left:50%;right:auto;width:300px;margin-left:16px}
+.p-phoneL .p-home{bottom:5px}
+.p-phoneL .p-acct{left:62px;top:62px}
 @keyframes pBlink{50%{opacity:0}}
 </style>
 </helmet>
@@ -315,16 +392,19 @@ body{margin:0}
     <div class="p-isl"></div>
     <div class="p-sb"><span>9:41</span><svg viewBox="0 0 70 12" style="width:70px"><use href="#p-i-sig"></use></svg></div>
     <div class="p-nav">
-      <button class="p-gav p-gl" aria-label="空间：工作"><i>工</i></button>
+      <button class="p-gav p-gl" aria-label="空间与设置"><i>工</i><sc-if value="{{avDot}}" hint-placeholder-val="{{ false }}"><span class="p-dot"></span></sc-if></button>
       <div class="p-ttl"><span>{{dateLine}}</span><b>{{title}}</b></div>
-      <div class="p-gcap p-gl"><button class="{{syncCls}}" aria-label="同步状态"><svg><use href="#p-i-cloud"></use></svg></button><button aria-label="更多"><svg><use href="#p-i-more"></use></svg></button></div>
+      <sc-if value="{{navV1}}" hint-placeholder-val="{{ true }}"><div class="p-gcap p-gl"><button class="{{syncCls}}" aria-label="同步状态"><svg><use href="#p-i-cloud"></use></svg></button><button aria-label="更多"><svg><use href="#p-i-more"></use></svg></button></div></sc-if>
+      <sc-if value="{{navAcc}}" hint-placeholder-val="{{ false }}"><div class="p-right-x"><button class="p-gbtn p-gl ok" aria-label="同步状态：已同步"><svg><use href="#p-i-cloud"></use></svg></button></div></sc-if>
+      <sc-if value="{{navTop}}" hint-placeholder-val="{{ false }}"><div class="p-right-x"><button class="p-gbtn plus" aria-label="新建"><svg><use href="#p-i-plus"></use></svg></button></div></sc-if>
     </div>
   </sc-if>
 
   <sc-if value="{{single}}" hint-placeholder-val="{{ true }}">
-    <div class="p-col">
+    <div class="p-col" style="{{colStyle}}">
       <sc-if value="{{isOuter}}" hint-placeholder-val="{{ false }}"><div class="p-ohead"><div><span>{{dateLine}}</span><b>{{title}}</b></div></div></sc-if>
 
+      <sc-if value="{{oPull}}" hint-placeholder-val="{{ false }}"><div class="p-pull"><b><svg><use href="#p-i-plus"></use></svg>松手新建一条</b><span>{{pullHint}}</span></div></sc-if>
       <sc-if value="{{vFocus}}" hint-placeholder-val="{{ true }}">
         <div class="p-now">
           <div class="top"><span>NOW</span><span>01 / 05</span></div>
@@ -338,6 +418,8 @@ body{margin:0}
           <div class="p-hact"><button class="p-done" aria-label="完成"><svg><use href="#p-i-check"></use></svg></button><b>完成</b><button class="p-vb"><svg><use href="#p-i-verify"></use></svg>送去验证</button></div>
         </div>
         <div class="p-qh"><span><b>接下来</b></span><span>4</span></div>
+        <sc-if value="{{qAdd}}" hint-placeholder-val="{{ false }}"><div class="p-qadd"><span class="ic"><svg><use href="#p-i-plus"></use></svg></span>接下来要做…<small><svg><use href="#p-i-chev"></use></svg>也可以下拉</small></div></sc-if>
+        <sc-if value="{{qAddEdit}}" hint-placeholder-val="{{ false }}"><div class="p-qadd edit"><span class="ic"></span><span>修一下 Windows 标题栏按钮间距<i class="p-caret"></i></span></div></sc-if>
         <sc-for list="{{queue}}" as="r" hint-placeholder-count="4">
           <div>
             <sc-if value="{{r.swL}}" hint-placeholder-val="{{ false }}">
@@ -361,6 +443,7 @@ body{margin:0}
         </sc-if>
         <sc-if value="{{hasRows}}" hint-placeholder-val="{{ true }}">
           <div class="p-card">
+            <sc-if value="{{cAdd}}" hint-placeholder-val="{{ false }}"><div class="p-cadd"><span class="ic"><svg><use href="#p-i-plus"></use></svg></span>{{accText}}</div></sc-if>
             <sc-for list="{{lrows}}" as="r" hint-placeholder-count="3">
               <div class="p-row {{r.cls}}" style="--c:{{lc}}">
                 <span class="p-cb {{r.cb}}"><svg><use href="#p-i-check"></use></svg></span>
@@ -431,7 +514,7 @@ body{margin:0}
     </div>
     <div class="p-right">
       <sc-if value="{{vFocus}}" hint-placeholder-val="{{ true }}">
-        <div class="p-addr"><svg><use href="#p-i-plus"></use></svg>接下来要做…</div>
+        <sc-if value="{{showAddr}}" hint-placeholder-val="{{ true }}"><div class="p-addr"><svg><use href="#p-i-plus"></use></svg>接下来要做…</div></sc-if>
         <div class="p-qh" style="padding-top:12px"><span><b>接下来</b></span><span>4 · 拖到左页 = 换成现在</span></div>
         <sc-for list="{{queue}}" as="r" hint-placeholder-count="4">
           <div class="p-qr" style="opacity:{{r.o}}"><span class="no">{{r.no}}</span><span class="t">{{r.t}}</span><sc-if value="{{r.prog}}" hint-placeholder-val="{{ false }}"><span class="pg">{{r.prog}}</span></sc-if></div>
@@ -453,33 +536,65 @@ body{margin:0}
     <div class="p-cam"></div>
     <div class="p-strip">
       <div class="p-vstat"><span>9:41</span><svg viewBox="0 0 40 12"><use href="#p-i-wifi"></use></svg></div>
-      <div class="p-vcap p-gl"><button aria-label="空间：工作"><i class="av">工</i></button><button class="{{syncCls}}" aria-label="同步状态"><svg><use href="#p-i-cloud"></use></svg></button><button aria-label="更多"><svg><use href="#p-i-more"></use></svg></button></div>
+      <div class="p-vcap p-gl"><button aria-label="空间与设置"><i class="av">工</i><sc-if value="{{avDot}}" hint-placeholder-val="{{ false }}"><span class="p-dot"></span></sc-if></button><sc-if value="{{stripCloud}}" hint-placeholder-val="{{ true }}"><button class="{{syncCls}}" aria-label="同步状态"><svg><use href="#p-i-cloud"></use></svg></button></sc-if><sc-if value="{{navV1}}" hint-placeholder-val="{{ true }}"><button aria-label="更多"><svg><use href="#p-i-more"></use></svg></button></sc-if></div>
+      <sc-if value="{{navTop}}" hint-placeholder-val="{{ false }}"><button class="p-vplus" aria-label="新建"><svg><use href="#p-i-plus"></use></svg></button></sc-if>
       <div class="p-vtabs p-gl">
         <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
           <button class="p-tab {{t.on}}" aria-label="{{t.en}}"><svg><use href="#p-i-{{t.icon}}"></use></svg>{{t.short}}<sc-if value="{{t.n}}" hint-placeholder-val="{{ true }}"><span class="tb">{{t.n}}</span></sc-if></button>
         </sc-for>
       </div>
-      <button class="p-vfab" aria-label="新增"><svg><use href="#p-i-plus"></use></svg></button>
+      <sc-if value="{{stripFab}}" hint-placeholder-val="{{ true }}"><button class="p-vfab" aria-label="新增"><svg><use href="#p-i-plus"></use></svg></button></sc-if>
+      <sc-if value="{{stripNoFab}}" hint-placeholder-val="{{ false }}"><div style="height:16px"></div></sc-if>
     </div>
   </sc-if>
 
   <sc-if value="{{hasBottomBar}}" hint-placeholder-val="{{ true }}">
     <div class="p-edge"></div>
-    <div class="p-tabs p-gl">
+    <sc-if value="{{showAcc}}" hint-placeholder-val="{{ false }}"><div class="p-acc p-gl"><span class="pl"><svg><use href="#p-i-plus"></use></svg></span>{{accText}}<em><svg><use href="#p-i-{{accIcon}}"></use></svg>{{accList}}</em></div></sc-if>
+    <div class="p-tabs p-gl {{tabsCls}}">
       <sc-for list="{{tabs}}" as="t" hint-placeholder-count="5">
         <button class="p-tab {{t.on}}" aria-label="{{t.en}}"><svg><use href="#p-i-{{t.icon}}"></use></svg>{{t.en}}<sc-if value="{{t.n}}" hint-placeholder-val="{{ true }}"><span class="tb">{{t.n}}</span></sc-if></button>
       </sc-for>
     </div>
-    <button class="p-fab" aria-label="新增"><svg><use href="#p-i-plus"></use></svg></button>
+    <sc-if value="{{navV1}}" hint-placeholder-val="{{ true }}"><button class="p-fab" aria-label="新增"><svg><use href="#p-i-plus"></use></svg></button></sc-if>
   </sc-if>
   <sc-if value="{{hasHome}}" hint-placeholder-val="{{ true }}"><div class="p-home"></div></sc-if>
 
   <sc-if value="{{isBook}}" hint-placeholder-val="{{ false }}"><div class="p-crease"></div></sc-if>
   <sc-if value="{{showGuide}}" hint-placeholder-val="{{ false }}"><div class="p-guide"></div></sc-if>
 
-  <sc-if value="{{oToast}}" hint-placeholder-val="{{ false }}"><div class="p-toast p-gl"><span>已删除「回复设计稿评论」</span><button>撤销</button></div></sc-if>
+  <sc-if value="{{oToast}}" hint-placeholder-val="{{ false }}"><div class="p-toast p-gl" style="{{toastStyle}}"><span>已删除「回复设计稿评论」</span><button>撤销</button></div></sc-if>
 
-  <sc-if value="{{oAdd}}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{oAddInline}}" hint-placeholder-val="{{ false }}">
+    <div class="p-tedge"></div>
+    <div class="p-ktool" style="bottom:{{kbH}}px"><span class="p-chip on" style="--c:var(--lime)"><svg><use href="#p-i-focus"></use></svg>FOCUS</span><span class="p-chip" style="--c:var(--inbox)"><svg><use href="#p-i-inbox"></use></svg></span><span class="p-chip" style="--c:var(--goal)"><svg><use href="#p-i-goal"></use></svg></span><span class="p-chip sw">排在现在之后</span><button class="ok" aria-label="添加"><svg><use href="#p-i-check"></use></svg></button></div>
+    <div class="p-kb">
+      <div class="p-cand"><span>间距</span><span>间隔</span><span>坚决</span><span>监局</span></div>
+      <div class="p-kr"><span class="p-k">q</span><span class="p-k">w</span><span class="p-k">e</span><span class="p-k">r</span><span class="p-k">t</span><span class="p-k">y</span><span class="p-k">u</span><span class="p-k">i</span><span class="p-k">o</span><span class="p-k">p</span></div>
+      <div class="p-kr"><span class="p-k">a</span><span class="p-k">s</span><span class="p-k">d</span><span class="p-k">f</span><span class="p-k">g</span><span class="p-k">h</span><span class="p-k">j</span><span class="p-k">k</span><span class="p-k">l</span></div>
+      <div class="p-kr"><span class="p-k f">⇧</span><span class="p-k">z</span><span class="p-k">x</span><span class="p-k">c</span><span class="p-k">v</span><span class="p-k">b</span><span class="p-k">n</span><span class="p-k">m</span><span class="p-k f">⌫</span></div>
+      <div class="p-kr"><span class="p-k f">123</span><span class="p-k f">☺</span><span class="p-k sp">拼音</span><span class="p-k go">添加</span></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{oAcct}}" hint-placeholder-val="{{ false }}">
+    <div class="p-scrim" style="background:transparent"></div>
+    <div class="p-acct" style="{{acctPos}}">
+      <div class="cap"><span>空间</span><span>{{acctSync}}</span></div>
+      <div class="sp on"><i style="background:#0B0B0C;color:#D6FF3D">工</i>工作<small>5</small><svg><use href="#p-i-check"></use></svg></div>
+      <div class="sp"><i style="background:#FF8A65;color:#0B0B0C">生</i>生活<small>2</small></div>
+      <div class="sp"><i style="background:#B8A6FF;color:#0B0B0C">读</i>读书<small>0</small></div>
+      <div class="p-mi"><svg><use href="#p-i-plus"></use></svg>新建空间…</div>
+      <div class="p-msep"></div>
+      <div class="p-mi"><svg><use href="#p-i-trash"></use></svg>回收站<em>3</em></div>
+      <div class="p-mi"><svg class="stat"><use href="#p-i-cloud"></use></svg>同步<em>已同步 · 刚刚</em></div>
+      <div class="p-mi"><svg><use href="#p-i-edit"></use></svg>外观<em>跟随系统 ›</em></div>
+      <div class="p-mi"><svg><use href="#p-i-sound"></use></svg>完成提示音<span class="tg"></span></div>
+      <div class="p-mi"><svg><use href="#p-i-haptic"></use></svg>触感反馈<span class="tg"></span></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{oAddCard}}" hint-placeholder-val="{{ false }}">
     <div class="p-scrim"></div>
     <div class="p-comp p-gl" style="bottom:{{kbTop}}px">
       <div class="p-cin"><span>修一下 Windows 标题栏按钮间距<i class="p-caret"></i></span><button class="p-send" aria-label="添加"><svg><use href="#p-i-up"></use></svg></button></div>
@@ -582,7 +697,7 @@ body{margin:0}
 </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"form":{"editor":"enum","options":["phone","outer","inner","innerP"],"default":"phone"},"posture":{"editor":"enum","options":["flat","book"],"default":"flat"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"view":{"editor":"enum","options":["focus","verify","inbox","goal","history","empty"],"default":"focus"},"overlay":{"editor":"enum","options":["none","add","menu","swipe","more","space","sync","conflict","trash","join","toast"],"default":"none"},"guide":{"editor":"boolean","default":false},"scheme":{"editor":"enum","options":["lime","ink","blue","matcha"],"default":"lime"},"$preview":{"width":402,"height":874}}'>
+<script type="text/x-dc" data-dc-script data-props='{"form":{"editor":"enum","options":["phone","phoneL","outer","inner","innerP"],"default":"phone"},"posture":{"editor":"enum","options":["flat","book"],"default":"flat"},"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"view":{"editor":"enum","options":["focus","verify","inbox","goal","history","empty"],"default":"focus"},"overlay":{"editor":"enum","options":["none","add","menu","swipe","more","space","sync","conflict","trash","join","toast","acct","pull"],"default":"none"},"guide":{"editor":"boolean","default":false},"nav":{"editor":"enum","options":["acc","v1","list","top"],"default":"acc"},"scheme":{"editor":"enum","options":["lime","ink","blue","matcha"],"default":"lime"},"$preview":{"width":402,"height":874}}'>
 class Component extends DCLogic {
   renderVals() {
     const form = this.props.form || 'phone';
@@ -590,7 +705,8 @@ class Component extends DCLogic {
     const view = this.props.view || 'focus';
     const ov = this.props.overlay || 'none';
     const posture = this.props.posture || 'flat';
-    const size = { phone: [402, 874], outer: [466, 678], inner: [951, 669], innerP: [669, 951] }[form];
+    const size = { phone: [402, 874], phoneL: [874, 402], outer: [466, 678], inner: [951, 669], innerP: [669, 951] }[form];
+    const nav = this.props.nav || 'acc';
     const L = {
       focus: { en: 'FOCUS', n: '5', c: 'var(--tx)', icon: 'focus', short: 'FOCUS' },
       verify: { en: 'VERIFY', n: '2', c: 'var(--verify)', icon: 'verify', short: 'VERIFY' },
@@ -630,14 +746,28 @@ class Component extends DCLogic {
     const heat = [];
     const seed = [0, 2, 1, 3, 0, 4, 2, 1, 0, 3, 2, 2, 1, 4, 3, 0, 1, 2, 3, 1, 0];
     for (let i = 0; i < 112; i++) { const v = i > 109 ? -1 : seed[(i * 5 + (i >> 3)) % seed.length]; heat.push(i === 109 ? 'l3 t' : v <= 0 ? '' : 'l' + v); }
-    const isPhoneLike = form === 'phone' || form === 'innerP';
-    const spread = form === 'inner';
+    const isPhoneLike = form === 'phone' || form === 'innerP' || form === 'phoneL';
+    const spread = form === 'inner' || form === 'phoneL';
     const sheetKind = ['space', 'sync', 'conflict', 'trash'].includes(ov) ? ov : '';
     const kbTop = form === 'innerP' ? 300 : 320;
+    const accTexts = { focus: '接下来要做…', verify: '做完了、还要测一下的事…', inbox: '想到什么，先丢进来…', goal: '写下一个长期目标…', history: '', empty: '接下来要做…' };
+    const accList = { focus: 'FOCUS', verify: 'VERIFY', inbox: 'INBOX', goal: 'GOAL', history: '', empty: 'FOCUS' };
+    const accIcon = { focus: 'focus', verify: 'verify', inbox: 'inbox', goal: 'goal', history: 'focus', empty: 'focus' };
+    const showAcc = nav === 'acc' && isPhoneLike && view !== 'history' && ov !== 'add';
     return {
       W: size[0], H: size[1],
       rootCls: ['p-' + form, 'p-' + theme, 's-' + (this.props.scheme || 'lime')].join(' '),
-      hasTopBar: isPhoneLike, hasBottomBar: isPhoneLike, hasHome: form !== 'outer', hasStrip: form === 'outer' || form === 'inner',
+      hasTopBar: isPhoneLike, hasBottomBar: isPhoneLike,
+      navV1: nav === 'v1', navAcc: nav === 'acc', navList: nav === 'list', navTop: nav === 'top',
+      avDot: nav === 'list' || nav === 'top', stripCloud: nav === 'v1' || nav === 'acc', stripFab: nav === 'v1' || nav === 'acc', stripNoFab: nav === 'list' || nav === 'top',
+      showAcc, accText: accTexts[view] || '', accList: accList[view] || '', accIcon: accIcon[view] || 'focus',
+      tabsCls: (nav === 'v1' ? '' : 'full') + (showAcc && form === 'phoneL' ? ' withacc' : ''),
+      qAdd: nav === 'list' && ov !== 'add', qAddEdit: nav === 'list' && ov === 'add', cAdd: nav === 'list' && view !== 'goal',
+      showAddr: form === 'inner' || (form === 'phoneL' && nav === 'list'),
+      oPull: ov === 'pull', pullHint: view === 'inbox' ? '新的一条会放进 INBOX 最上面' : '新的一条会排在 NOW 之后',
+      oAcct: ov === 'acct', acctSync: nav === 'acc' ? '' : '已同步 ✓',
+      acctPos: form === 'outer' ? 'right:92px;top:96px' : form === 'inner' ? 'right:96px;top:70px' : form === 'phoneL' ? '' : 'left:16px;top:108px',
+      oAddCard: ov === 'add' && nav !== 'list', colStyle: ov === 'add' && nav === 'list' ? 'transform:translateY(-170px)' : '', oAddInline: ov === 'add' && nav === 'list', kbH: form === 'innerP' ? 282 : 302, tEdge: ov === 'add' && nav === 'list', hasHome: form !== 'outer', hasStrip: form === 'outer' || form === 'inner',
       isOuter: form === 'outer', single: !spread, spread, isBook: spread && posture === 'book', showGuide: spread && !!this.props.guide,
       dateLine: cur === 'history' ? '完成记录' : '10/17 周六',
       title: L[cur].en + ' · ' + counts[cur],
@@ -660,7 +790,7 @@ class Component extends DCLogic {
         { time: '15:12', t: '排序与父子移动', c: 'var(--tx)', sub: '整理多端同步的冲突规则 › 子项' },
         { time: '10:30', t: '给图标做 13px 版本', c: 'var(--inbox)', sub: '' }
       ],
-      oToast: ov === 'toast', oAdd: ov === 'add', kbTop, oMenu: ov === 'menu', oMore: ov === 'more',
+      oToast: ov === 'toast', toastStyle: showAcc ? 'bottom:160px' : '', oAdd: ov === 'add', kbTop, oMenu: ov === 'menu', oMore: ov === 'more',
       morePos: form === 'outer' ? 'right:92px;top:110px' : form === 'inner' ? 'right:96px;top:96px' : 'right:16px;top:110px',
       oSheet: !!sheetKind, sSpace: sheetKind === 'space', sSync: sheetKind === 'sync', sConflict: sheetKind === 'conflict', sTrash: sheetKind === 'trash',
       sheetGrab: form !== 'inner',

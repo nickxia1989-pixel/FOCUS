@@ -43,7 +43,12 @@ body{margin:0}
 .edge{position:absolute;left:0;right:0;bottom:0;height:170px;background:linear-gradient(to bottom,rgba(246,246,242,0),rgba(246,246,242,.9) 72%)}
 .gl{background:rgba(255,255,255,.56);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 0 0 1px rgba(255,255,255,.85),0 8px 24px rgba(0,0,0,.12)}
 .dk .gl{background:rgba(38,38,42,.52);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 1px rgba(255,255,255,.13),0 10px 28px rgba(0,0,0,.4)}
-.tabs{position:absolute;left:26px;bottom:24px;width:300px;height:64px;border-radius:32px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box}
+.acc{position:absolute;left:26px;right:26px;bottom:98px;height:50px;border-radius:25px;display:flex;align-items:center;gap:10px;padding:0 8px;box-sizing:border-box;font-size:15px;color:#66665F}
+.dk .acc{color:#8E8E88}
+.acc .pl{width:34px;height:34px;border-radius:50%;background:#D6FF3D;color:#0B0B0C;display:grid;place-items:center;flex:none}
+.acc .pl svg{width:18px;height:18px}
+.acc em{margin-left:auto;font:800 10.5px/1 var(--disp);letter-spacing:.06em;font-style:normal;padding-right:8px}
+.tabs{position:absolute;left:26px;right:26px;bottom:24px;height:64px;border-radius:32px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box}
 .tab{flex:1;height:56px;border-radius:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:700 9.5px/1 var(--disp);letter-spacing:.04em;position:relative;color:#0B0B0C}
 .tab svg{width:23px;height:23px}
 .tab.on{background:#D6FF3D}
@@ -125,30 +130,30 @@ body{margin:0}
 
 <section class="col">
   <div>
-    <p class="lab">液态玻璃页签栏 · iPhone（浅 / 深）· 胶囊 64 高、圆角 32、左右内缩 16、底距 24；+ 钮 64，与胶囊间距 12</p>    <div style="display:flex;gap:22px">
+    <p class="lab">液态玻璃页签栏 + 新建输入条 · iPhone（浅 / 深）· 页签栏 64 高、圆角 32、左右内缩 16、底距 24、独占一行；输入条 50 高、圆角 25、在页签栏上方 10</p>    <div style="display:flex;gap:22px">
       <div class="glassStage" style="flex:1">
         <div class="rows"><div><span>02</span>把 iOS 原型装到真机上，过一遍左滑</div><div><span>03</span>给 HISTORY 加上「从哪个列表完成」</div><div><span>04</span>回复设计稿评论：侧栏宽度要不要收窄</div><div><span>05</span>周报：本周完成的事从 HISTORY 里抄</div><div><span>06</span>把冲突面板的文案再顺一遍</div></div>
         <div class="edge"></div>
         <div class="tabs gl"><div class="tab on"><svg><use href="#s-focus"></use></svg>FOCUS<em>5</em></div><div class="tab"><svg><use href="#s-verify"></use></svg>VERIFY<em>2</em></div><div class="tab"><svg><use href="#s-inbox"></use></svg>INBOX<em>3</em></div><div class="tab"><svg><use href="#s-goal"></use></svg>GOAL</div><div class="tab"><svg><use href="#s-history"></use></svg>HISTORY</div></div>
-        <div class="fab"><svg><use href="#s-plus"></use></svg></div>
+        <div class="acc gl"><span class="pl"><svg><use href="#s-plus"></use></svg></span>接下来要做…<em>✦ FOCUS</em></div>
       </div>
       <div class="glassStage dk" style="flex:1;background:#0B0B0C">
         <div class="rows" style="color:#F4F4EF"><div style="border-color:rgba(255,255,255,.07)"><span>02</span>把 iOS 原型装到真机上，过一遍左滑</div><div style="border-color:rgba(255,255,255,.07)"><span>03</span>给 HISTORY 加上「从哪个列表完成」</div><div style="border-color:rgba(255,255,255,.07)"><span>04</span>回复设计稿评论：侧栏宽度要不要收窄</div><div style="border-color:rgba(255,255,255,.07)"><span>05</span>周报：本周完成的事从 HISTORY 里抄</div><div style="border-color:rgba(255,255,255,.07)"><span>06</span>把冲突面板的文案再顺一遍</div></div>
         <div class="edge" style="background:linear-gradient(to bottom,rgba(11,11,12,0),rgba(11,11,12,.9) 72%)"></div>
         <div class="tabs gl"><div class="tab on"><svg><use href="#s-focus"></use></svg>FOCUS<em>5</em></div><div class="tab"><svg><use href="#s-verify"></use></svg>VERIFY<em>2</em></div><div class="tab"><svg><use href="#s-inbox"></use></svg>INBOX<em>3</em></div><div class="tab"><svg><use href="#s-goal"></use></svg>GOAL</div><div class="tab"><svg><use href="#s-history"></use></svg>HISTORY</div></div>
-        <div class="fab"><svg><use href="#s-plus"></use></svg></div>
+        <div class="acc gl"><span class="pl"><svg><use href="#s-plus"></use></svg></span>接下来要做…<em>✦ FOCUS</em></div>
       </div>
     </div>
   </div>
   <div style="display:flex;gap:26px;align-items:flex-start">
     <div class="tbl" style="flex:1">
       <b>实现</b><span>用 iOS 26 原生 UITabBarController / SwiftUI TabView，系统自动给液态玻璃、滚动时缩小、Duo 上竖排；网页里只画内容，不画底栏（Duo 会话已接好原生外壳）。</span>
-      <b>+ 钮</b><span>作为第 6 个 Tab 用 search 角色（系统画成右侧独立玻璃圆钮），点它不切页，弹出新建卡片。荧光绿着色 tint = #D6FF3D，图标 #0B0B0C。</span>
+      <b>新建输入条</b><span>UITabBarController.bottomAccessory（SwiftUI .tabViewBottomAccessory）：左边 34 荧光绿圆 + 近黑「+」，中间是这一页的提示语，右边小字是目标列表；点它弹出新建卡。HISTORY 页设为 nil。页签栏收起时系统把它并到收起的页签旁边（inline）。</span>
       <b>选中态</b><span>浅色：选中项底是荧光绿、图标和字近黑；深色：17% 荧光绿底 + 荧光绿图标和字。未选中：图标和字是正文色。</span>
       <b>角标</b><span>未完成数（FOCUS / VERIFY / INBOX），用数字不用红点；GOAL、HISTORY 不显示。</span>
       <b>标签</b><span>英文大写，Bricolage 700 9.5，字距 .04em；图标 23。原生实现若字体受限，用 SF Compact 同字号。</span>
       <b>滚动边缘</b><span>内容可以滚到玻璃下面；底部 170pt 渐隐到页面底色（系统 scrollEdgeEffect 即可）。</span>
-      <b>导航栏</b><span>同一种玻璃：左边空间头像 44 圆钮，右边 44 高胶囊放云朵和 ⋯；有冲突时云朵右上角红色数字角标。</span>
+      <b>导航栏</b><span>同一种玻璃：左边空间头像 44 圆钮，点开是「空间 + 设置」合并菜单（不再有 ⋯）；右边一颗 44 云朵圆钮，有冲突时右上角红色数字角标。</span>
       <b>辅助功能</b><span>减少透明度时玻璃换成不透明 surface；增强对比时描边加深到 30%。</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:8px;align-items:center">

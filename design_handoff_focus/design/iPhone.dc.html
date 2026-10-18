@@ -24,7 +24,7 @@ body{margin:0}
 </style>
 </helmet>
 <div class="ib">
-  <div class="ib-h"><h1>iPhone · 竖屏</h1><p>以 iPhone 17 Pro（402×874pt）为基准。导航栏：左边空间头像，标题跟在后面；右边一枚玻璃胶囊放云朵和 ⋯。底部是 iOS 26 原生液态玻璃页签栏，加一颗独立的玻璃 + 钮（荧光绿着色）。列表内容可以滚到玻璃下面，底部有一层渐隐。</p></div>
+  <div class="ib-h"><h1>iPhone · 竖屏</h1><p>以 iPhone 17 Pro（402×874pt）为基准。导航栏：左边空间头像（点开是空间 + 设置合并菜单），标题跟在后面；右边一颗玻璃云朵圆钮。底部是 iOS 26 原生液态玻璃页签栏，独占一整行；它上方是一条玻璃新建输入条（tab bar bottom accessory），点它长成贴着键盘的新建卡。列表内容可以滚到玻璃下面，底部有一层渐隐。</p></div>
   <sc-for list="{{secs}}" as="s" hint-placeholder-count="3">
     <div class="ib-sec">
       <div class="ib-st">{{s.t}}</div>
@@ -49,7 +49,7 @@ class Component extends DCLogic {
         { t: 'FOCUS 与交互', items: [
           it('P1', 'FOCUS · 浅色。选中的页签是荧光绿玻璃', 'focus'),
           it('P2', 'FOCUS · 深色。选中页签是 17% 荧光绿 + 荧光绿图标', 'focus', 'none', 'dark'),
-          it('P3', '新建：+ 弹出贴着键盘的玻璃输入卡，选列表；默认排在「现在」之后', 'focus', 'add', 'dark'),
+          it('P3', '新建：点底部输入条，长成贴着键盘的玻璃新建卡，选列表；默认排在「现在」之后', 'focus', 'add', 'dark'),
           it('P4', '长按：行浮起，背景模糊，iOS 玻璃上下文菜单', 'focus', 'menu'),
           it('P5', '左滑：设为现在 / 送去验证 / 移动 / 删除；右滑：完成', 'focus', 'swipe')
         ] },
@@ -61,8 +61,8 @@ class Component extends DCLogic {
           it('P10', 'FOCUS 空了', 'empty')
         ] },
         { t: '菜单、空间、同步与回收站', items: [
-          it('P11', '⋯ 菜单：回收站、同步、空间、提示音、触感', 'focus', 'more'),
-          it('P12', '空间面板（深色）：切换、新建；左滑改名 / 删除', 'focus', 'space', 'dark'),
+          it('P11', '点头像：空间和设置合在一张菜单里（回收站、同步、外观、提示音、触感）', 'focus', 'acct'),
+          it('P12', '空间面板（深色）：从头像菜单的「新建空间… / 管理」进入；左滑改名 / 删除', 'focus', 'space', 'dark'),
           it('P13', '同步面板', 'focus', 'sync'),
           it('P14', '冲突面板（深色）：发现冲突时自动弹出', 'focus', 'conflict', 'dark'),
           it('P15', '第一次加入云端', 'focus', 'join'),

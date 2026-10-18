@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>导航方案 A · 底部输入条</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.nb{width:2400px;box-sizing:border-box;padding:44px 56px 64px;background:#E8E8E3;color:#0B0B0C;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;gap:40px}
+.nb-h{display:flex;gap:40px;align-items:flex-start}
+.nb-t{width:520px;flex:none;display:flex;flex-direction:column;gap:12px}
+.nb-t .k{display:flex;align-items:center;gap:12px}
+.nb-t .k i{width:44px;height:44px;border-radius:13px;background:#0B0B0C;color:#D6FF3D;font:800 24px/44px 'Bricolage Grotesque',sans-serif;text-align:center;font-style:normal}
+.nb-t h1{margin:0;font:800 40px/1 'Bricolage Grotesque',-apple-system,'PingFang SC',sans-serif;letter-spacing:-.02em}
+.nb-t em{font:700 12px/1 -apple-system,sans-serif;font-style:normal;padding:6px 10px;border-radius:999px;background:#D6FF3D}
+.nb-t p{margin:0;font-size:15px;line-height:1.6;color:#3F3F3A}
+.nb-g{flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.nb-g div{background:#F6F6F2;border-radius:16px;padding:14px 16px;font-size:13px;line-height:1.6;color:#3F3F3A}
+.nb-g b{display:block;font:800 14px/1.3 'Bricolage Grotesque',-apple-system,'PingFang SC',sans-serif;color:#0B0B0C;margin-bottom:6px}
+.nb-g div.cost{background:#0B0B0C;color:#D4D4CE}
+.nb-g div.cost b{color:#D6FF3D}
+.nb-row{display:flex;gap:56px;align-items:flex-start;flex-wrap:wrap}
+.nb-it{display:flex;flex-direction:column;gap:20px}
+.nb-lb{display:flex;gap:8px;align-items:baseline;font-size:13px;color:#55554F;max-width:560px;line-height:1.5}
+.nb-lb b{font:800 11px/1 'Bricolage Grotesque',sans-serif;padding:4px 7px;border-radius:6px;background:#0B0B0C;color:#D6FF3D;flex:none}
+</style>
+</helmet>
+<div class="nb">
+  <div class="nb-h">
+    <div class="nb-t">
+      <div class="k"><i>A</i><h1>底部输入条</h1><em>推荐</em></div>
+      <p>「+」不再挤在页签栏旁边，而是变成页签栏上方一条原生液态玻璃输入条（iOS 26 的 tab bar bottom accessory）。最高频的新建永远在拇指下面；页签栏独占一整行，5 个页签都宽松了。</p>
+    </div>
+    <div class="nb-g">
+      <div><b>「+」去哪了</b>变成页签栏上方的玻璃输入条：左边荧光绿「+」，中间是这一页的提示语，右边小字是会加到哪个列表。HISTORY 页不显示。</div>
+      <div><b>新建从哪里弹出</b>点输入条，它原地长成贴着键盘的新建卡（就是现在那张卡）；键盘收起又缩回输入条。往下滚时系统把页签栏收成一颗、输入条并到它旁边。</div>
+      <div><b>设置 + 空间合并</b>左上角头像点开是一张菜单：上半是空间（当前打勾、件数、新建空间），下半是回收站、同步、外观、提示音、触感。原来的 ⋯ 去掉。</div>
+      <div><b>云朵单独保留</b>右上角一颗玻璃圆钮。同步状态需要一直看得见，有冲突时挂红色数字角标，点开就是同步 / 冲突面板。</div>
+      <div><b>横屏与 Duo</b>手机横屏时输入条在页签栏右边同一行。Duo 竖排时配件栏怎么摆要实测，放不下就退回竖条底部的「+」（就是现在的做法）；内屏右页顶上的「接下来要做…」照留。</div>
+      <div class="cost"><b>代价</b>底部多占约 60pt（输入条 50 + 间距）。原生实现：<code>tabBarController.bottomAccessory</code>；内容是网页滚动，系统未必能自动收起页签栏，收不起来也只是一直显示，不影响用。</div>
+    </div>
+  </div>
+  <div class="nb-row">
+    <sc-for list="{{r1}}" as="it" hint-placeholder-count="4">
+      <div class="nb-it"><div class="nb-lb"><b>{{it.k}}</b><span>{{it.l}}</span></div><dc-import name="FPhone" form="phone" nav="acc" theme="{{it.theme}}" view="{{it.view}}" overlay="{{it.ov}}" hint-size="402px,874px"></dc-import></div>
+    </sc-for>
+  </div>
+  <div class="nb-row">
+    <div class="nb-it"><div class="nb-lb"><b>A5</b><span>Duo 内屏横握 · 双页：竖条里是头像、云朵、竖排页签和底部「+」；右页顶上有「接下来要做…」</span></div><dc-import name="FPhone" form="inner" nav="acc" theme="light" view="focus" hint-size="951px,669px"></dc-import></div>
+    <div class="nb-it"><div class="nb-lb"><b>A6</b><span>Duo 外屏 · 深色：同一条竖条，「+」在最下面靠拇指</span></div><dc-import name="FPhone" form="outer" nav="acc" theme="dark" view="focus" hint-size="466px,678px"></dc-import></div>
+  </div>
+  <div class="nb-row">
+    <div class="nb-it"><div class="nb-lb"><b>A7</b><span>iPhone 横屏：两页；页签栏和输入条并排在底部同一行</span></div><dc-import name="FPhone" form="phoneL" nav="acc" theme="light" view="focus" hint-size="874px,402px"></dc-import></div>
+    <div class="nb-it"><div class="nb-lb"><b>A8</b><span>Duo 内屏竖握：和 iPhone 一样，输入条在页签栏上方，两者居中</span></div><dc-import name="FPhone" form="innerP" nav="acc" theme="light" view="focus" hint-size="669px,951px"></dc-import></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2400,"height":3060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const it = (k, l, view, ov, theme) => ({ k, l, view, ov: ov || 'none', theme: theme || 'light' });
+    return {
+      r1: [
+        it('A1', 'FOCUS：底部是输入条 + 一整行 5 个页签；右上只剩云朵', 'focus'),
+        it('A2', 'INBOX：提示语和右边的目标列表跟着页面变', 'inbox'),
+        it('A3', '点头像：空间和设置合在一张菜单里', 'focus', 'acct'),
+        it('A4', '点输入条：长成贴着键盘的新建卡（深色）', 'focus', 'add', 'dark')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
