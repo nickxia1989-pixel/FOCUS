@@ -6,8 +6,10 @@ import {
   createTodo,
   deleteTodo,
   markForTest,
+  indentTodo,
   moveTodo,
   nowOf,
+  outdentTodo,
   openCount,
   reorderTodo,
   reparentTodo,
@@ -128,6 +130,97 @@ describe('NOW：FOCUS 一次只做一件', () => {
   });
 });
 
+describe('子项顺序与缩进', () => {
+  const kids = (s: Todo[], id: string) => childrenOf(buildIndex(s), id).map((t) => t.title);
+
+  it('子项按创建顺序排，新建的在最后；顶层仍是新建的在前', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'inbox', null, 1);
+    s = add(s, '1', 'inbox', 'p', 2);
+    s = add(s, '2', 'inbox', 'p', 3);
+    s = add(s, '3', 'inbox', 'p', 4);
+    expect(kids(s, 'p')).toEqual(['1', '2', '3']);
+    s = add(s, 'q', 'inbox', null, 5);
+    expect(titles(s, 'inbox')).toEqual(['q', 'p']);
+    // 拖动排序在升序的组里也只改被拖的那一项
+    s = reorderTodo(s, '3', 0);
+    expect(kids(s, 'p')).toEqual(['3', '1', '2']);
+    s = reorderTodo(s, '3', 2);
+    expect(kids(s, 'p')).toEqual(['1', '2', '3']);
+    // 完成的子项排到后面
+    s = completeTodo(s, '1', 10).todos;
+    expect(kids(s, 'p')).toEqual(['2', '3', '1']);
+    // 回车新建：紧跟在当前这条后面；'top' 排到第一个
+    s = createTodo(s, { id: '2b', title: '2b', list: 'inbox', parentId: 'p', now: 11, placement: { after: '2' } });
+    expect(kids(s, 'p')).toEqual(['2', '2b', '3', '1']);
+    s = createTodo(s, { id: '0', title: '0', list: 'inbox', parentId: 'p', now: 12, placement: 'top' });
+    expect(kids(s, 'p')).toEqual(['0', '2', '2b', '3', '1']);
+  });
+
+  it('order 相同的子项拖动时整组重新编号，顺序仍正确', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'goal', null, 1);
+    for (const n of ['a', 'b', 'c']) s = add(s, n, 'goal', 'p', 2);
+    s = s.map((t) => (t.parentId === 'p' ? { ...t, order: 7 } : t));
+    const before = kids(s, 'p');
+    s = reorderTodo(s, before[0], 2);
+    expect(kids(s, 'p')).toEqual([before[1], before[2], before[0]]);
+  });
+
+  it('Tab：挂到上一个同级下面，成为它的最后一个子项；第一个按 Tab 不动', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'focus', null, 1);
+    s = add(s, 'a', 'focus', 'p', 2);
+    s = add(s, 'b', 'focus', 'p', 3);
+    s = add(s, 'a1', 'focus', 'a', 4);
+    s = add(s, 'bc', 'focus', 'b', 5);
+    expect(indentTodo(s, 'a')).toBe(s);
+    s = indentTodo(s, 'b');
+    expect(kids(s, 'p')).toEqual(['a']);
+    expect(kids(s, 'a')).toEqual(['a1', 'b']);
+    expect(kids(s, 'b')).toEqual(['bc']); // 子孙跟着走
+    // 顶层项也能缩进：成为上一个顶层项的子项
+    s = add(s, 'r1', 'inbox', null, 6);
+    s = add(s, 'r2', 'inbox', null, 7); // r2 r1
+    s = indentTodo(s, 'r1');
+    expect(titles(s, 'inbox')).toEqual(['r2']);
+    expect(kids(s, 'r2')).toEqual(['r1']);
+  });
+
+  it('Shift+Tab：升一级，排在原父项紧后面；后面的兄弟留在原处；顶层不动', () => {
+    let s: Todo[] = [];
+    s = add(s, 'p', 'focus', null, 1);
+    s = add(s, 'a', 'focus', 'p', 2);
+    s = add(s, 'b', 'focus', 'a', 3);
+    s = add(s, 'c', 'focus', 'a', 4);
+    s = add(s, 'd', 'focus', 'p', 5); // p: a(b, c), d
+    expect(outdentTodo(s, 'p')).toBe(s);
+    s = outdentTodo(s, 'b');
+    expect(kids(s, 'p')).toEqual(['a', 'b', 'd']);
+    expect(kids(s, 'a')).toEqual(['c']);
+    // 升成顶层：排在原根项后面（FOCUS 里就是 NOW 之后）
+    s = add(s, 'q', 'focus', null, 6);
+    s = setNow(s, 'p'); // p q
+    s = outdentTodo(s, 'd');
+    expect(titles(s, 'focus')).toEqual(['p', 'd', 'q']);
+    expect(nowOf(s)?.id).toBe('p');
+    // Tab 再 Shift+Tab 回到原来的层级
+    s = indentTodo(s, 'd');
+    expect(kids(s, 'p')).toEqual(['a', 'b', 'd']);
+  });
+
+  it('VERIFY 里缩进 / 反缩进时保住「待验证」', () => {
+    let s: Todo[] = [];
+    s = add(s, 'v1', 'verify', null, 1);
+    s = add(s, 'v2', 'verify', null, 2); // v2 v1
+    s = indentTodo(s, 'v1');
+    expect(s.find((t) => t.id === 'v1')!.testing).toBe(true);
+    s = outdentTodo(s, 'v1');
+    expect(s.find((t) => t.id === 'v1')).toMatchObject({ parentId: null, testing: false });
+    expect(titles(s, 'verify')).toEqual(['v2', 'v1']);
+  });
+});
+
 describe('子 TODO', () => {
   it('挂在父项下，并跟随父项列表', () => {
     let s: Todo[] = [];
@@ -173,7 +266,7 @@ describe('子 TODO', () => {
     expect(s.find((t) => t.id === 'c1')!.done).toBe(true);
   });
 
-  it('改挂父项：子孙跟着走，列表跟随新父项，排在最前，折叠的父项自动展开', () => {
+  it('改挂父项：子孙跟着走，列表跟随新父项，排在最后，折叠的父项自动展开', () => {
     let s: Todo[] = [];
     s = add(s, 'p', 'goal');
     s = add(s, 'old', 'goal', 'p');
@@ -182,7 +275,7 @@ describe('子 TODO', () => {
     s = s.map((t) => (t.id === 'p' ? { ...t, collapsed: true } : t));
     s = reparentTodo(s, 'x', 'p');
     const idx = buildIndex(s);
-    expect(childrenOf(idx, 'p').map((t) => t.id)).toEqual(['x', 'old']);
+    expect(childrenOf(idx, 'p').map((t) => t.id)).toEqual(['old', 'x']);
     expect(s.find((t) => t.id === 'x')!.list).toBe('goal');
     expect(s.find((t) => t.id === 'xc')!.list).toBe('goal');
     expect(s.find((t) => t.id === 'xc')!.parentId).toBe('x');

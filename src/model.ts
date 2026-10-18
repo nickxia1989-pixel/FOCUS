@@ -1,12 +1,19 @@
 // 纯数据操作：全部返回新数组，不修改入参，方便测试与撤销
 import { COMPLETE_TO_INBOX, LIST_IDS, type ListId, type Todo } from './types';
 
-/** 未完成在前；同状态按 order 降序（默认即创建时间新的在前） */
+/**
+ * order 的方向：顶层项按 order 降序（新建的在前，像收件箱）；子项按 order 升序（按创建顺序，新建的在后，
+ * 子任务常常要按顺序一步步做）。返回 1 = 降序、-1 = 升序；同一组兄弟的方向一致。
+ */
+export const orderDir = (t: Pick<Todo, 'parentId'>): 1 | -1 => (t.parentId === null ? 1 : -1);
+
+/** 未完成在前；同状态按 order 排（方向见 orderDir） */
 export function compareTodos(a: Todo, b: Todo): number {
+  const dir = orderDir(a);
   return (
     Number(a.done) - Number(b.done) ||
-    b.order - a.order ||
-    b.createdAt - a.createdAt ||
+    dir * (b.order - a.order) ||
+    dir * (b.createdAt - a.createdAt) ||
     (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
   );
 }
@@ -62,8 +69,13 @@ export function descendantIds(todos: Todo[], id: string): Set<string> {
   return out;
 }
 
-/** 新建 / 移入时排在哪：最前（默认），或排在 NOW（第一件未完成的顶层项）之后 */
-export type Placement = 'top' | 'afterNow';
+/**
+ * 新建时排在哪。不传时顶层项排最前、子项排最后（见 orderDir）。
+ * - 'top'：排在同级最前
+ * - 'afterNow'：顶层项排在 NOW（第一件未完成的顶层项）之后
+ * - { after }：紧跟在某个未完成的同级后面（编辑时回车新建下一条）
+ */
+export type Placement = 'top' | 'afterNow' | { after: string };
 
 export function createTodo(
   todos: Todo[],
@@ -71,7 +83,7 @@ export function createTodo(
 ): Todo[] {
   const parent = input.parentId ? todos.find((t) => t.id === input.parentId) : undefined;
   const list = parent ? parent.list : input.list;
-  // order 至少比同层现有项都大，保证新建项排在最前
+  // order 至少比同层现有项都大：顶层项因此排在最前，子项排在最后
   const siblings = todos.filter((t) => t.parentId === (parent?.id ?? null) && (parent || t.list === list));
   const maxOrder = siblings.reduce((m, t) => Math.max(m, t.order), -Infinity);
   const todo: Todo = {
@@ -87,7 +99,13 @@ export function createTodo(
   let next = [...todos, todo];
   // 给折叠着的父项加子项时自动展开，免得新项"消失"
   if (parent?.collapsed) next = next.map((t) => (t.id === parent.id ? { ...t, collapsed: false } : t));
-  if (input.placement === 'afterNow' && !parent) next = reorderTodo(next, todo.id, 1);
+  const placement = input.placement;
+  if (placement === 'afterNow' && !parent) next = reorderTodo(next, todo.id, 1);
+  else if (placement === 'top' && parent) next = reorderTodo(next, todo.id, 0);
+  else if (typeof placement === 'object') {
+    const at = siblingsOf(next, todo).filter((t) => !t.done && t.id !== todo.id).findIndex((t) => t.id === placement.after);
+    if (at >= 0) next = reorderTodo(next, todo.id, at + 1);
+  }
   return next;
 }
 
@@ -185,7 +203,7 @@ export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
 }
 
 /**
- * 改挂到另一个父项下（AI agent 用，界面上没有这个操作）：子孙跟着走，列表跟随新父项，排在新兄弟的最前面。
+ * 改挂到另一个父项下：子孙跟着走，列表跟随新父项，排在新兄弟的最后面。
  * 挂到自己、自己的子孙下，或本来就在这个父项下时原样返回。
  */
 export function reparentTodo(todos: Todo[], id: string, parentId: string): Todo[] {
@@ -214,6 +232,7 @@ export function reparentTodo(todos: Todo[], id: string, parentId: string): Todo[
 export function reorderTodo(todos: Todo[], id: string, toIndex: number): Todo[] {
   const target = todos.find((t) => t.id === id);
   if (!target) return todos;
+  const dir = orderDir(target);
   const group = siblingsOf(todos, target).filter((t) => t.done === target.done);
   const from = group.findIndex((t) => t.id === id);
   const rest = group.filter((t) => t.id !== id);
@@ -223,15 +242,57 @@ export function reorderTodo(todos: Todo[], id: string, toIndex: number): Todo[] 
   const below = rest[to];
   let order: number | null;
   if (!above && !below) order = null;
-  else if (!above) order = below.order + 1;
-  else if (!below) order = above.order - 1;
-  else order = above.order - below.order > 1e-6 ? (above.order + below.order) / 2 : null;
+  else if (!above) order = below.order + dir;
+  else if (!below) order = above.order - dir;
+  else order = Math.abs(above.order - below.order) > 1e-6 ? (above.order + below.order) / 2 : null;
   if (order !== null) return todos.map((t) => (t.id === id ? { ...t, order } : t));
-  // 插不进去：按新顺序给整组重新编号（保持在原来的最大值附近，新建项仍排在最前）
+  // 插不进去：按新顺序给整组重新编号（保持在原来的端点附近，新建项的位置规则不变）
   const arranged = [...rest.slice(0, to), target, ...rest.slice(to)];
-  const top = Math.max(...group.map((t) => t.order));
-  const newOrder = new Map(arranged.map((t, i) => [t.id, top - i]));
+  const top = dir === 1 ? Math.max(...group.map((t) => t.order)) : Math.min(...group.map((t) => t.order));
+  const newOrder = new Map(arranged.map((t, i) => [t.id, top - dir * i]));
   return todos.map((t) => (newOrder.has(t.id) && newOrder.get(t.id) !== t.order ? { ...t, order: newOrder.get(t.id)! } : t));
+}
+
+/**
+ * 缩进（编辑时按 Tab）：挂到界面上紧挨着的上一个同级下面，成为它的最后一个子项，子孙跟着走。
+ * 已经是同级第一个时原样返回。
+ * VERIFY 的顶层项本身就是待测，缩进成子项后打上待测标记，免得「待验证」状态丢掉。
+ */
+export function indentTodo(todos: Todo[], id: string): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target) return todos;
+  const sibs = siblingsOf(todos, target);
+  const i = sibs.findIndex((t) => t.id === id);
+  if (i <= 0) return todos;
+  const next = reparentTodo(todos, id, sibs[i - 1].id);
+  if (target.parentId === null && target.list === 'verify' && !target.done)
+    return next.map((t) => (t.id === id ? { ...t, testing: true } : t));
+  return next;
+}
+
+/**
+ * 反缩进（编辑时按 Shift+Tab）：升一级，排在原父项的紧后面；它后面的兄弟仍留在原父项下。
+ * 顶层项原样返回。升成 VERIFY 的顶层项时去掉待测标记（VERIFY 的顶层项本身就是待测）。
+ */
+export function outdentTodo(todos: Todo[], id: string): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target || target.parentId === null) return todos;
+  const parent = todos.find((t) => t.id === target.parentId);
+  if (!parent) return todos;
+  let next: Todo[];
+  if (parent.parentId !== null) next = reparentTodo(todos, id, parent.parentId);
+  else {
+    // 升成顶层：列表不变（子项本来就跟着根项的列表），order 先放在原父项旁边，再精确排到它后面
+    next = todos.map((t) =>
+      t.id === id ? { ...t, parentId: null, order: parent.order, testing: t.list === 'verify' ? false : t.testing } : t,
+    );
+  }
+  const moved = next.find((t) => t.id === id)!;
+  if (moved.done !== parent.done) return next;
+  const at = siblingsOf(next, moved)
+    .filter((t) => t.done === moved.done && t.id !== id)
+    .findIndex((t) => t.id === parent.id);
+  return at >= 0 ? reorderTodo(next, id, at + 1) : next;
 }
 
 export function deleteTodo(todos: Todo[], id: string): Todo[] {

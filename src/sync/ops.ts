@@ -57,7 +57,7 @@ type Result<R = void> = DocState & { collapsed: Collapsed; result: R };
 const done = <R>(s: DocState & { collapsed: Collapsed }, result: R): Result<R> => ({ ...s, result });
 
 /**
- * 新建。placement 不传时：FOCUS 顶层排在 NOW 之后（不抢掉正在做的那件），其它列表和子项排在最前。
+ * 新建。placement 不传时：FOCUS 顶层排在 NOW 之后（不抢掉正在做的那件），其它列表的顶层排在最前，子项排在最后。
  */
 export function addTodo(
   st: DocState,
@@ -65,7 +65,7 @@ export function addTodo(
   input: { id: string; title: string; list: ListId; parentId?: string | null; placement?: M.Placement },
 ) {
   if (!input.title.trim()) return done({ ...st, collapsed: ctx.collapsed }, null as string | null);
-  const placement = input.placement ?? (input.list === 'focus' && !input.parentId ? 'afterNow' : 'top');
+  const placement = input.placement ?? (input.list === 'focus' && !input.parentId ? 'afterNow' : undefined);
   const s = editTodos(
     st,
     ctx.profileId,
@@ -110,6 +110,8 @@ export const reorderTodo = simple(M.reorderTodo);
 export const setCollapsed = simple(M.setCollapsed);
 export const sendToFocus = simple(M.sendToFocus);
 export const setNow = simple(M.setNow);
+export const indentTodo = simple(M.indentTodo);
+export const outdentTodo = simple(M.outdentTodo);
 
 /**
  * 改标题。base 传开始编辑时的 clock.knowledge：编辑期间远端也改了这条标题时会变成冲突，不会悄悄覆盖远端。

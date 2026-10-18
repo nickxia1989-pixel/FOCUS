@@ -66,14 +66,15 @@ function sample() {
 }
 
 describe('批量写入', () => {
-  it('新增：ref 引用、子任务跟随父项列表、默认进 INBOX、同一批按给出的顺序排在最前', () => {
+  it('新增：ref 引用、子任务跟随父项列表、默认进 INBOX、同一批按给出的顺序排（顶层在最前，子项在最后）', () => {
     const st = sample();
     const v = D.viewProfile(st.doc, 'default').todos;
     const w = todo(st, '写周报');
     expect(w.list).toBe('focus');
     expect(v.filter((t) => t.parentId === w.id).every((t) => t.list === 'focus')).toBe(true);
     expect(todo(st, '买菜').list).toBe('inbox');
-    const kids = v.filter((t) => t.parentId === w.id).sort((a, b) => b.order - a.order).map((t) => t.title);
+    // 子项按 order 升序（创建顺序）
+    const kids = v.filter((t) => t.parentId === w.id).sort((a, b) => a.order - b.order).map((t) => t.title);
     expect(kids).toEqual(['收集数据', '画图']);
     // 再加一批到 INBOX：A B 按顺序排在最前，都在原来的条目前面
     const r = apply(st, [

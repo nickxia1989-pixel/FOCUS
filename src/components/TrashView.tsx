@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { restoreFromTrash } from '../actions';
-import { startOfToday } from '../model';
+import { compareTodos, startOfToday } from '../model';
 import { useData, useUi } from '../store';
 import { TRASH_KEEP_DAYS } from '../trash';
 import type { Todo, TrashEntry } from '../types';
@@ -49,7 +49,7 @@ function descendants(items: Todo[], rootId: string) {
   }
   const out: Todo[] = [];
   const walk = (id: string) => {
-    for (const k of (byParent.get(id) ?? []).sort((a, b) => b.order - a.order)) {
+    for (const k of (byParent.get(id) ?? []).sort(compareTodos)) {
       out.push(k);
       walk(k.id);
     }

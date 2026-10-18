@@ -139,6 +139,10 @@ interface DataState extends Derived {
   sendToFocus(id: string): void;
   /** 设为现在：移到 FOCUS 第 1 位 */
   setNow(id: string): void;
+  /** 缩进（Tab）：挂到上一个同级下面，成为它的最后一个子项 */
+  indent(id: string): void;
+  /** 反缩进（Shift+Tab）：升一级，排在原父项后面 */
+  outdent(id: string): void;
   markForTest(id: string): void;
   unmarkTest(id: string): void;
   /** base：开始编辑时的 clock.knowledge，编辑期间远端也改了标题时变成冲突 */
@@ -307,6 +311,8 @@ export const useData = create<DataState>((set, get) => {
     move: (id, list) => run((st, ctx) => O.moveTodo(st, ctx, id, list)),
     sendToFocus: (id) => run((st, ctx) => O.sendToFocus(st, ctx, id)),
     setNow: (id) => run((st, ctx) => O.setNow(st, ctx, id)),
+    indent: (id) => run((st, ctx) => O.indentTodo(st, ctx, id)),
+    outdent: (id) => run((st, ctx) => O.outdentTodo(st, ctx, id)),
     markForTest: (id) => run((st, ctx) => O.markForTest(st, ctx, id)),
     unmarkTest: (id) => run((st, ctx) => O.unmarkTest(st, ctx, id)),
     rename: (id, title, base = null) => run((st, ctx) => O.renameTodo(st, ctx, id, title, base)),

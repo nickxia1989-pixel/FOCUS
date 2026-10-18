@@ -663,7 +663,8 @@ export function keepAllTitles(
       title: { v: { title: o.title }, s: t.stamp },
       status: r.status ? { v: r.status.v, s: t.stamp } : undefined,
       pos: r.pos ? { v: r.pos.v, s: t.stamp } : undefined,
-      order: { v: (r.order?.v ?? r.createdAt) - 0.0001, s: t.stamp },
+      // 紧挨在原条目后面：顶层项 order 降序、子项升序（见 model.ts 的 orderDir）
+      order: { v: (r.order?.v ?? r.createdAt) + (r.pos?.v.parentId ? 0.0001 : -0.0001), s: t.stamp },
       del: { v: { deletedAt: r.del?.v.deletedAt ?? null }, s: t.stamp },
     };
   }
