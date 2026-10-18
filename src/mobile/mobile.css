@@ -252,6 +252,11 @@ textarea {
   --inset-bottom: calc(max(env(safe-area-inset-bottom), 10px) + 88px);
 }
 
+/* 页签栏上方还有新建输入条（50 + 间距 10） */
+:root[data-acc] .app.is-compact:not(.has-native-chrome) {
+  --inset-bottom: calc(max(env(safe-area-inset-bottom), 10px) + 148px);
+}
+
 .main {
   position: relative;
   flex: 1;
@@ -403,6 +408,13 @@ textarea {
   pointer-events: auto;
 }
 
+/* 窄屏右上只剩一颗云朵：圆钮 */
+.gcap-one {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
+}
+
 .gcap button {
   position: relative;
   width: 42px;
@@ -446,8 +458,9 @@ textarea {
   bottom: max(14px, calc(env(safe-area-inset-bottom) - 10px));
   z-index: 30;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   max-width: 560px;
   margin: 0 auto;
   transition:
@@ -463,7 +476,7 @@ textarea {
 }
 
 .tabbar {
-  flex: 1;
+  flex: none;
   min-width: 0;
   height: 64px;
   border-radius: 32px;
@@ -529,31 +542,61 @@ textarea {
   color: var(--tab-on-fg);
 }
 
-.fab {
-  flex: none;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  color: var(--lime-ink);
-  background: rgba(214, 255, 61, 0.88);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
-    0 10px 24px rgba(120, 160, 0, 0.28);
+/* 新建输入条（网页自己画栏时；原生外壳用 bottom accessory）：页签栏上方的玻璃胶囊 */
+.newbar {
+  height: 50px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 0 8px;
+  text-align: left;
   transition: transform 0.15s var(--ease);
 }
 
-.fab svg {
-  width: 27px;
-  height: 27px;
+.newbar:active {
+  transform: scale(0.98);
 }
 
-.fab:active {
-  transform: scale(0.9);
+.newbar-plus {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--lime);
+  color: #0b0b0c;
+}
+
+.newbar-plus svg {
+  width: 20px;
+  height: 20px;
+}
+
+.newbar-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.newbar-target {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: 800 10.5px/1 var(--font-display);
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.newbar-target svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* ============ 网页版侧栏（iPad 等大屏、没有原生外壳时） ============ */
@@ -1194,6 +1237,11 @@ textarea {
   width: 18px;
   height: 18px;
   color: var(--text);
+}
+
+/* 底部有新建输入条（手机横屏）时入口只留那一个；Duo 竖条没有输入条，照留 */
+:root[data-acc] .addbox {
+  display: none;
 }
 
 /* 分组标题：已完成 · N、今天已完成 · N */
@@ -1906,7 +1954,20 @@ textarea {
   transition:
     opacity 0.2s,
     transform 0.3s var(--ease),
-    bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+    left 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+    right 0.3s cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 0.3s;
+}
+
+/* 原生外壳有新建输入条时：卡片关着就停在输入条的位置（透明），打开时从输入条原地长到键盘上面，关掉又缩回去 */
+:root[data-acc] .composer-layer:not(.is-open) .composer {
+  left: var(--acc-left);
+  right: var(--acc-right);
+  bottom: var(--acc-bottom);
+  max-width: none;
+  border-radius: 25px;
+  transform: none;
 }
 
 .is-open .composer {
@@ -2179,6 +2240,17 @@ textarea {
   height: 1px;
   background: var(--line);
   margin: 6px 10px;
+}
+
+/* 菜单里的小标题（「空间」） */
+.mi-head {
+  padding: 8px 12px 4px;
+  font: 700 12px/1 var(--font);
+  color: var(--text-muted);
+}
+
+.mi .avatar {
+  flex: none;
 }
 
 .mi-static {

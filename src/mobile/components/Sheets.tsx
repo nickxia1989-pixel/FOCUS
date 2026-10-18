@@ -120,6 +120,15 @@ export function ProfileSheet({ wide }: { wide: boolean }) {
     }
   }, [open]);
 
+  // 从头像菜单的「新建空间…」打开：直接进入新建
+  const spaceAdd = useUi((s) => s.spaceAdd);
+  useEffect(() => {
+    if (!open || !spaceAdd) return;
+    useUi.getState().set({ spaceAdd: false });
+    setAdding(true);
+    requestAnimationFrame(() => document.querySelector<HTMLInputElement>('.space-add-input')?.focus());
+  }, [open, spaceAdd]);
+
   useEffect(() => {
     if (!armed) return;
     const t = setTimeout(() => setArmed(null), 3000);

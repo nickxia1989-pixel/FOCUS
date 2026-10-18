@@ -60,7 +60,9 @@ interface UiState {
   menu: TodoMenu | null;
   composer: ComposerState;
   sheet: null | 'profiles' | 'trash' | 'sync' | 'conflicts';
-  /** 右上角 ⋯ 下拉菜单的锚点 */
+  /** 空间面板打开时直接进入「新建空间」（头像菜单里的「新建空间…」） */
+  spaceAdd: boolean;
+  /** 网页版「空间 + 设置」菜单的锚点（窄屏是头像，宽屏是右上胶囊里的 ⋯） */
   more: Rect | null;
   toast: ToastState | null;
   /** 分区"收到东西"的脉冲计数，变化即触发动画 */
@@ -86,6 +88,7 @@ export const useUi = create<UiState>((set) => ({
   menu: null,
   composer: { open: false, list: 'focus', parentId: null },
   sheet: null,
+  spaceAdd: false,
   more: null,
   toast: null,
   pulse: { focus: 0, verify: 0, inbox: 0, goal: 0, history: 0 },
