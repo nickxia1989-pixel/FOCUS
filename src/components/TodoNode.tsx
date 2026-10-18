@@ -1,14 +1,16 @@
 import { AnimatePresence, motion, type Variants } from 'motion/react';
 import { useMemo, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
-import { moveTodoTo, sendToFocus, sendToVerify, setNow, startAddChild, toggleTodo } from '../actions';
+import { moveTodoTo, sendToFocus, sendToVerify, setNow, toggleTodo } from '../actions';
+import { beginEdit, startAddChild } from '../editing';
+import { withDraft, type Draft } from '../outline';
 import { beginPointerDrag } from '../dnd';
 import { exitModes, type ExitMode } from '../fx';
 import { childrenOf, descendantIds, type TreeIndex } from '../model';
-import { useData, useUi } from '../store';
+import { useData, useUi, type MenuState } from '../store';
 import type { Todo } from '../types';
 import { LIST_COLOR, LIST_SOFT } from './copy';
 import { CheckIcon, ChevronIcon, EyeCheckIcon, GripIcon, MoreIcon, PlusIcon, SparkIcon, UpIcon } from './icons';
-import { ChildAdder, TitleEditor } from './Inputs';
+import { DraftRow, TitleEditor } from './Inputs';
 
 const EASE = [0.2, 0.8, 0.2, 1] as const;
 const SPRING = [0.3, 1.25, 0.4, 1] as const;
@@ -66,20 +68,25 @@ export function useRowDrag(todo: Todo, siblings: Todo[], opts: { queueOffset?: n
   };
 }
 
-export function openMenuAt(e: MouseEvent, todo: Todo, fromButton = false) {
+export function openMenuAt(e: MouseEvent, todo: Todo, fromButton = false, kind?: MenuState['kind']) {
   e.preventDefault();
   e.stopPropagation();
+  let x = e.clientX;
+  let y = e.clientY;
   if (fromButton) {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    useUi.getState().set({ menu: { x: r.right, y: r.bottom + 4, todoId: todo.id }, mainMenuOpen: false, profileMenuOpen: false });
-  } else {
-    useUi.getState().set({ menu: { x: e.clientX, y: e.clientY, todoId: todo.id }, mainMenuOpen: false, profileMenuOpen: false });
+    x = r.right;
+    y = r.bottom + 4;
   }
+  useUi.getState().set({ menu: { x, y, todoId: todo.id, kind }, mainMenuOpen: false, profileMenuOpen: false });
 }
 
 export function startEdit(todo: Todo) {
-  useUi.getState().set({ editingId: todo.id, addingChildOf: null, menu: null });
+  beginEdit(todo.id);
 }
+
+/** 空行的 key：换位置就换 key，重新挂载后从模块里接上文字 */
+export const draftKey = (d: Draft) => `draft:${d.parentId}:${d.afterId}`;
 
 interface Props {
   todo: Todo;
@@ -99,7 +106,7 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
   const children = childrenOf(index, todo.id);
   const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
-  const addingChild = useUi((s) => s.addingChildOf === todo.id);
+  const draft = useUi((s) => (s.draft?.parentId === todo.id ? s.draft : null));
   const menuOpen = useUi((s) => s.menu?.todoId === todo.id);
   const flash = useUi((s) => !!s.flash[todo.id]);
   const queueOpen = useUi((s) => !!s.queueOpen[todo.id]);
@@ -120,7 +127,7 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
   const testing = !!todo.testing && !checked;
   const root = depth === 0;
   const doneKids = children.filter((c) => c.done).length;
-  const showChildren = (children.length > 0 && !folded) || addingChild;
+  const showChildren = (children.length > 0 && !folded) || !!draft;
   // 列表色：FOCUS 用正文色（勾用底色），子项跟随所在列表
   const color = LIST_COLOR[todo.list];
   // VERIFY 顶层 = 退回 FOCUS，INBOX 顶层 = 送进 FOCUS
@@ -177,7 +184,7 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
           <CheckIcon />
         </button>
 
-        <span className={`tt ${checked && !completing ? 'done' : ''}`}>
+        <span className={`tt ${checked && !completing ? 'done' : ''}`} data-edit-id={todo.id}>
           {editing ? (
             <TitleEditor todo={todo} />
           ) : (
@@ -203,7 +210,7 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
                   </button>
                 </>
               ) : (
-                <button className="mini" title="添加子任务" onClick={() => startAddChild(todo)}>
+                <button className="mini" title="添加子任务" onClick={() => startAddChild(todo.id)}>
                   <PlusIcon />
                 </button>
               )}
@@ -232,14 +239,15 @@ export function TodoNode({ todo, depth, index, siblings, variant = 'list', no, f
 
       {showChildren && (
         <div className="children">
-          {addingChild && <ChildAdder parent={todo} />}
-          {!folded && (
-            <AnimatePresence {...presenceProps}>
-              {children.map((c) => (
+          <AnimatePresence {...presenceProps}>
+            {withDraft(folded ? [] : children, draft, todo.list, todo.id).map((c) =>
+              c === 'draft' ? (
+                <DraftRow key={draftKey(draft!)} />
+              ) : (
                 <TodoNode key={c.id} todo={c} depth={depth + 1} index={index} siblings={children} />
-              ))}
-            </AnimatePresence>
-          )}
+              ),
+            )}
+          </AnimatePresence>
         </div>
       )}
     </motion.div>

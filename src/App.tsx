@@ -7,12 +7,13 @@ import { HistoryView } from './components/HistoryView';
 import { ListView } from './components/ListView';
 import { Pills, Sidebar } from './components/Nav';
 import { ContextMenu, Footer, Toast } from './components/Overlays';
+import { KeysPanel } from './components/KeysPanel';
 import { ProfileMenu } from './components/ProfileMenu';
 import { SyncPanel } from './components/SyncPanel';
 import { TitleBar } from './components/TitleBar';
 import { TrashView } from './components/TrashView';
 import { initSync } from './syncDesktop';
-import { isMac } from './platform';
+import { api, isMac } from './platform';
 import { useData, useUi } from './store';
 import { VIEW_IDS } from './types';
 
@@ -98,6 +99,18 @@ export default function App() {
       .then(() => initSync());
   }, []);
 
+  // 外观：跟随系统 / 浅色 / 深色。Electron 里设 nativeTheme（窗口外框也跟着变），根节点的 data-theme 管页面配色
+  const appearance = useData((s) => s.local.appearance);
+  useEffect(() => {
+    if (!loaded) return;
+    const apply = (eff: string) => {
+      if (eff === 'light' || eff === 'dark') document.documentElement.dataset.theme = eff;
+      else delete document.documentElement.dataset.theme;
+    };
+    apply(appearance);
+    void api?.setThemeSource?.(appearance).then(apply);
+  }, [appearance, loaded]);
+
   // 换列表时收起「写一件」
   useEffect(() => {
     useUi.getState().set({ composeFocus: false });
@@ -144,6 +157,7 @@ export default function App() {
           </div>
         </div>
         <SyncPanel />
+        <KeysPanel />
         <ConflictPanel />
         <JoinModal />
         <ContextMenu />

@@ -57,5 +57,6 @@ contextBridge.exposeInMainWorld('focusApi', {
     return () => ipcRenderer.removeListener('agent:outbox', listener);
   },
   openDataDir: () => ipcRenderer.invoke('app:openDataDir'),
+  setThemeSource: (source) => ipcRenderer.invoke('app:setTheme', source),
   version: () => ipcRenderer.invoke('app:version'),
 });

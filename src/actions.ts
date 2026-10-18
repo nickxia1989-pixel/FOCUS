@@ -317,12 +317,6 @@ export function addTodo(title: string, list: ListId, top = false): string | null
   return id;
 }
 
-export function startAddChild(todo: Todo) {
-  if (todo.collapsed) useData.getState().setCollapsed(todo.id, false);
-  const ui = useUi.getState();
-  ui.set({ addingChildOf: todo.id, editingId: null, menu: null, queueOpen: { ...ui.queueOpen, [todo.id]: true } });
-}
-
 /** 打开某个分区（页签、侧栏、快捷键） */
 export function goView(view: ViewId) {
   useUi.getState().set({ trashOpen: false, menu: null, composeFocus: false });
@@ -330,7 +324,7 @@ export function goView(view: ViewId) {
 }
 
 export function openTrash() {
-  useUi.getState().set({ trashOpen: true, menu: null, mainMenuOpen: false, profileMenuOpen: false, editingId: null, addingChildOf: null });
+  useUi.getState().set({ trashOpen: true, menu: null, mainMenuOpen: false, profileMenuOpen: false, editingId: null, draft: null });
 }
 
 function truncate(s: string, n: number) {

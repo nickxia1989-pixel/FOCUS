@@ -1,13 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { deleteWithUndo, goView, moveTodoTo, sendToFocus, sendToVerify, setNow, startAddChild, toggleTodo, undoDelete } from '../actions';
+import { deleteWithUndo, goView, moveTodoTo, sendToFocus, sendToVerify, setNow, toggleTodo, undoDelete } from '../actions';
+import { startAddChild } from '../editing';
 import { countsByDay, streak } from '../history';
 import { completedSince, nowOf } from '../model';
 import { isMac } from '../platform';
 import { useData, useUi } from '../store';
 import type { ListId, Todo } from '../types';
 import { VIEW_COPY } from './copy';
-import { CheckIcon, ChevronRightIcon, EditIcon, EyeCheckIcon, ListIcons, MoveIcon, SparkFilledIcon, SubtaskIcon, TrashIcon, UndoIcon, UpIcon } from './icons';
+import { CheckIcon, ChevronRightIcon, EditIcon, EyeCheckIcon, ListIcons, MoveIcon, OutdentIcon, SparkFilledIcon, SubtaskIcon, TrashIcon, UndoIcon, UpIcon } from './icons';
 import { startEdit } from './TodoNode';
 import { useTodayStart } from './useToday';
 
@@ -89,6 +90,46 @@ export function ContextMenu() {
     setSub({ x: left ? r.left - w + 4 : r.right - 4, y: Math.min(r.top - 6, window.innerHeight - 6 - (targets.length * 32 + 12)), left });
   };
 
+  // NOW 卡上的子任务：完成、编辑、待验证、升一级、删除
+  if (menu.kind === 'nowSub')
+    return (
+      <motion.div
+        ref={ref}
+        className="pop ctx"
+        role="menu"
+        style={{ left: pos.x, top: pos.y }}
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.12, ease: EASE }}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        <button className="mi" onClick={run(() => toggleTodo(todo))}>
+          {todo.done ? <UndoIcon /> : <CheckIcon />}
+          {todo.done ? '恢复为未完成' : '完成'}
+        </button>
+        <button className="mi" onClick={run(() => startEdit(todo))}>
+          <EditIcon />
+          编辑
+          <kbd>双击</kbd>
+        </button>
+        <button className="mi" onClick={run(() => sendToVerify(todo))}>
+          <EyeCheckIcon />
+          {testing ? '取消待验证' : '待验证'}
+        </button>
+        <button className="mi" onClick={run(() => useData.getState().outdent(todo.id))}>
+          <OutdentIcon />
+          升一级
+          <kbd>⇧Tab</kbd>
+        </button>
+        <div className="msep" />
+        <button className="mi bad" onClick={run(() => deleteWithUndo(todo))}>
+          <TrashIcon />
+          删除
+          <kbd>⌫</kbd>
+        </button>
+      </motion.div>
+    );
+
   return (
     <>
       <motion.div
@@ -110,7 +151,7 @@ export function ContextMenu() {
           编辑
           <kbd>双击</kbd>
         </button>
-        <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => startAddChild(todo))}>
+        <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => startAddChild(todo.id))}>
           <SubtaskIcon />
           添加子任务
         </button>

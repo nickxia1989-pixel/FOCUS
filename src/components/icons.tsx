@@ -135,6 +135,29 @@ export const SubtaskIcon = (p: P) => (
   </svg>
 );
 
+/** 升一级（反缩进） */
+export const OutdentIcon = (p: P) => (
+  <svg {...line(p, 1.9)}>
+    <path d="M20 6H10M20 12h-8M20 18H10M7.5 9 4.5 12l3 3" />
+  </svg>
+);
+
+/** 外观（半月） */
+export const ThemeIcon = (p: P) => (
+  <svg {...line(p, 1.9)}>
+    <circle cx="12" cy="12" r="8" />
+    <path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor" />
+  </svg>
+);
+
+/** 键盘（快捷键） */
+export const KeyboardIcon = (p: P) => (
+  <svg {...line(p, 1.9)}>
+    <rect x="3" y="6" width="18" height="12" rx="2.4" />
+    <path d="M7 10h.01M10.5 10h.01M14 10h.01M17.5 10h.01M8 14h8" />
+  </svg>
+);
+
 export const MoveIcon = (p: P) => (
   <svg {...line(p, 1.9)}>
     <path d="M4 12h14M13 6l6 6-6 6" />

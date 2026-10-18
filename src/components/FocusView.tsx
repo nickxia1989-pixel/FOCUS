@@ -1,32 +1,43 @@
 import { AnimatePresence } from 'motion/react';
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { goView, sendToVerify, toggleTodo } from '../actions';
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
+import { deleteWithUndo, goView, sendToVerify, toggleTodo } from '../actions';
+import { DRAFT_ID } from '../editing';
+import { withDraft } from '../outline';
 import { runHandoff } from '../fx';
 import { buildIndex, childrenOf, rootsOf, type TreeIndex } from '../model';
 import { useData, useUi } from '../store';
 import type { Todo } from '../types';
 import { VIEW_COPY } from './copy';
-import { CheckIcon, EyeCheckIcon, InboxIcon, PlusIcon } from './icons';
-import { AddBar, ChildAdder, TitleEditor } from './Inputs';
+import { CheckIcon, EyeCheckIcon, InboxIcon, PlusIcon, TrashIcon } from './icons';
+import { AddBar, DraftEditor, DraftRow, NowAdder, TitleEditor } from './Inputs';
 import { EmptyArt, DoneGroup } from './ListView';
-import { openMenuAt, presenceProps, startEdit, TodoNode } from './TodoNode';
+import { draftKey, openMenuAt, presenceProps, startEdit, TodoNode } from './TodoNode';
 
-/** NOW 卡上最多列几条子任务（未完成在前） */
-const SUB_LIMIT = 3;
+/** NOW 卡的子任务默认全部显示；超过这么多条时可以收起 */
+const FOLD_OVER = 8;
+/** 收起时留几条 */
+const FOLDED_SHOW = 4;
 
 /** 队列逐行变淡：1 / .84 / .68 / .52 */
 const fadeAt = (i: number) => Math.max(0.52, 1 - i * 0.16);
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-function NowSub({ todo }: { todo: Todo }) {
+/** NOW 卡上的一条子任务：勾选、双击编辑；悬停出现「待验证」开关和删除；右键是精简菜单 */
+function NowSub({ todo, depth }: { todo: Todo; depth: number }) {
   const editing = useUi((s) => s.editingId === todo.id);
+  const menuOpen = useUi((s) => s.menu?.todoId === todo.id);
   const testing = !!todo.testing && !todo.done;
   return (
     <li
-      className={`now-sub ${todo.done ? 'd' : ''}`}
-      onContextMenu={(e) => openMenuAt(e, todo)}
-      onDoubleClick={() => startEdit(todo)}
+      className={`now-sub ${todo.done ? 'd' : ''} ${menuOpen ? 'menu-open' : ''} ${editing ? 'edit' : ''}`}
+      style={{ paddingLeft: depth * 22 } as CSSProperties}
+      data-node-id={todo.id}
+      onContextMenu={(e) => openMenuAt(e, todo, false, 'nowSub')}
+      onDoubleClick={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return;
+        startEdit(todo);
+      }}
     >
       <button
         className={`sc ${todo.done ? 'd' : ''} ${testing ? 'v' : ''}`}
@@ -35,12 +46,41 @@ function NowSub({ todo }: { todo: Todo }) {
         title={todo.done ? '恢复为未完成' : '完成这个子任务'}
         onClick={() => toggleTodo(todo)}
       />
-      {editing ? <TitleEditor todo={todo} /> : <span className="tt">{todo.title}</span>}
-      {testing && (
+      <span className="tt" data-edit-id={todo.id}>
+        {editing ? <TitleEditor todo={todo} /> : todo.title}
+      </span>
+      {testing && !editing && (
         <em role="button" title="待验证，点一下取消" onClick={() => sendToVerify(todo)}>
           待验证
         </em>
       )}
+      {!editing && (
+        <span className="sub-acts">
+          <button
+            className={`nmini ${testing ? 'on' : ''}`}
+            title={testing ? '取消待验证' : '设为待验证（留在原处）'}
+            aria-pressed={testing}
+            onClick={(e) => sendToVerify(todo, e.currentTarget)}
+          >
+            <EyeCheckIcon />
+          </button>
+          <button className="nmini" title="删除" onClick={() => deleteWithUndo(todo)}>
+            <TrashIcon />
+          </button>
+        </span>
+      )}
+    </li>
+  );
+}
+
+/** 卡里的空行（编辑子任务时回车打开） */
+function NowDraft({ depth }: { depth: number }) {
+  return (
+    <li className="now-sub draft" style={{ paddingLeft: depth * 22 } as CSSProperties} data-edit-id={DRAFT_ID}>
+      <span className="sc" />
+      <span className="tt">
+        <DraftEditor placeholder="子任务，回车接着写下一条…" />
+      </span>
     </li>
   );
 }
@@ -49,13 +89,26 @@ function NowSub({ todo }: { todo: Todo }) {
 function NowCard({ todo, index, pos, total }: { todo: Todo; index: TreeIndex; pos: number; total: number }) {
   const ref = useRef<HTMLElement>(null);
   const kids = childrenOf(index, todo.id);
-  const [showAll, setShowAll] = useState(false);
+  const [folded, setFolded] = useState(false);
   const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
-  const addingChild = useUi((s) => s.addingChildOf === todo.id);
+  const draft = useUi((s) => s.draft);
   const dropNow = useUi((s) => s.dropNow);
-  const shown = showAll ? kids : kids.slice(0, SUB_LIMIT);
-  const more = kids.length - shown.length;
+
+  // 卡上显示整棵子树（缩进表示层级），空行插在它该在的位置
+  const rows: ReactElement[] = [];
+  const walk = (parentId: string, depth: number) => {
+    for (const c of withDraft(childrenOf(index, parentId), draft, todo.list, parentId)) {
+      if (c === 'draft') rows.push(<NowDraft key={draftKey(draft!)} depth={depth} />);
+      else {
+        rows.push(<NowSub key={c.id} todo={c} depth={depth} />);
+        walk(c.id, depth + 1);
+      }
+    }
+  };
+  walk(todo.id, 0);
+  const canFold = rows.length > FOLD_OVER;
+  const shown = canFold && folded ? rows.slice(0, FOLDED_SHOW) : rows;
 
   // 从队列行变形过来（换场 / 设为现在）
   useLayoutEffect(() => runHandoff(todo.id, ref.current), [todo.id]);
@@ -77,7 +130,7 @@ function NowCard({ todo, index, pos, total }: { todo: Todo; index: TreeIndex; po
           {pad2(pos)}/{pad2(total)}
         </span>
       </div>
-      <h2 className="now-title" onDoubleClick={() => startEdit(todo)} title="双击编辑">
+      <h2 className="now-title" onDoubleClick={() => startEdit(todo)} title="双击编辑" data-edit-id={todo.id}>
         {editing ? <TitleEditor todo={todo} /> : <span className="strike">{todo.title}</span>}
       </h2>
       {kids.length >= 2 && (
@@ -87,22 +140,13 @@ function NowCard({ todo, index, pos, total }: { todo: Todo; index: TreeIndex; po
           ))}
         </div>
       )}
-      {(shown.length > 0 || addingChild) && (
-        <ul className="now-subs">
-          {shown.map((k) => (
-            <NowSub key={k.id} todo={k} />
-          ))}
-          {addingChild && <ChildAdder parent={todo} inCard />}
-        </ul>
-      )}
-      {more > 0 && (
-        <button className="now-more" onClick={() => setShowAll(true)}>
-          还有 {more} 条
-        </button>
-      )}
-      {showAll && kids.length > SUB_LIMIT && (
-        <button className="now-more" onClick={() => setShowAll(false)}>
-          收起
+      <ul className="now-subs">
+        {shown}
+        {!(canFold && folded) && <NowAdder parent={todo} />}
+      </ul>
+      {canFold && (
+        <button className="now-more" onClick={() => setFolded((v) => !v)}>
+          {folded ? `展开全部 ${rows.length} 条` : '收起'}
         </button>
       )}
       <div className="now-act">
@@ -152,12 +196,14 @@ export function FocusView() {
   const done = roots.filter((t) => t.done);
   const now = open[0];
   const queue = open.slice(1);
+  const draft = useUi((s) => (s.draft?.parentId === null && s.draft.list === 'focus' ? s.draft : null));
+  let n = 1;
 
   return (
     <>
       {now ? <NowCard key={now.id} todo={now} index={index} pos={1} total={open.length} /> : <EmptyFocus />}
       {(now || compose) && <AddBar list="focus" autoFocus={!now && compose} />}
-      {queue.length > 0 && (
+      {(queue.length > 0 || draft) && (
         <div className="qh">
           <span>
             <b>接下来</b> · {queue.length}
@@ -167,9 +213,11 @@ export function FocusView() {
       )}
       <div className="rows queue" style={{ '--c': 'var(--tx)' } as CSSProperties}>
         <AnimatePresence {...presenceProps}>
-          {queue.map((t, i) => (
-            <TodoNode key={t.id} todo={t} depth={0} index={index} siblings={queue} variant="queue" no={i + 2} fade={fadeAt(i)} />
-          ))}
+          {withDraft(queue, draft, 'focus', null).map((t) => {
+            if (t === 'draft') return <DraftRow key={draftKey(draft!)} />;
+            const i = n++;
+            return <TodoNode key={t.id} todo={t} depth={0} index={index} siblings={queue} variant="queue" no={i + 1} fade={fadeAt(i - 1)} />;
+          })}
         </AnimatePresence>
         <DoneGroup list="focus" done={done} index={index} roots={roots} />
       </div>
