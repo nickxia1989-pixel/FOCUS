@@ -47,10 +47,24 @@ export const haptic = {
 
 let selecting = false;
 
-/** 把软键盘高度写到 CSS 变量 --kb，底部的输入卡片跟着上移 */
+/** 软键盘起落：shown 时带高度（接硬件键盘时只有一条很矮的快捷栏，高度很小） */
+type KeyboardListener = (shown: boolean, height: number) => void;
+const keyboardListeners = new Set<KeyboardListener>();
+
+export function onKeyboard(fn: KeyboardListener) {
+  keyboardListeners.add(fn);
+  return () => {
+    keyboardListeners.delete(fn);
+  };
+}
+
+/** 把软键盘高度写到 CSS 变量 --kb，底部的输入卡片跟着上移；起落时通知 onKeyboard 的监听 */
 export function trackKeyboard() {
   const root = document.documentElement;
-  const setKb = (h: number) => root.style.setProperty('--kb', `${Math.max(0, Math.round(h))}px`);
+  const setKb = (h: number) => {
+    root.style.setProperty('--kb', `${Math.max(0, Math.round(h))}px`);
+    for (const fn of keyboardListeners) fn(h > 0, h);
+  };
   if (isNative) {
     safe(Keyboard.setAccessoryBarVisible({ isVisible: false }));
     safe(Keyboard.addListener('keyboardWillShow', (info) => setKb(info.keyboardHeight)));
@@ -60,7 +74,13 @@ export function trackKeyboard() {
   // 浏览器调试：用 visualViewport 估算
   const vv = window.visualViewport;
   if (!vv) return;
-  const update = () => setKb(window.innerHeight - vv.height - vv.offsetTop);
+  let last = 0;
+  const update = () => {
+    const h = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    if (Math.abs(h - last) < 1) return;
+    last = h;
+    setKb(h);
+  };
   vv.addEventListener('resize', update);
   vv.addEventListener('scroll', update);
 }

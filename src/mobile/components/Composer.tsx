@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { LISTS, type ListId } from '../../types';
 import { addTodo, closeComposer, registerComposerInput } from '../actions';
 import { ArrowUpIcon, SectionIcons, SubtaskIcon } from '../icons';
-import { haptic } from '../native';
+import { haptic, onKeyboard } from '../native';
 import { useData, useTodos } from '../store';
 import { restored, saveTransient } from '../transient';
 import { pulse, useRefitOnWidth, useUi } from '../ui';
@@ -23,15 +23,40 @@ export function Composer() {
     return () => registerComposerInput(null);
   }, []);
 
-  // 收起时清空；首次挂载时不清，保留恢复出来的草稿
+  // 收起时不丢没提交的字：留作草稿（transient 里也存一份），下次打开接着写
   const wasOpen = useRef(open);
   useEffect(() => {
     if (wasOpen.current && !open) {
-      setText('');
-      saveTransient({ composer: undefined });
+      const draft = ref.current?.value ?? '';
+      saveTransient({ composer: draft.trim() ? { list, parentId, text: draft } : undefined });
     }
     wasOpen.current = open;
-  }, [open]);
+  }, [open, list, parentId]);
+
+  // 软键盘收起（键盘上的收起键、下滑收起、点别处失焦）时卡片跟着关。
+  // 只认「软键盘起来过、又落下去」：接硬件键盘时没有软键盘（高度一直是 0 或只有矮矮的快捷栏），不会因此关掉
+  const softKb = useRef(false);
+  useEffect(
+    () =>
+      onKeyboard((shown, height) => {
+        if (!useUi.getState().composer.open) {
+          softKb.current = false;
+          return;
+        }
+        if (shown) {
+          if (height > 120) softKb.current = true;
+          return;
+        }
+        if (!softKb.current) return;
+        softKb.current = false;
+        // 旋转时系统可能先报收起再报弹出：稍等一下，键盘真的没回来再关
+        setTimeout(() => {
+          const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) || 0;
+          if (useUi.getState().composer.open && kb < 120) closeComposer();
+        }, 220);
+      }),
+    [],
+  );
 
   const fit = useCallback(() => {
     const el = ref.current;
@@ -43,7 +68,6 @@ export function Composer() {
   useRefitOnWidth(ref, fit);
 
   const afterNow = useData((s) => s.prefs.insertAfterNow);
-  const kb = useKeyboardUp();
 
   const submit = () => {
     const title = (ref.current?.value ?? text).trim();
@@ -73,7 +97,7 @@ export function Composer() {
   return (
     <div className={`composer-layer ${open ? 'is-open' : ''}`} aria-hidden={!open}>
       <div className="composer-scrim" onClick={closeComposer} />
-      <div className={`composer glass ${kb ? '' : 'is-floating'}`} style={{ '--c': `var(--c-${list})` } as React.CSSProperties}>
+      <div className="composer glass" style={{ '--c': `var(--c-${list})` } as React.CSSProperties}>
         {parent && (
           <div className="composer-context">
             <SubtaskIcon width={15} height={15} />

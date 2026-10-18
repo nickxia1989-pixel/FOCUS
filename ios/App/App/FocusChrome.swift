@@ -373,6 +373,9 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
     }
 
     private func compose() {
+        // 键盘被系统收起（收起键、下滑）后 WebView 不再是第一响应者，网页里再 focus 输入框也弹不出键盘：
+        // 先把它要回来，网页打开新建卡片时键盘才会跟着起来
+        if let webView = web.webView, !webView.isFirstResponder { webView.becomeFirstResponder() }
         web.chrome.send("action", ["name": "compose"])
     }
 
