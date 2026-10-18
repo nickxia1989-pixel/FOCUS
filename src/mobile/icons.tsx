@@ -141,6 +141,34 @@ export const UpIcon = (p: P) => (
 
 export const ArrowUpIcon = UpIcon;
 
+export const DownIcon = (p: P) => (
+  <svg {...base(p, 2.2)}>
+    <path d="M12 5v14M6 13l6 6 6-6" />
+  </svg>
+);
+
+/** 缩进：挂到上一条下面 */
+export const IndentIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M11 6h9M11 12h9M11 18h9M4 9l3 3-3 3" />
+  </svg>
+);
+
+/** 反缩进：升一级 */
+export const OutdentIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M11 6h9M11 12h9M11 18h9M7 9l-3 3 3 3" />
+  </svg>
+);
+
+/** 外观：半边填满的圆 */
+export const AppearanceIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="8.2" />
+    <path d="M12 3.8a8.2 8.2 0 0 0 0 16.4z" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 export const RestoreIcon = (p: P) => (
   <svg {...base(p)}>
     <path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.6" />

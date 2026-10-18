@@ -9,6 +9,10 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="format-detection" content="telephone=no" />
     <title>FOCUS</title>
+    <script>
+      // 首屏先按系统外观上色；载入偏好后由 theme.ts 接管（原生会在 WebView 加载前按偏好设好外观）
+      document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -105,6 +105,8 @@ struct ChromeState: Decodable, Equatable {
         var haptics: Bool
         /// 当前空间名（⋯ 菜单里「空间」右边）
         var space: String
+        /// 外观：system / light / dark
+        var appearance: String
     }
     /// 设计 token 里原生栏要用的几种颜色（跟着网页当前的浅色 / 深色）
     struct Palette: Decodable, Equatable {
@@ -566,7 +568,7 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         }
     }
 
-    /// ⋯ 菜单（设计 P11）：回收站、同步、空间 | 完成提示音、触感反馈
+    /// ⋯ 菜单（设计 P11）：回收站、同步、空间 | 外观、完成提示音、触感反馈
     private func overflowItems() -> [UIMenuElement] {
         guard let s = state else { return [] }
         let m = s.menu
@@ -576,9 +578,17 @@ final class ChromeShellController: UIViewController, UITabBarControllerDelegate 
         let profiles = UIAction(title: "空间", subtitle: m.space, image: UIImage(systemName: "person.2"), handler: send("profiles"))
         let sound = UIAction(title: "完成提示音", image: UIImage(systemName: "speaker.wave.2"), state: m.sound ? .on : .off, handler: send("sound"))
         let haptics = UIAction(title: "触感反馈", image: UIImage(systemName: "iphone.radiowaves.left.and.right"), state: m.haptics ? .on : .off, handler: send("haptics"))
+        let looks: [(String, String)] = [("system", "跟随系统"), ("light", "浅色"), ("dark", "深色")]
+        let appearance = UIMenu(
+            title: "外观",
+            subtitle: looks.first { $0.0 == m.appearance }?.1,
+            image: UIImage(systemName: "circle.lefthalf.filled"),
+            children: looks.map { key, title in
+                UIAction(title: title, state: m.appearance == key ? .on : .off, handler: send("appearance:\(key)"))
+            })
         return [
             UIMenu(options: .displayInline, children: [trash, sync, profiles]),
-            UIMenu(options: .displayInline, children: [sound, haptics]),
+            UIMenu(options: .displayInline, children: [appearance, sound, haptics]),
         ]
     }
 

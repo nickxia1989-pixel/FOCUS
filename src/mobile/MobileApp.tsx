@@ -2,6 +2,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { initChrome, nativeChrome, useChrome } from './chrome';
 import { Screen, Sidebar, TabBar } from './components/Chrome';
 import { Composer } from './components/Composer';
+import { EditBar } from './components/EditRows';
 import { FocusContent } from './components/FocusContent';
 import { HistoryContent } from './components/HistoryContent';
 import { ListContent } from './components/ListContent';
@@ -10,6 +11,7 @@ import { ProfileSheet, TrashSheet } from './components/Sheets';
 import { ConflictSheet, SyncSheet } from './components/SyncSheets';
 import { activeOf, setNewConflictListener, useData } from './store';
 import { initSync } from './sync';
+import { setAppearance } from './theme';
 import { restored, takeTransient } from './transient';
 import { useUi } from './ui';
 import { useSpread } from './layout';
@@ -72,6 +74,12 @@ export function MobileApp() {
     document.documentElement.dataset.section = section;
   }, [section]);
 
+  // 外观（跟随系统 / 浅色 / 深色）：载入偏好后才知道，之前按系统
+  const appearance = useData((s) => (s.loaded ? s.prefs.appearance : null));
+  useEffect(() => {
+    if (appearance) setAppearance(appearance);
+  }, [appearance]);
+
   // 形态切换（折叠 / 展开、旋转）时，按旧位置定位的浮层和滑开的行都收起来；分区、滚动、编辑中的内容保留
   const first = useRef(true);
   useEffect(() => {
@@ -122,6 +130,7 @@ export function MobileApp() {
       </main>
       {!nativeChrome && <TabBar section={section} hidden={wide} />}
       <Composer />
+      <EditBar />
       <ContextMenu />
       <MoreMenu />
       <ProfileSheet wide={card} />

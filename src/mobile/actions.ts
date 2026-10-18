@@ -170,6 +170,15 @@ export function sendToVerify(todo: Todo, fromEl?: Element | null) {
   } else go();
 }
 
+/** 升一级（长按菜单）：排在原父项后面；顶层项不动 */
+export function outdent(todo: Todo) {
+  if (todo.parentId === null) return;
+  haptic.light();
+  useUi.getState().set({ swipedId: null, menu: null });
+  useData.getState().outdent(todo.id);
+  markAdded(todo.id);
+}
+
 /** 待验证的子项再点一次：取消待验证 */
 export function toggleTest(todo: Todo, fromEl?: Element | null) {
   if (todo.testing) {

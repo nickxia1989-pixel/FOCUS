@@ -77,7 +77,7 @@ export function Composer() {
         {parent && (
           <div className="composer-context">
             <SubtaskIcon width={15} height={15} />
-            <span>添加到「{parent.title}」下</span>
+            <span>添加到「{parent.title}」</span>
           </div>
         )}
         <div className="composer-row">
@@ -177,7 +177,7 @@ export function Composer() {
 }
 
 /** 软键盘起来了没有（外接键盘、浏览器里没有软键盘时卡片浮在底部，四角都圆） */
-function useKeyboardUp() {
+export function useKeyboardUp() {
   const [up, setUp] = useState(false);
   useEffect(() => {
     const root = document.documentElement;

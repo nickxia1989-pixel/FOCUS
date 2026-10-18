@@ -1,4 +1,4 @@
-// App 自带的原生插件（ios/App/App/SceneDelegate.swift 里的 FocusNativePlugin）：钥匙串与后台时间。
+// App 自带的原生插件（ios/App/App/SceneDelegate.swift 里的 FocusNativePlugin）：钥匙串、后台时间、外观。
 // 浏览器里调试时退回 localStorage——只用于对着本机测试服务器调界面，别在浏览器里填真实密码。
 import { registerPlugin } from '@capacitor/core';
 import { isNative } from './native';
@@ -9,6 +9,7 @@ interface FocusNativePlugin {
   keychainDelete(o: { key: string }): Promise<void>;
   beginBackgroundTask(): Promise<{ id: number }>;
   endBackgroundTask(o: { id: number }): Promise<void>;
+  setAppearance(o: { style: 'system' | 'light' | 'dark' }): Promise<void>;
 }
 
 const Native = registerPlugin<FocusNativePlugin>('FocusNative');
@@ -51,4 +52,11 @@ export async function withBackgroundTime(fn: () => Promise<void>): Promise<void>
   } finally {
     if (id !== null) await Native.endBackgroundTask({ id }).catch(() => {});
   }
+}
+
+/** 外观（跟随系统 / 浅色 / 深色）交给原生：设在 window 上，原生栏、状态栏和 WebView 的 prefers-color-scheme 一起变 */
+export async function setNativeAppearance(style: 'system' | 'light' | 'dark'): Promise<void> {
+  try {
+    if (isNative) await Native.setAppearance({ style });
+  } catch {}
 }

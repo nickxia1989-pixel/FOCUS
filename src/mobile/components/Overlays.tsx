@@ -9,6 +9,7 @@ import {
   listLabel,
   moveTodoTo,
   openComposer,
+  outdent,
   sendToFocus,
   setNow,
   startEdit,
@@ -17,6 +18,7 @@ import {
   undoDelete,
 } from '../actions';
 import {
+  AppearanceIcon,
   BackIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -25,6 +27,7 @@ import {
   EyeCheckIcon,
   HapticIcon,
   MoveIcon,
+  OutdentIcon,
   SectionIcons,
   SoundIcon,
   SpacesIcon,
@@ -35,6 +38,7 @@ import {
 } from '../icons';
 import { activeOf, useData, useTodos } from '../store';
 import { useUi, type Rect } from '../ui';
+import type { Appearance } from '../data';
 import { statusOf } from './SyncSheets';
 
 /** 读安全区（env() 只能在 CSS 里取，借一个探针元素） */
@@ -103,7 +107,7 @@ interface Item {
   tag?: string;
 }
 
-function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; from: 'list' | 'history'; moveFirst: boolean }) {
+function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; from: 'list' | 'history' | 'sub'; moveFirst: boolean }) {
   const [page, setPage] = useState<'main' | 'move'>(moveFirst ? 'move' : 'main');
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuH, setMenuH] = useState(0);
@@ -125,8 +129,25 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
     if (menuRef.current) setMenuH(menuRef.current.offsetHeight);
   }, [page]);
 
+  const testItem: Item = {
+    key: 'test',
+    label: todo.testing && !checked ? '取消待验证' : '送去验证',
+    icon: <EyeCheckIcon />,
+    disabled: checked,
+    run: () => toggleTest(todo, document.querySelector(`[data-node-id="${CSS.escape(todo.id)}"] .now-vb`)),
+  };
+  const outdentItem: Item = { key: 'outdent', label: '升一级', icon: <OutdentIcon />, run: () => outdent(todo) };
+  const doneItem: Item = checked
+    ? { key: 'undone', label: '标记为未完成', icon: <UncheckIcon />, run: () => toggleTodo(todo) }
+    : { key: 'done', label: '完成', icon: <CheckIcon />, run: () => toggleTodo(todo) };
+  const editItem: Item = { key: 'edit', label: '编辑', icon: <EditIcon />, run: () => startEdit(todo.id) };
+  const deleteItem: Item = { key: 'delete', label: '删除', icon: <TrashIcon />, danger: true, run: () => deleteWithUndo(todo) };
+
   const groups: Item[][] =
-    from === 'history'
+    from === 'sub'
+      ? // NOW 卡上的子任务：完成、编辑、待验证、升一级、删除
+        [[doneItem, editItem], [{ ...testItem, label: todo.testing && !checked ? '取消待验证' : '待验证' }, outdentItem], [deleteItem]]
+      : from === 'history'
       ? [
           [
             { key: 'undone', label: '恢复为未完成', icon: <UncheckIcon />, run: () => useData.getState().uncomplete(todo.id) },
@@ -144,26 +165,19 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
         ]
       : [
           [
-            checked
-              ? { key: 'undone', label: '标记为未完成', icon: <UncheckIcon />, run: () => toggleTodo(todo) }
-              : { key: 'done', label: '完成', icon: <CheckIcon />, run: () => toggleTodo(todo) },
-            { key: 'edit', label: '编辑', icon: <EditIcon />, run: () => startEdit(todo.id) },
+            doneItem,
+            editItem,
             { key: 'sub', label: '添加子任务', icon: <SubtaskIcon />, run: () => openComposer(todo.list, todo.id) },
           ],
           [
             ...(isNow ? [] : [{ key: 'now', label: '设为现在', icon: <UpIcon />, run: () => setNow(todo) }]),
             todo.parentId === null && todo.list === 'verify' && !checked
               ? { key: 'back', label: '退回 FOCUS', icon: <SectionIcons.focus />, run: () => sendToFocus(todo) }
-              : {
-                  key: 'test',
-                  label: todo.testing && !checked ? '取消待验证' : '送去验证',
-                  icon: <EyeCheckIcon />,
-                  disabled: checked,
-                  run: () => toggleTest(todo, document.querySelector(`[data-node-id="${CSS.escape(todo.id)}"] .now-vb`)),
-                },
+              : testItem,
+            ...(todo.parentId !== null ? [outdentItem] : []),
             { key: 'move', label: '移到…', icon: <MoveIcon />, submenu: true, run: () => setPage('move') },
           ],
-          [{ key: 'delete', label: '删除', icon: <TrashIcon />, danger: true, run: () => deleteWithUndo(todo) }],
+          [deleteItem],
         ];
 
   const moveItems: Item[] = LISTS.map((l) => {
@@ -185,14 +199,15 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
   const pad = 12;
   const [lo, hi] = pageBounds(rect, pad);
   const liftW = Math.min(rect.width, hi - lo);
-  const liftH = Math.min(rect.height, 150);
+  // 抬起的卡片自带上下内边距，矮行（NOW 卡上的子任务）也至少这么高，并以那一行为中心
+  const liftH = Math.max(Math.min(rect.height, 150), 50);
   const liftLeft = Math.min(Math.max(rect.left, lo), hi - liftW);
   const menuW = Math.min(250, hi - lo);
   const menuLeft = Math.min(Math.max(liftLeft, lo), hi - menuW);
   const h = menuH || 330;
   const top0 = safe.top + pad;
   const bottom0 = vh - safe.bottom - pad;
-  let liftTop = rect.top;
+  let liftTop = rect.top - Math.max(0, (liftH - rect.height) / 2);
   let menuTop: number;
   let below = true;
   if (liftTop + liftH + 10 + h <= bottom0) menuTop = liftTop + liftH + 10;
@@ -338,6 +353,24 @@ export function MoreMenu() {
               <em>{space} ›</em>
             </button>
             <div className="mi-sep" />
+            <div className="mi mi-static">
+              <AppearanceIcon />
+              <span className="mi-label">外观</span>
+            </div>
+            <div className="seg" role="radiogroup" aria-label="外观">
+              {APPEARANCES.map(([k, label]) => (
+                <button
+                  key={k}
+                  role="radio"
+                  aria-checked={prefs.appearance === k}
+                  className={prefs.appearance === k ? 'on' : ''}
+                  onClick={() => useData.getState().setPrefs({ appearance: k })}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="mi-sep" />
             <Toggle
               label="完成提示音"
               icon={<SoundIcon />}
@@ -356,6 +389,12 @@ export function MoreMenu() {
     </AnimatePresence>
   );
 }
+
+const APPEARANCES: [Appearance, string][] = [
+  ['system', '跟随系统'],
+  ['light', '浅色'],
+  ['dark', '深色'],
+];
 
 function Toggle({ label, icon, on, onChange }: { label: string; icon: ReactNode; on: boolean; onChange(v: boolean): void }) {
   return (
