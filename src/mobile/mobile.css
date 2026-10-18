@@ -1889,30 +1889,24 @@ textarea {
 
 .composer {
   position: absolute;
-  left: max(0px, env(safe-area-inset-left));
-  right: max(0px, env(safe-area-inset-right));
-  bottom: max(var(--kb), env(safe-area-inset-bottom));
+  /* 四角都圆的浮动卡片：两侧留边距，和键盘之间留出间距；键盘起落时跟着上下（不露平底） */
+  left: max(10px, calc(var(--inset-left) + 8px));
+  right: max(10px, calc(var(--inset-right) + 8px));
+  bottom: calc(max(var(--kb), env(safe-area-inset-bottom)) + 10px);
   max-width: 640px;
   margin: 0 auto;
   padding: 14px 16px 12px;
-  border-radius: 30px 30px 0 0;
+  border-radius: 26px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   opacity: 0;
-  transform: translateY(30px);
+  transform: translateY(24px) scale(0.98);
+  transform-origin: 50% 100%;
   transition:
     opacity 0.2s,
     transform 0.3s var(--ease),
-    bottom 0.3s var(--ease);
-}
-
-/* 键盘没起来（外接键盘、浏览器）时整张卡浮在底部，四角都圆 */
-.composer.is-floating {
-  left: max(10px, calc(var(--inset-left) + 8px));
-  right: max(10px, calc(var(--inset-right) + 8px));
-  bottom: calc(env(safe-area-inset-bottom) + 10px);
-  border-radius: 26px;
+    bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .is-open .composer {
@@ -2061,12 +2055,8 @@ textarea {
 }
 
 /* 双页时新建卡放在左页，不压折痕 */
-.is-spread .composer,
-.is-spread .composer.is-floating {
-  left: max(10px, calc(var(--inset-left) + 8px));
+.is-spread .composer {
   right: calc(100% - var(--page-l-end) + 10px);
-  bottom: calc(max(var(--kb), env(safe-area-inset-bottom)) + 10px);
-  border-radius: 26px;
 }
 
 /* ============ 浮层：长按菜单、⋯ 菜单 ============ */
