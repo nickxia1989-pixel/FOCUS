@@ -27,8 +27,8 @@ const SECTIONS: { title: string; keys: [string, string][] }[] = [
   {
     title: '新建',
     keys: [
-      ['↵', '新建；FOCUS 里排在 NOW 之后，不抢正在做的那件'],
-      [`${M}↵`, '在 FOCUS 新建并设为现在'],
+      ['↵', '新建；FOCUS 里排在聚焦区后面，不打乱正在盯着的事'],
+      [`${M}↵`, '在 FOCUS 新建并放进聚焦区'],
       [`${M}N`, '聚焦新建框'],
     ],
   },

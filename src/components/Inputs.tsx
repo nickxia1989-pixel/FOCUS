@@ -13,7 +13,7 @@ const MOD = isMac ? '⌘' : 'Ctrl';
 
 /**
  * 列表顶部的新建框：回车新建并保持焦点，方便连续输入。
- * FOCUS 里新建的排在 NOW 之后；⌘/Ctrl + 回车 = 新建并设为现在。
+ * FOCUS 里新建的排在聚焦区后面（「接下来」第一位）；⌘/Ctrl + 回车 = 新建并放进聚焦区最前。
  */
 export function AddBar({ list, autoFocus }: { list: ListId; autoFocus?: boolean }) {
   const [text, setText] = useState('');
@@ -50,7 +50,7 @@ export function AddBar({ list, autoFocus }: { list: ListId; autoFocus?: boolean 
         autoComplete="off"
         spellCheck={false}
       />
-      {list === 'focus' && text.trim() && <kbd title="新建并设为现在">{MOD}↵ 设为现在</kbd>}
+      {list === 'focus' && text.trim() && <kbd title="新建并放进聚焦区">{MOD}↵ 放进聚焦</kbd>}
     </label>
   );
 }
@@ -170,12 +170,12 @@ export function DraftRow() {
 }
 
 /**
- * NOW 卡子任务列表底部常驻的「+ 添加子任务」：回车添加后不关，可以连续加，新加的排在最后。
+ * 聚焦项子任务列表底部的「+ 添加子任务」（悬停这一件时出现）：回车添加后不关，可以连续加，新加的排在最后。
  */
-export function NowAdder({ parent }: { parent: Todo }) {
+export function SubAdder({ parent }: { parent: Todo }) {
   const [text, setText] = useState('');
   return (
-    <li className="now-sub now-adder">
+    <li className={`zsub zadder ${text ? 'has-text' : ''}`}>
       <PlusIcon className="plus" />
       <input
         value={text}

@@ -39,10 +39,29 @@
   --pop-ln: rgba(11, 11, 12, 0.1);
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
 
-  /* NOW 卡：浅色深色都是荧光绿 + 近黑 */
-  --now-sub: rgba(11, 11, 12, 0.1);
-  --now-line: rgba(11, 11, 12, 0.16);
-  --now-v: #4a3bb0;
+  /* 聚焦区（定稿 P4）：纸白底，荧光绿只做点缀 */
+  --z-bg: #ffffff;
+  --z-ln: rgba(11, 11, 12, 0.07);
+  --z-sh: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 26px rgba(0, 0, 0, 0.07);
+  --z-sep: rgba(11, 11, 12, 0.07);
+  --z-tx: #0b0b0c;
+  --z-sub: #2a2a27;
+  --z-mu: rgba(11, 11, 12, 0.56);
+  --z-ring: #0b0b0c;
+  --z-sring: rgba(11, 11, 12, 0.42);
+  --z-fill: #0b0b0c;
+  --z-chk: #d6ff3d;
+  --z-prog: rgba(11, 11, 12, 0.1);
+  --z-prog-on: #b8e600;
+  --z-hov: #f5f5f1;
+  --z-chip: #eeeaff;
+  --z-drop: #0b0b0c;
+  --z-empty-ln: rgba(11, 11, 12, 0.2);
+  --z-mark-img: linear-gradient(rgba(214, 255, 61, 0.95), rgba(214, 255, 61, 0.95));
+  --z-mark-pos: 0 90%;
+  --z-mark-size: 100% 38%;
+  --z-mark-pad: 0 3px;
+  --z-mark-m: 0 -3px;
 
   /* 选中项：FOCUS 侧栏、HISTORY 今天、冲突选中项 */
   --hi: #d6ff3d;
@@ -109,6 +128,28 @@
     --av0-fg: #0b0b0c;
 
     --toast: #2a2a2e;
+    --z-bg: #1c1c1f;
+    --z-ln: rgba(255, 255, 255, 0.08);
+    --z-sh: 0 12px 30px rgba(0, 0, 0, 0.38);
+    --z-sep: rgba(255, 255, 255, 0.07);
+    --z-tx: #f4f4ef;
+    --z-sub: #d6d6d0;
+    --z-mu: rgba(244, 244, 239, 0.55);
+    --z-ring: #d6ff3d;
+    --z-sring: rgba(244, 244, 239, 0.42);
+    --z-fill: #d6ff3d;
+    --z-chk: #0b0b0c;
+    --z-prog: rgba(255, 255, 255, 0.12);
+    --z-prog-on: #d6ff3d;
+    --z-hov: rgba(255, 255, 255, 0.045);
+    --z-chip: rgba(184, 166, 255, 0.16);
+    --z-drop: #d6ff3d;
+    --z-empty-ln: rgba(255, 255, 255, 0.2);
+    --z-mark-img: linear-gradient(#d6ff3d, #d6ff3d);
+    --z-mark-pos: 0 100%;
+    --z-mark-size: 100% 2.5px;
+    --z-mark-pad: 0 0 2px;
+    --z-mark-m: 0;
     color-scheme: dark;
   }
 }
@@ -150,6 +191,28 @@
   --av0-fg: #0b0b0c;
 
   --toast: #2a2a2e;
+  --z-bg: #1c1c1f;
+  --z-ln: rgba(255, 255, 255, 0.08);
+  --z-sh: 0 12px 30px rgba(0, 0, 0, 0.38);
+  --z-sep: rgba(255, 255, 255, 0.07);
+  --z-tx: #f4f4ef;
+  --z-sub: #d6d6d0;
+  --z-mu: rgba(244, 244, 239, 0.55);
+  --z-ring: #d6ff3d;
+  --z-sring: rgba(244, 244, 239, 0.42);
+  --z-fill: #d6ff3d;
+  --z-chk: #0b0b0c;
+  --z-prog: rgba(255, 255, 255, 0.12);
+  --z-prog-on: #d6ff3d;
+  --z-hov: rgba(255, 255, 255, 0.045);
+  --z-chip: rgba(184, 166, 255, 0.16);
+  --z-drop: #d6ff3d;
+  --z-empty-ln: rgba(255, 255, 255, 0.2);
+  --z-mark-img: linear-gradient(#d6ff3d, #d6ff3d);
+  --z-mark-pos: 0 100%;
+  --z-mark-size: 100% 2.5px;
+  --z-mark-pad: 0 0 2px;
+  --z-mark-m: 0;
   color-scheme: dark;
 }
 
@@ -709,69 +772,236 @@ textarea {
   position: relative;
 }
 
-/* ============ NOW 卡 ============ */
+/* ============ 聚焦区 ============ */
+/* 定稿 P4（Claude Design「FOCUS 聚焦区」）：纸白底 + 近黑字，荧光绿只做点缀——NOW 标签、标题下的荧光笔、进度条、完成的勾。
+ * 能同时放几件事；聚焦项的子任务全部显示。 */
 
-.now {
+.zone {
   position: relative;
-  margin: 0 12px;
-  border-radius: 22px;
-  background: var(--lime);
-  color: var(--lime-ink);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: box-shadow 0.18s var(--ease), transform 0.18s var(--ease), padding 0.22s var(--ease), margin 0.22s var(--ease);
+  margin: 2px 12px 0;
+  border-radius: 20px;
+  background: var(--z-bg);
+  box-shadow: inset 0 0 0 1px var(--z-ln), var(--z-sh);
+  padding: 2px 0 5px;
+  transition: box-shadow 0.18s var(--ease), transform 0.18s var(--ease), margin 0.22s var(--ease);
 }
 
-.regular .now {
+.regular .zone {
   margin: 4px 16px 0 4px;
-  padding: 18px 20px;
-  gap: 12px;
 }
 
-.now.is-drop {
-  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--tx);
-  transform: scale(1.012);
+.zone.is-drop {
+  box-shadow: inset 0 0 0 1px var(--z-ln), 0 0 0 3px var(--bg), 0 0 0 5px var(--z-drop);
 }
 
-.now-top {
+.zone-head {
   display: flex;
   justify-content: space-between;
-  font: 800 11px/1 var(--disp);
-  letter-spacing: 0.08em;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px 4px;
 }
 
-.now-title {
+.zone-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font: 700 11.5px/1 var(--sys);
+  color: var(--z-mu);
+  white-space: nowrap;
+}
+
+/* 荧光绿的 NOW 标签：荧光绿上永远是近黑的字 */
+.now-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 9px 0 8px;
+  margin-left: -5px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--lime-ink);
+  font: 800 11px/1 var(--disp);
+  letter-spacing: 0.1em;
+  flex: none;
+}
+
+.now-tag svg {
+  width: 11px;
+  height: 11px;
+}
+
+.zone-hint {
+  font: 500 11.5px/1 var(--sys);
+  color: var(--z-mu);
+  white-space: nowrap;
+}
+
+.zone-hint.on {
+  font-weight: 700;
+  color: var(--z-tx);
+}
+
+.znode {
+  position: relative;
+}
+
+.zitem {
+  position: relative;
+  padding: 11px 12px;
+  border-top: 1px solid var(--z-sep);
+  color: var(--z-tx);
+  transition: background 0.12s, border-radius 0.12s, opacity 0.15s;
+}
+
+.znode:first-child > .zitem,
+.znode:hover + .znode > .zitem,
+.znode:has(> .zitem.menu-open, > .zitem.edit) + .znode > .zitem {
+  border-top-color: transparent;
+}
+
+.zitem:hover,
+.zitem.menu-open,
+.zitem.edit {
+  background: var(--z-hov);
+  border-radius: 14px;
+  margin: 0 4px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-top-color: transparent;
+}
+
+.zitem.drop-parent {
+  background: color-mix(in srgb, var(--z-tx) 6%, transparent);
+  border-radius: 14px;
+  border-top-color: transparent;
+}
+
+.zitem.tint-verify {
+  background: var(--verify-s) !important;
+  border-radius: 14px;
+  transition: background 0.12s;
+}
+
+/* 刚移进来 / 新建：荧光绿闪一下 */
+.zitem.flash {
+  animation: zoneFlash 0.7s var(--ease) both;
+}
+
+@keyframes zoneFlash {
+  from {
+    background: color-mix(in srgb, var(--lime) 45%, transparent);
+    border-radius: 14px;
+  }
+  to {
+    background: transparent;
+  }
+}
+
+.zitem > .grip {
+  left: -1px;
+  top: 15px;
+}
+
+.zitem:hover > .grip,
+.zitem.menu-open > .grip {
+  opacity: 1;
+}
+
+.zhead {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* 完成圈：浅色是黑圈、完成后黑底荧光绿勾；深色是荧光绿圈 */
+.zring {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  margin-top: 0.5px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.8px var(--z-ring);
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--z-chk);
+  transition: transform 0.12s var(--ease), background 0.15s, box-shadow 0.15s;
+}
+
+.zring svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.6;
+  opacity: 0;
+}
+
+.zring:hover {
+  transform: scale(1.06);
+}
+
+.zring:hover svg {
+  opacity: 0.35;
+  color: var(--z-ring);
+}
+
+.zitem.is-completing .zring {
+  background: var(--z-fill);
+  box-shadow: none;
+}
+
+.zitem.is-completing .zring svg {
+  opacity: 1;
+  color: var(--z-chk);
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: drawCheck 0.24s 0.08s var(--ease) forwards;
+}
+
+.ztitle {
   margin: 0;
-  font: 600 20px/1.32 var(--sys);
-  letter-spacing: -0.01em;
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+  font: 600 15.5px/1.38 var(--sys);
+  letter-spacing: -0.005em;
+  color: var(--z-tx);
   word-break: break-word;
   transition: font-size 0.22s var(--ease);
 }
 
-.regular .now-title {
-  font-size: 24px;
+.regular .ztitle {
+  font-size: 17px;
 }
 
-/* 完成时的 2.5px 删除线：逐行划过 */
-.now-title .strike {
-  background: linear-gradient(currentColor, currentColor) no-repeat 0 58% / 0% 2.5px;
+/* 荧光笔：浅色压在字的下半截，深色是字下面一道荧光绿线。完成时划线压在上面 */
+.ztitle .mark {
+  background-image: linear-gradient(var(--z-tx), var(--z-tx)), var(--z-mark-img);
+  background-repeat: no-repeat;
+  background-position: 0 58%, var(--z-mark-pos);
+  background-size: 0% 2px, var(--z-mark-size);
+  padding: var(--z-mark-pad);
+  margin: var(--z-mark-m);
+  border-radius: 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
-.now.is-completing .now-title .strike {
-  background-size: 100% 2.5px;
+.zitem.is-completing .ztitle .mark {
+  background-size: 100% 2px, var(--z-mark-size);
   transition: background-size 0.26s 0.12s var(--ease);
 }
 
-.now-title textarea,
-.now-sub textarea {
+.ztitle textarea,
+.zsub textarea {
   width: 100%;
   border: 0;
   outline: none;
   resize: none;
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 10px;
+  background: color-mix(in srgb, var(--z-tx) 6%, transparent);
+  border-radius: 8px;
   padding: 2px 6px;
   margin: -2px -6px;
   font: inherit;
@@ -781,176 +1011,252 @@ textarea {
   overflow: hidden;
 }
 
-.now-prog {
+.ztitle textarea::placeholder,
+.zsub textarea::placeholder {
+  color: var(--z-mu);
+}
+
+.zacts {
   display: flex;
-  gap: 4px;
-}
-
-.now-prog i {
-  flex: 1;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(11, 11, 12, 0.15);
-  transition: background 0.3s;
-}
-
-.now-prog i.d {
-  background: #0b0b0c;
-}
-
-.now-subs {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.now-sub {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 12.5px;
-  line-height: 1.35;
-  min-width: 0;
-  min-height: 20px;
-  padding-top: 1px;
-  padding-bottom: 1px;
-  border-radius: 8px;
-}
-
-.now-sub > .sc {
-  margin-top: 1px;
-}
-
-.now-sub > em {
-  margin-top: -1px;
-}
-
-.now-sub .sub-acts {
-  display: none;
+  align-items: center;
   gap: 1px;
-  margin-left: auto;
-  margin-top: -1px;
+  margin: -2px -4px 0 0;
   flex: none;
 }
 
-.now-sub:hover .sub-acts,
-.now-sub.menu-open .sub-acts {
-  display: flex;
-}
-
-.nmini {
-  width: 22px;
-  height: 20px;
-  border-radius: 6px;
+.zmini {
+  width: 26px;
+  height: 24px;
+  border-radius: 7px;
   display: grid;
   place-items: center;
-  color: rgba(11, 11, 12, 0.5);
+  color: var(--z-mu);
   transition: background 0.1s, color 0.1s;
 }
 
-.nmini:hover {
-  background: rgba(11, 11, 12, 0.08);
-  color: #0b0b0c;
+.zmini:hover {
+  background: color-mix(in srgb, var(--z-tx) 7%, transparent);
+  color: var(--z-tx);
 }
 
-.nmini.on {
-  color: var(--now-v);
+.zmini.on {
+  color: var(--verify);
 }
 
-.nmini svg {
+.zmini svg {
+  width: 16px;
+  height: 16px;
+}
+
+.zmini.hov {
+  display: none;
+}
+
+.zitem:hover .zmini.hov,
+.zitem.menu-open .zmini.hov {
+  display: grid;
+}
+
+.zprog {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 9px 2px 0 32px;
+}
+
+.zprog .bars {
+  flex: 1;
+  display: flex;
+  gap: 3px;
+}
+
+.zprog i {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--z-prog);
+  transition: background 0.3s;
+}
+
+.zprog i.d {
+  background: var(--z-prog-on);
+}
+
+.zprog .cnt {
+  font: 700 11px/1 var(--disp);
+  color: var(--z-mu);
+}
+
+.zsubs {
+  list-style: none;
+  margin: 5px 0 0;
+  padding: 0 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* 子任务：13.5（宽窗口 14），比原来的 12.5 大一号 */
+.zsub {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding: 3px 0;
+  border-radius: 8px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--z-sub);
+}
+
+.regular .zsub {
+  font-size: 14px;
+}
+
+.zsub .tt {
+  flex: 0 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.zsub.edit .tt,
+.zsub.draft .tt {
+  flex: 1;
+}
+
+.zcb {
+  --c: var(--z-fill);
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--z-sring);
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--z-chk);
+  transition: transform 0.12s, background 0.15s, box-shadow 0.15s;
+}
+
+.zcb svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 3;
+  opacity: 0;
+}
+
+.zcb:hover {
+  transform: scale(1.1);
+}
+
+.zcb:hover svg {
+  opacity: 0.35;
+  color: var(--z-tx);
+}
+
+.zcb.d {
+  background: var(--z-fill);
+  box-shadow: none;
+}
+
+.zcb.d svg {
+  opacity: 1;
+  color: var(--z-chk);
+}
+
+.zcb.v {
+  box-shadow: none;
+  border: 1.5px dashed var(--verify);
+}
+
+.zsub.d .tt {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+/* 子任务完成：和普通行同一套——按下缩到 .85 → 填色画勾 → 划线变淡（星芒由 actions.toggleTodo 放） */
+.zsub.completing .zcb {
+  animation: cbPress 0.36s var(--ease) both;
+  box-shadow: none;
+}
+
+.zsub.completing .zcb svg {
+  opacity: 1;
+  color: var(--z-chk);
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: drawCheck 0.24s 0.12s var(--ease) forwards;
+}
+
+.zsub .tt-text {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 60% / 0% 1.5px;
+}
+
+.zsub.completing .tt-text {
+  opacity: 0.5;
+  background-size: 100% 1.5px;
+  transition: background-size 0.22s 0.2s var(--ease), opacity 0.22s 0.2s;
+}
+
+.ztag {
+  font: 700 10.5px/1 var(--sys);
+  padding: 4px 7px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--z-chip);
+  color: var(--verify);
+  flex: none;
+}
+
+.zsub .sub-acts {
+  display: none;
+  gap: 1px;
+  margin: -2px 0 0 auto;
+  flex: none;
+}
+
+.zsub:hover .sub-acts,
+.zsub.menu-open .sub-acts {
+  display: flex;
+}
+
+.zsub .sub-acts .zmini {
+  width: 24px;
+  height: 22px;
+}
+
+.zsub .sub-acts .zmini svg {
   width: 15px;
   height: 15px;
 }
 
-.now-sub.draft .sc {
-  box-shadow: inset 0 0 0 1.5px rgba(11, 11, 12, 0.35);
+.zsub.draft .zcb,
+.zitem.draft .zring {
+  box-shadow: inset 0 0 0 1.5px var(--z-sring);
 }
 
-.now-sub textarea::placeholder {
-  color: rgba(11, 11, 12, 0.42);
-}
-
-.now-sub .tt {
-  min-width: 0;
-  flex: 0 1 auto;
-  word-break: break-word;
-}
-
-.now-sub.edit .tt,
-.now-sub.draft .tt {
-  flex: 1;
-}
-
-.now-sub .sc {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1.5px currentColor;
-  flex: none;
-  transition: background 0.2s, transform 0.12s;
-}
-
-.now-sub .sc:hover {
-  transform: scale(1.12);
-}
-
-.now-sub .sc.d {
-  background: currentColor;
-}
-
-.now-sub .sc.v {
-  box-shadow: none;
-  border: 1.5px dashed var(--now-v);
-}
-
-.now-sub.d .tt {
-  opacity: 0.45;
-  text-decoration: line-through;
-}
-
-.now-sub em {
-  font: 700 10px/1 var(--sys);
-  font-style: normal;
-  padding: 3px 6px;
-  border-radius: 999px;
-  background: var(--now-sub);
-  flex: none;
-}
-
-.now-more {
-  align-self: flex-start;
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0.6;
-  padding: 0 0 0 22px;
-}
-
-.now-more:hover {
-  opacity: 1;
-}
-
-.now-adder {
+/* 添加子任务：悬停这一件时出现，正在输入时一直在 */
+.zadder {
+  display: none;
   align-items: center;
-  opacity: 0.6;
-  transition: opacity 0.12s;
+  color: var(--z-mu);
 }
 
-.now-adder:hover,
-.now-adder:focus-within {
-  opacity: 1;
+.zitem:hover .zadder,
+.zadder:focus-within,
+.zadder.has-text {
+  display: flex;
 }
 
-.now-adder .plus {
-  width: 14px;
-  height: 14px;
+.zadder .plus {
+  width: 16px;
+  height: 16px;
   flex: none;
 }
 
-.now-adder input {
+.zadder input {
   flex: 1;
   min-width: 0;
   border: 0;
@@ -959,75 +1265,108 @@ textarea {
   border-radius: 8px;
   padding: 2px 6px;
   margin-left: -6px;
-  font-size: 12.5px;
-  color: #0b0b0c;
+  font-size: 13px;
+  color: var(--z-tx);
 }
 
-.now-adder input:focus {
-  background: rgba(255, 255, 255, 0.55);
+.zadder input:focus {
+  background: color-mix(in srgb, var(--z-tx) 6%, transparent);
 }
 
-.now-adder input::placeholder {
-  color: rgba(11, 11, 12, 0.45);
+.zadder input::placeholder {
+  color: var(--z-mu);
 }
 
-.now-act {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.zmore {
+  margin: 4px 0 0 32px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--z-mu);
 }
 
-.now-done {
-  width: 42px;
-  height: 42px;
+.zmore:hover {
+  color: var(--z-tx);
+}
+
+/* 聚焦区空着（FOCUS 里还有事）：虚线框，能直接拖进来 */
+.zone-empty {
+  margin: 2px 12px 0;
+  border-radius: 20px;
+  border: 1.5px dashed var(--z-empty-ln);
+  padding: 20px 16px 18px;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.regular .zone-empty {
+  margin: 4px 16px 0 4px;
+}
+
+.zone-empty.is-drop {
+  border-style: solid;
+  border-color: var(--z-drop);
+  background: var(--z-bg);
+}
+
+.ze-icon {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 10px;
   border-radius: 50%;
-  background: #0b0b0c;
-  color: #d6ff3d;
+  background: var(--lime);
+  color: var(--lime-ink);
   display: grid;
   place-items: center;
-  flex: none;
+}
+
+.ze-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.zone-empty > b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tx);
+}
+
+.zone-empty > p {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--mu);
+}
+
+.ze-next {
+  margin-top: 12px;
+  max-width: 100%;
+  height: 32px;
+  border-radius: 16px;
+  padding: 0 14px 0 12px;
+  background: var(--tx);
+  color: var(--bg);
+  font: 600 12.5px/1 var(--sys);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: transform 0.12s var(--ease);
 }
 
-.now-done:hover {
-  transform: scale(1.05);
+.ze-next:hover {
+  transform: scale(1.03);
 }
 
-.now-done:active {
-  transform: scale(0.9);
+.ze-next svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
-.now-done svg {
-  width: 20px;
-  height: 20px;
-}
-
-.now-act b {
-  font: 700 13px/1 var(--sys);
-}
-
-.now-verify {
-  margin-left: auto;
-  height: 32px;
-  border-radius: 16px;
-  padding: 0 12px 0 10px;
-  background: var(--now-sub);
-  color: inherit;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font: 600 12px/1 var(--sys);
-  box-shadow: inset 0 0 0 1.5px var(--now-line);
-  transition: background 0.12s;
-}
-
-.now-verify:hover {
-  background: rgba(11, 11, 12, 0.16);
-}
-
-.now-verify svg {
-  width: 16px;
-  height: 16px;
+.ze-next span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ============ 新建框 ============ */
@@ -2980,12 +3319,8 @@ body.dragging * {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--goal) 55%, transparent);
 }
 
-.now.drop-parent {
-  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px color-mix(in srgb, var(--tx) 45%, transparent);
-}
-
-.now-sub.drop-parent {
-  background: rgba(11, 11, 12, 0.08);
+.zsub.drop-parent {
+  background: color-mix(in srgb, var(--z-tx) 6%, transparent);
 }
 
 /* 被拖的那一项连同子孙：原位置留着、变淡 */
@@ -2995,16 +3330,6 @@ body.dragging * {
 
 .drag-src .drag-src {
   opacity: 1 !important;
-}
-
-.now-head {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.regular .now-head {
-  gap: 12px;
 }
 
 /* ============ 动效层 ============ */
@@ -3026,7 +3351,7 @@ body.dragging * {
 .fx-ring {
   position: absolute;
   border-radius: 50%;
-  border: 2.5px solid #0b0b0c;
+  border: 2.5px solid var(--z-ring);
   will-change: transform, opacity;
 }
 
@@ -3034,6 +3359,13 @@ body.dragging * {
   position: absolute;
   margin: 0 !important;
   will-change: transform, opacity;
+}
+
+/* 聚焦项本身是透明的（底色在聚焦区上）：飞走的克隆补上底色 */
+.fx-clone.zitem {
+  background: var(--z-bg);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
 }
 
 .fx-plus {
@@ -3061,10 +3393,11 @@ body.dragging * {
     animation-iteration-count: 1 !important;
   }
   .row,
-  .now,
+  .zitem,
+  .zone,
   .pill,
   .nav-item,
-  .now-title {
+  .ztitle {
     transition-duration: 0.15s !important;
   }
   .sync.syncing svg,
@@ -3105,12 +3438,22 @@ body.dragging * {
   animation: rowFlash 0.6s var(--ease) both;
 }
 
-.now.tint-verify {
-  background: var(--verify-s);
-  transition: background 0.12s;
-}
 
 /* 拖拽中别的行不跟着悬停 */
+body.dragging .zitem:hover:not(.drop-parent) {
+  background: transparent;
+  margin: 0;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+body.dragging .zitem:hover .zmini.hov,
+body.dragging .zitem:hover > .grip,
+body.dragging .zitem:hover .zadder,
+body.dragging .zsub:hover .sub-acts {
+  display: none;
+}
+
 body.dragging .row:hover:not(.lift) {
   background: transparent;
   box-shadow: none;

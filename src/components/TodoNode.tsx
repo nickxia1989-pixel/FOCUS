@@ -60,7 +60,7 @@ interface Props {
   todo: Todo;
   depth: number;
   index: TreeIndex;
-  /** queue = FOCUS「接下来」的行（序号、逐行变淡、悬停出现设为现在） */
+  /** queue = FOCUS「接下来」的行（序号、逐行变淡、悬停出现设为现在：放进聚焦区最前） */
   variant?: 'list' | 'queue';
   /** 队列序号（02、03…） */
   no?: number;
@@ -168,7 +168,7 @@ export function TodoNode({ todo, depth, index, variant = 'list', no, fade = 1 }:
             <span className="hov">
               {queue ? (
                 <>
-                  <button className="mini" title="设为现在" onClick={() => setNow(todo)}>
+                  <button className="mini" title="设为现在（放进聚焦区最前）" onClick={() => setNow(todo)}>
                     <UpIcon />
                   </button>
                   <button className="mini" title="送去验证" onClick={(e) => sendToVerify(todo, e.currentTarget)}>
@@ -193,7 +193,7 @@ export function TodoNode({ todo, depth, index, variant = 'list', no, fade = 1 }:
             {sparkAct && (
               <button
                 className="act spark"
-                title={todo.list === 'verify' ? '没测过，退回 FOCUS' : '送进 FOCUS（排在现在之后）'}
+                title={todo.list === 'verify' ? '没测过，退回 FOCUS' : '送进 FOCUS（排在聚焦区后面）'}
                 onClick={(e) => sendToFocus(todo, e.currentTarget)}
               >
                 <SparkIcon />

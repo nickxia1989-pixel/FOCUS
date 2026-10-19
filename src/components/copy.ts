@@ -20,7 +20,7 @@ export const VIEW_COPY: Record<ViewId, ViewCopy> = {
     cn: '当下要做',
     placeholder: '接下来要做…',
     emptyTitle: 'Nothing now.',
-    emptyText: 'FOCUS 空了。从 INBOX 挑一件当「现在」，或者写下此刻最要紧的那件事。',
+    emptyText: 'FOCUS 空了。从 INBOX 挑几件放进来，或者写下此刻最要紧的事。',
   },
   verify: {
     id: 'verify',
@@ -58,7 +58,7 @@ export const VIEW_COPY: Record<ViewId, ViewCopy> = {
 
 export const listName = (list: ListId) => VIEW_COPY[list].en;
 
-/** 列表色（行的勾选圈、圆点）。FOCUS 用正文色，荧光绿只给 NOW */
+/** 列表色（行的勾选圈、圆点）。FOCUS 用正文色，荧光绿只给聚焦区的点缀 */
 export const LIST_COLOR: Record<ViewId, string> = {
   focus: 'var(--tx)',
   verify: 'var(--verify)',

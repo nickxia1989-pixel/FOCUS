@@ -11,7 +11,7 @@
 import type { KeyboardEvent } from 'react';
 import { flashRow, useData, useUi } from './store';
 import { setExitMode } from './fx';
-import { nowOf } from './model';
+import { inZone } from './model';
 import {
   canIndent,
   canOutdent,
@@ -22,7 +22,7 @@ import {
   draftInsert,
   draftOutdent,
   draftShift,
-  moveIndex,
+  moveStep,
   type Draft,
 } from './outline';
 import type { VV } from './sync/clock';
@@ -123,14 +123,14 @@ export function blurDraft() {
 
 // ---------- 让新位置看得见 ----------
 
-/** 挂到某个父项下以后，父项要是收着就展开（FOCUS 队列里的行用本次运行的展开状态） */
+/** 挂到某个父项下以后，父项要是收着就展开（「接下来」里的行用本次运行的展开状态，聚焦项总是展开） */
 export function ensureVisible(parentId: string | null) {
   if (!parentId) return;
   const s = useData.getState();
   const p = s.todos.find((t) => t.id === parentId);
   if (!p) return;
   const ui = useUi.getState();
-  if (p.list === 'focus' && p.parentId === null && nowOf(s.todos)?.id !== p.id && !ui.queueOpen[p.id])
+  if (p.list === 'focus' && p.parentId === null && !inZone(p) && !ui.queueOpen[p.id])
     ui.set({ queueOpen: { ...ui.queueOpen, [p.id]: true } });
   if (p.collapsed) s.setCollapsed(p.id, false);
 }
@@ -221,8 +221,9 @@ export function onEditKey(e: KeyboardEvent<HTMLTextAreaElement>, id: string, el:
   }
   if (isMove(e) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
     e.preventDefault();
-    const to = moveIndex(todos, id, e.key === 'ArrowUp' ? -1 : 1);
-    if (to === null) {
+    // FOCUS 顶层：聚焦区和「接下来」的分界也算一格（见 outline.moveStep）
+    const step = moveStep(todos, id, e.key === 'ArrowUp' ? -1 : 1);
+    if (step === null) {
       shake(el.closest('[data-edit-id]'));
       return true;
     }
@@ -230,7 +231,7 @@ export function onEditKey(e: KeyboardEvent<HTMLTextAreaElement>, id: string, el:
     s.start = el.selectionStart;
     s.end = el.selectionEnd;
     setExitMode(id, 'instant');
-    store.reorder(id, to);
+    store.reorder(id, step.to, step.focused);
     refocus(`[data-editor="${CSS.escape(id)}"]`, s.start, s.end);
     return true;
   }

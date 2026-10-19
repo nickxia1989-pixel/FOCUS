@@ -1,21 +1,8 @@
 // 带动效的高层操作（桌面），供各组件调用。时序见 design_handoff_focus/tokens.json → motion
 import { VIEW_COPY } from './components/copy';
 import { chime } from './effects';
-import {
-  blink,
-  bump,
-  cardOut,
-  centerOf,
-  flyClone,
-  flySpark,
-  prepareHandoff,
-  preparePop,
-  reduceMotion,
-  ringBurst,
-  setExitMode,
-  sparks,
-} from './fx';
-import { nowOf } from './model';
+import { blink, bump, centerOf, flyClone, flySpark, prepareHandoff, preparePop, reduceMotion, ringBurst, setExitMode, sparks } from './fx';
+import { inZone, nowOf, zoneOf } from './model';
 import { flashRow, showToast, useData, useUi } from './store';
 import type { ListId, Todo, ViewId } from './types';
 
@@ -25,9 +12,14 @@ const listLabel = (list: ListId) => VIEW_COPY[list].en;
 
 const esc = (id: string) => CSS.escape(id);
 
-export const rowOf = (id: string) => document.querySelector<HTMLElement>(`[data-node-id="${esc(id)}"] > .row, [data-goal-id="${esc(id)}"]`);
-export const nowCardOf = (id: string) => document.querySelector<HTMLElement>(`[data-now-id="${esc(id)}"]`);
-const checkOf = (id: string) => document.querySelector<HTMLElement>(`[data-node-id="${esc(id)}"] > .row .cb, [data-goal-id="${esc(id)}"] .cb`);
+/** 界面上代表这一条的那一行：列表行、GOAL 卡、聚焦项、聚焦项下的子任务 */
+export const rowOf = (id: string) =>
+  document.querySelector<HTMLElement>(
+    `[data-node-id="${esc(id)}"] > .row, [data-goal-id="${esc(id)}"], [data-zone-item="${esc(id)}"], li.zsub[data-node-id="${esc(id)}"]`,
+  );
+export const zoneItemOf = (id: string) => document.querySelector<HTMLElement>(`[data-zone-item="${esc(id)}"]`);
+const checkOf = (id: string) =>
+  document.querySelector<HTMLElement>(`[data-cb-id="${esc(id)}"], [data-node-id="${esc(id)}"] > .row .cb, [data-goal-id="${esc(id)}"] .cb`);
 
 /** 页签胶囊或侧栏上那个分区的图标（compact / regular 只会有一个看得见） */
 export function tabTarget(view: ViewId): HTMLElement | null {
@@ -38,15 +30,6 @@ export function tabTarget(view: ViewId): HTMLElement | null {
   return null;
 }
 
-/** FOCUS 里排在 id 后面的那件未完成顶层项（NOW 被拿走后接替的那件） */
-function nextAfter(id: string): Todo | null {
-  const todos = useData.getState().todos;
-  const open = todos.filter((t) => t.list === 'focus' && t.parentId === null && !t.done && t.id !== id);
-  const rest = todos.filter((t) => t.id !== id);
-  return open.length ? nowOf(rest) : null;
-}
-
-const isNow = (todo: Todo) => nowOf(useData.getState().todos)?.id === todo.id;
 const soundOn = () => useData.getState().settings.sound;
 
 function setCompleting(id: string, on: boolean) {
@@ -74,7 +57,10 @@ function flyToTab(el: HTMLElement | null, view: ViewId) {
 
 // ---------- 完成 ----------
 
-/** 完成普通行（760ms）：圈缩 .85 → 填色画勾 → 6 颗星芒 → 划线 → 一颗星芒飞向 HISTORY */
+/**
+ * 完成普通行和子任务（760ms）：圈缩 .85 → 填色画勾 → 6 颗星芒 → 划线 → 一颗星芒飞向 HISTORY。
+ * 聚焦项下的子任务也走这里（勾选圈带 data-cb-id，星芒从它那里迸出）。
+ */
 export function toggleTodo(todo: Todo) {
   const ui = useUi.getState();
   if (ui.completing[todo.id]) return;
@@ -82,8 +68,8 @@ export function toggleTodo(todo: Todo) {
     useData.getState().uncomplete(todo.id);
     return;
   }
-  if (isNow(todo)) {
-    completeNow(todo);
+  if (inZone(todo)) {
+    completeZoneItem(todo);
     return;
   }
   const quick = reduceMotion();
@@ -103,37 +89,32 @@ export function toggleTodo(todo: Todo) {
 }
 
 /**
- * 完成 NOW · 换场（1000ms）：按下 → 外圈爆开 + 星芒 → 标题划线 → 卡片向上抽走 →
- * 队列第 02 行变形成新的 NOW 卡 → 其余行上移
+ * 完成聚焦项（820ms）：按下圈缩到 .82 → 填黑画荧光绿勾、外圈爆开 + 6 颗星芒、标题划线 →
+ * 这一件在聚焦区里淡出收起，下面的补位 → 一颗星芒飞向 HISTORY。聚焦区空了也不自动补下一件。
  */
-export function completeNow(todo: Todo) {
+export function completeZoneItem(todo: Todo) {
   const ui = useUi.getState();
   if (ui.completing[todo.id]) return;
-  const card = nowCardOf(todo.id);
-  const quick = reduceMotion() || !card;
+  const item = zoneItemOf(todo.id);
+  const quick = reduceMotion() || !item;
   setCompleting(todo.id, true);
   if (soundOn()) chime();
-  const btn = card?.querySelector<HTMLElement>('.now-done');
+  const btn = item?.querySelector<HTMLElement>('.zring');
   const at = centerOf(btn);
   if (at && !quick) {
     btn!.animate([{ transform: 'scale(1)' }, { transform: 'scale(.82)', offset: 0.35 }, { transform: 'scale(1)' }], { duration: 230, easing: 'cubic-bezier(.2,.8,.2,1)' });
-    ringBurst(at, 42, 80);
-    sparks(at, { color: '#0B0B0C', size: [11, 12], dist: [40, 60], rotate: 90, life: 360, delay: 80 });
+    ringBurst(at, 40, 80);
+    sparks(at, { size: [9, 12], dist: [30, 50], rotate: 90, life: 380, delay: 80 });
   }
   setTimeout(
     () => {
-      const cur = nowCardOf(todo.id);
-      const next = nextAfter(todo.id);
-      if (cur && !quick) cardOut(cur);
-      if (next) {
-        prepareHandoff(next.id, rowOf(next.id), 80);
-        setExitMode(next.id, 'instant');
-      }
+      const from = centerOf(zoneItemOf(todo.id)?.querySelector('.zring')) ?? at;
       useData.getState().complete(todo.id);
-      setCompleting(todo.id, false);
-      flyToHistory(at);
+      flyToHistory(from);
+      // 离场动画播完再清：收起的那一下还保持打勾、划线的样子
+      setTimeout(() => setCompleting(todo.id, false), quick ? 0 : 400);
     },
-    quick ? 150 : 380,
+    quick ? 150 : 440,
   );
 }
 
@@ -165,36 +146,30 @@ export function sendToVerify(todo: Todo, btn?: Element | null) {
     );
     return;
   }
-  const nowCard = isNow(todo) ? nowCardOf(todo.id) : null;
-  const el = nowCard ?? rowOf(todo.id);
+  const el = rowOf(todo.id);
   if (el && !quick) setTimeout(() => el.classList.add('tint-verify'), 120);
   setTimeout(
     () => {
       el?.classList.remove('tint-verify');
       if (!quick) flyToTab(el, 'verify');
-      if (nowCard) {
-        const next = nextAfter(todo.id);
-        if (next) {
-          prepareHandoff(next.id, rowOf(next.id), 60);
-          setExitMode(next.id, 'instant');
-        }
-      } else setExitMode(todo.id, 'collapse');
+      setExitMode(todo.id, 'collapse');
       useData.getState().markForTest(todo.id);
     },
     quick ? 0 : 200,
   );
 }
 
-/** 送进 FOCUS（INBOX 的星芒钮、VERIFY 的退回）：排在 NOW 之后 */
+/** 送进 FOCUS（INBOX 的星芒钮、VERIFY 的退回）：排在聚焦区后面（「接下来」第一位） */
 export function sendToFocus(todo: Todo, btn?: Element | null) {
   const at = centerOf(btn);
   if (at) sparks(at, { count: 6, size: [6, 9], dist: [16, 26], life: 340 });
   const row = rowOf(todo.id);
-  const wasEmpty = !nowOf(useData.getState().todos);
   setExitMode(todo.id, 'collapse');
   flyToTab(row, 'focus');
   useData.getState().sendToFocus(todo.id);
-  if (wasEmpty) showToast('FOCUS 空着，它直接成了「现在」');
+  const s = useData.getState();
+  const t = s.todos.find((x) => x.id === todo.id);
+  if (t && inZone(t) && zoneOf(s.todos).length === 1) showToast('FOCUS 空着，它直接进了聚焦区');
 }
 
 /** 右键菜单「移到 …」：子项选自己的列表 = 提升为顶层项 */
@@ -211,51 +186,39 @@ export function moveTodoTo(todo: Todo, list: ListId) {
     useData.getState().move(todo.id, list);
     return;
   }
-  const el = isNow(todo) ? nowCardOf(todo.id) : rowOf(todo.id);
-  if (isNow(todo)) {
-    const next = nextAfter(todo.id);
-    if (next) {
-      prepareHandoff(next.id, rowOf(next.id), 60);
-      setExitMode(next.id, 'instant');
-    }
-  } else setExitMode(todo.id, 'collapse');
+  const el = rowOf(todo.id);
+  setExitMode(todo.id, 'collapse');
   flyToTab(el, list);
   useData.getState().move(todo.id, list);
 }
 
 /**
  * 拖到页签 / 侧栏的列表上：整棵移过去成顶层。
- * FOCUS 排在 NOW 之后（送进 FOCUS），VERIFY 和其它列表排在最前（放进 VERIFY 等于送去验证：回到未完成）。
+ * FOCUS 排在聚焦区后面（送进 FOCUS），VERIFY 和其它列表排在最前（放进 VERIFY 等于送去验证：回到未完成）。
  */
 export function moveToListByDrag(todo: Todo, list: ListId) {
   if (list === 'focus') {
     sendToFocus(todo);
     return;
   }
-  const el = isNow(todo) ? nowCardOf(todo.id) : rowOf(todo.id);
-  if (isNow(todo)) {
-    const next = nextAfter(todo.id);
-    if (next) {
-      prepareHandoff(next.id, rowOf(next.id), 60);
-      setExitMode(next.id, 'instant');
-    }
-  } else setExitMode(todo.id, 'collapse');
+  const el = rowOf(todo.id);
+  setExitMode(todo.id, 'collapse');
   if (list === 'verify' && soundOn()) chime(0.5, 0.6);
   flyToTab(el, list);
   useData.getState().place(todo.id, { list, parentId: null, index: 0 });
 }
 
-// ---------- 设为现在 ----------
+// ---------- 设为现在 / 移出聚焦区 ----------
 
 /**
- * 设为现在（450ms）：行浮起 → 与 NOW 卡交换位置 → 荧光绿交接。
- * fromRect：拖到 NOW 卡上松手时拖拽预览的位置，此时不再浮起。
- * 从别的列表来的直接移进 FOCUS 第 1 位，克隆飞向 FOCUS 页签。
+ * 设为现在（450ms）：放进聚焦区最前。
+ * - 「接下来」里的行（或聚焦项的子任务）：行浮起 → 移上去成为聚焦区第一件，荧光绿闪一下；
+ * - 聚焦区里的：直接排到最前，其余的让位；
+ * - 别的列表来的：克隆飞向 FOCUS 页签，提示一下。
  */
-export function setNow(todo: Todo, fromRect?: DOMRect) {
+export function setNow(todo: Todo) {
   const s = useData.getState();
-  const cur = nowOf(s.todos);
-  if (cur?.id === todo.id) return;
+  if (nowOf(s.todos)?.id === todo.id) return;
   const inFocus = s.prefs.activeView === 'focus' && !useUi.getState().trashOpen && todo.list === 'focus';
   const row = rowOf(todo.id);
   const quick = reduceMotion();
@@ -264,40 +227,40 @@ export function setNow(todo: Todo, fromRect?: DOMRect) {
     setExitMode(todo.id, 'collapse');
     if (!quick) flyToTab(row, 'focus');
     s.setNow(todo.id);
-    showToast(`已设为现在 · ${listLabel('focus')}`);
+    showToast(`已放进聚焦区 · ${listLabel('focus')}`);
+    return;
+  }
+  if (inZone(todo)) {
+    s.setNow(todo.id);
+    flashRow(todo.id);
     return;
   }
 
   const go = () => {
     row?.classList.remove('lift');
-    const card = cur ? nowCardOf(cur.id) : null;
-    // 原来的 NOW 往下沉到队列里，换下来的那行荧光绿闪一下
-    if (card && !quick) cardOut(card, 'down');
-    prepareHandoff(todo.id, fromRect ?? row, 0);
+    prepareHandoff(todo.id, row, 0);
     setExitMode(todo.id, 'instant');
     useData.getState().setNow(todo.id);
-    if (cur) flashRow(cur.id);
+    flashRow(todo.id);
   };
-  if (fromRect || quick || !row) go();
+  if (quick || !row) go();
   else {
     row.classList.add('lift');
     setTimeout(go, 120);
   }
 }
 
+/** 移出聚焦区：回到「接下来」第一位，那一行荧光绿闪一下 */
+export function unfocusTodo(todo: Todo) {
+  if (!inZone(todo)) return;
+  useData.getState().unfocus(todo.id);
+  flashRow(todo.id);
+}
+
 // ---------- 删除 / 回收站 ----------
 
 /** 删除进回收站；提示条上 5 秒内可撤销 */
 export function deleteWithUndo(todo: Todo) {
-  if (isNow(todo)) {
-    const card = nowCardOf(todo.id);
-    if (card) cardOut(card);
-    const next = nextAfter(todo.id);
-    if (next) {
-      prepareHandoff(next.id, rowOf(next.id), 60);
-      setExitMode(next.id, 'instant');
-    }
-  }
   const entryId = useData.getState().remove(todo.id);
   if (!entryId) return;
   const count = useData.getState().trash.find((e) => e.id === entryId)?.items.length ?? 1;
@@ -326,19 +289,15 @@ export function restoreFromTrash(entryId: string) {
 // ---------- 新建 / 子任务 ----------
 
 /**
- * 新建：FOCUS 顶层默认排在 NOW 之后；top = 新建并设为现在（⌘/Ctrl + 回车）。
- * 新行撑开并荧光绿闪一下。
+ * 新建：FOCUS 顶层默认排在聚焦区后面（「接下来」第一位）；top = 新建并放进聚焦区最前（⌘/Ctrl + 回车）。
+ * 新行撑开并荧光绿闪一下；进了聚焦区的（含 FOCUS 原本是空的）从上面弹出来。
  */
 export function addTodo(title: string, list: ListId, top = false): string | null {
-  const prevNow = list === 'focus' ? nowOf(useData.getState().todos) : null;
   const id = useData.getState().add(title, list, null, top ? 'top' : undefined);
   if (!id) return null;
-  const isNowNow = list === 'focus' && nowOf(useData.getState().todos)?.id === id;
-  if (isNowNow) {
-    // 新建并设为现在（或 FOCUS 原本是空的）：新卡弹出来，换下来的那件闪一下
-    preparePop(id);
-    if (prevNow) flashRow(prevNow.id);
-  } else flashRow(id);
+  const t = useData.getState().todos.find((x) => x.id === id);
+  if (t && inZone(t)) preparePop(id);
+  flashRow(id);
   return id;
 }
 

@@ -117,6 +117,13 @@ export const UpIcon = (p: P) => (
   </svg>
 );
 
+/** 移出聚焦区 */
+export const DownIcon = (p: P) => (
+  <svg {...line(p)}>
+    <path d="M12 5v14M6 13l6 6 6-6" />
+  </svg>
+);
+
 export const TrashIcon = (p: P) => (
   <svg {...line(p, 1.9)}>
     <path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2A1.8 1.8 0 0 0 9.2 21h5.6a1.8 1.8 0 0 0 1.8-1.8L17.5 7" />

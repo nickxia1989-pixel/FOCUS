@@ -1,5 +1,5 @@
 // 桌面动效（设计 F「一件事」，时序见 design_handoff_focus/tokens.json → motion）：
-// 星芒迸出、沿弧线飞向页签、页签弹一下冒 +1、行 / NOW 卡的克隆飞走、NOW 卡从队列行变形出来。
+// 星芒迸出、沿弧线飞向页签、页签弹一下冒 +1、行的克隆飞走、「接下来」的行移上去成为聚焦项。
 // iOS 版仍用 src/effects.ts。
 
 export const EASE = 'cubic-bezier(.2,.8,.2,1)';
@@ -76,7 +76,7 @@ export function sparks(
   }
 }
 
-/** NOW 完成钮外圈爆开 */
+/** 聚焦项完成圈外圈爆开 */
 export function ringBurst(at: Pt, size: number, delay = 0) {
   if (reduceMotion()) return;
   const el = document.createElement('div');
@@ -142,8 +142,14 @@ export function cloneToLayer(src: HTMLElement): { el: HTMLElement; rect: DOMRect
   const el = src.cloneNode(true) as HTMLElement;
   el.classList.add('fx-clone');
   el.removeAttribute('data-node-id');
-  el.removeAttribute('data-now-id');
-  el.removeAttribute('data-drop-now');
+  el.removeAttribute('data-zone-item');
+  el.removeAttribute('data-drag-id');
+  for (const c of el.querySelectorAll('[data-node-id], [data-drag-id], [data-cb-id], [data-edit-id]')) {
+    c.removeAttribute('data-node-id');
+    c.removeAttribute('data-drag-id');
+    c.removeAttribute('data-cb-id');
+    c.removeAttribute('data-edit-id');
+  }
   Object.assign(el.style, {
     left: `${rect.left}px`,
     top: `${rect.top}px`,
@@ -185,28 +191,6 @@ export function flyClone(src: HTMLElement, to: Pt, opts: { duration?: number; sc
   );
 }
 
-/**
- * NOW 卡离场：
- * - up（完成、删除）：-30px、转 -3°、缩到 .95、淡出（ease-in 180ms）
- * - down（设为现在时被换下来）：往下沉、缩小、淡出，落进队列
- */
-export function cardOut(src: HTMLElement, dir: 'up' | 'down' = 'up') {
-  if (reduceMotion()) return;
-  const { el } = cloneToLayer(src);
-  el.animate(
-    dir === 'up'
-      ? [
-          { transform: 'none', opacity: 1 },
-          { transform: 'translateY(-30px) rotate(-3deg) scale(.95)', opacity: 0 },
-        ]
-      : [
-          { transform: 'none', opacity: 1, transformOrigin: '50% 100%' },
-          { transform: 'translateY(40px) scale(.92)', opacity: 0, transformOrigin: '50% 100%' },
-        ],
-    { duration: dir === 'up' ? 180 : 300, easing: dir === 'up' ? EASE_EXIT : EASE, fill: 'both' },
-  ).finished.then(() => el.remove(), () => el.remove());
-}
-
 /** 页签 / 侧栏图标放大 1.18 弹一下；plus 时冒一个 +1 */
 export function bump(el: Element | null, plus = false) {
   if (!el || reduceMotion()) return;
@@ -245,7 +229,7 @@ export function blink(el: Element | null | undefined) {
 
 /**
  * 行被移走时怎么离场（列表的 AnimatePresence 把它当 custom 传给离场的行）：
- * - instant：这一行变成了 NOW 卡，原地直接消失
+ * - instant：这一行移上去成了聚焦项（或换了位置），原地直接消失
  * - collapse：克隆已经飞走了，原行立刻透明、高度收起
  */
 export type ExitMode = 'instant' | 'collapse';
@@ -256,44 +240,42 @@ export function setExitMode(id: string, mode: ExitMode) {
   setTimeout(() => exitModes.delete(id), 1200);
 }
 
-// ---------- NOW 卡交接：队列第 02 行变形成新的 NOW 卡 ----------
+// ---------- 进聚焦区：「接下来」的行移上去成为聚焦项 ----------
 
 interface Handoff {
-  /** 从哪一行变形过来；没有就是原地弹出（⌘↵ 新建并设为现在） */
+  /** 从哪一行移过来；没有就是原地弹出（⌘↵ 新建并放进聚焦区） */
   rect: DOMRect | null;
-  /** 起始字号（队列行 13.5） */
-  fontSize: number;
   delay: number;
 }
 
 const handoffs = new Map<string, Handoff>();
 
-/** 动作这边：数据提交前记下那一行（或拖拽预览）的位置 */
+/** 动作这边：数据提交前记下那一行的位置 */
 export function prepareHandoff(id: string, from: Element | DOMRect | null | undefined, delay = 0) {
   if (!from) return;
   const rect = from instanceof DOMRect ? from : from.getBoundingClientRect();
-  handoffs.set(id, { rect, fontSize: 13.5, delay });
-  // 没有被消费（比如那张卡没渲染出来）就丢掉
+  handoffs.set(id, { rect, delay });
+  // 没有被消费（比如那一件没渲染出来）就丢掉
   setTimeout(() => handoffs.delete(id), 1000);
 }
 
-/** 新卡原地弹出（新建并设为现在） */
+/** 新的聚焦项原地弹出（新建并放进聚焦区） */
 export function preparePop(id: string) {
-  handoffs.set(id, { rect: null, fontSize: 13.5, delay: 0 });
+  handoffs.set(id, { rect: null, delay: 0 });
   setTimeout(() => handoffs.delete(id), 1000);
 }
 
-/** NOW 卡这边：新卡挂载时如果有交接记录，从那一行的位置、高度、底色、字号同时过渡过来 */
-export function runHandoff(id: string, card: HTMLElement | null) {
+/** 聚焦项挂载时如果有交接记录：从那一行的位置弹簧移过来；没有位置就从上方落下弹出 */
+export function runZoneEnter(id: string, el: HTMLElement | null) {
   const h = handoffs.get(id);
   handoffs.delete(id);
-  if (!card || !h) return;
+  if (!el || !h) return;
   if (reduceMotion()) {
-    card.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150 });
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150 });
     return;
   }
   if (!h.rect) {
-    card.animate(
+    el.animate(
       [
         { transform: 'translateY(-8px) scale(.97)', opacity: 0 },
         { transform: 'none', opacity: 1 },
@@ -302,26 +284,12 @@ export function runHandoff(id: string, card: HTMLElement | null) {
     );
     return;
   }
-  const r = card.getBoundingClientRect();
-  const dx = h.rect.left - r.left;
-  const dy = h.rect.top - r.top;
-  const clipR = Math.max(0, r.width - h.rect.width);
-  const clipB = Math.max(0, r.height - h.rect.height);
-  const bg = cssVar('--sf') || '#fff';
-  const opts = { duration: 360, delay: h.delay, easing: EASE_SPRING, fill: 'both' as FillMode };
-  card.animate(
+  const r = el.getBoundingClientRect();
+  el.animate(
     [
-      { transform: `translate(${dx}px, ${dy}px)`, clipPath: `inset(0 ${clipR}px ${clipB}px 0 round 12px)`, backgroundColor: bg },
-      { transform: 'translate(0,0)', clipPath: 'inset(0 0 0 0 round 22px)', backgroundColor: cssVar('--lime') || '#D6FF3D' },
+      { transform: `translate(${h.rect.left - r.left}px, ${h.rect.top - r.top}px) scale(.98)`, opacity: 0.7 },
+      { transform: 'none', opacity: 1 },
     ],
-    opts,
+    { duration: 380, delay: h.delay, easing: EASE_SPRING, fill: 'both' },
   );
-  const title = card.querySelector<HTMLElement>('.now-title');
-  if (title) {
-    const size = parseFloat(getComputedStyle(title).fontSize) || 20;
-    title.animate([{ fontSize: `${h.fontSize}px` }, { fontSize: `${size}px` }], opts);
-  }
-  for (const part of card.querySelectorAll<HTMLElement>('.now-top, .now-prog, .now-subs, .now-more, .now-act')) {
-    part.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, delay: h.delay + 180, easing: EASE, fill: 'both' });
-  }
 }

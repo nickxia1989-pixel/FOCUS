@@ -45,7 +45,7 @@ const toggleProfileMenu = () => {
 
 // ---------- 数字 ----------
 
-/** 各列表未完成的顶层项数（和 NOW 卡上的 01/05、「接下来 · 4」一致） */
+/** 各列表未完成的顶层项数（FOCUS = 聚焦区 + 「接下来」的件数） */
 function useCounts() {
   const todos = useData((s) => s.todos);
   const today = useTodayStart();

@@ -1,12 +1,12 @@
 // 桌面的自由拖拽（规则见 docs/drag.md，落点算法在 src/dragTree.ts）。
 // 一棵树里的任何一项都能拖到任何位置：纵坐标选空隙，横坐标按每级缩进换算深度。
 // 界面这边负责：把看得见的行摊平（带位置）、画插入线和新父项高亮、悬停展开、边缘滚动、
-// 拖到页签 / 侧栏换列表（停 800ms 切过去继续拖）、拖到 NOW 卡标题区设为现在、放下后可撤销。
+// 拖到页签 / 侧栏换列表（停 800ms 切过去继续拖）、拖进 / 拖出 FOCUS 的聚焦区、放下后可撤销。
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { goView, moveToListByDrag, setNow } from './actions';
+import { goView, moveToListByDrag } from './actions';
 import { depthFromOffset, projectDrop, restRows, type DragRow, type DropProjection } from './dragTree';
-import { reduceMotion } from './fx';
-import { compareTodos, descendantIds, nowOf } from './model';
+import { prepareHandoff, reduceMotion, setExitMode } from './fx';
+import { compareTodos, descendantIds, inZone } from './model';
 import { showToast, useData, useUi } from './store';
 import type { ListId, Todo } from './types';
 
@@ -28,12 +28,15 @@ interface Row extends DragRow {
   right: number;
   /** 它的子项比它往右缩多少 */
   childIndent: number;
+  /** 在 FOCUS 的聚焦区里（聚焦项和它的子任务） */
+  zone: boolean;
 }
 
 /**
  * 行上的标记（由各组件写在可拖的那一行上）：
  * data-drag-id / data-depth / data-parent / data-list / data-done / data-collapsed / data-indent，
- * 位置取 [data-drag-rect] 子元素（NOW 卡取标题区、GOAL 卡取标题行），没有就取自己。
+ * 位置取 [data-drag-rect] 子元素（聚焦项、GOAL 卡取标题行），没有就取自己。
+ * 聚焦区（和它空着时的虚线框、FOCUS 整个空着时的空状态）带 data-zone，「接下来」的容器带 data-queue。
  */
 export function dragAttrs(t: Todo, depth: number, opts: { collapsed?: boolean; indent: number }) {
   return {
@@ -83,6 +86,7 @@ function collect(scroller: HTMLElement): Row[] {
       x: r.left + (parseFloat(getComputedStyle(box).paddingLeft) || 0),
       right: r.right,
       childIndent: Number(d.indent) || INDENT,
+      zone: !!el.closest('[data-zone]'),
     });
   }
   return rows;
@@ -101,12 +105,12 @@ function lineX(rest: Row[], gap: number, depth: number, fallback: number): numbe
   return fallback + depth * INDENT;
 }
 
-/** 在兄弟（同父、同完成状态）里排第几：撤销时放回去用 */
+/** 在兄弟（同父、同完成状态）里排第几、在不在聚焦区：撤销时放回去用 */
 function originOf(id: string) {
   const todos = useData.getState().todos;
   const t = todos.find((x) => x.id === id)!;
   const sibs = todos.filter((x) => x.parentId === t.parentId && (t.parentId !== null || x.list === t.list) && x.done === t.done).sort(compareTodos);
-  return { list: t.list, parentId: t.parentId, index: Math.max(0, sibs.findIndex((x) => x.id === id)) };
+  return { list: t.list, parentId: t.parentId, index: Math.max(0, sibs.findIndex((x) => x.id === id)), focused: inZone(t) };
 }
 
 const titleOf = (id: string | null) => (id ? useData.getState().todos.find((t) => t.id === id)?.title ?? '' : '');
@@ -165,7 +169,7 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
     if (crossList) {
       const view = useData.getState().prefs.activeView;
       const list = (view === 'history' ? todo.list : view) as ListId;
-      active = { id, depth: 0, parentId: null, list, done: todo.done, el: sourceRow, top: Infinity, bottom: Infinity, mid: Infinity, x: 0, right: 0, childIndent: INDENT };
+      active = { id, depth: 0, parentId: null, list, done: todo.done, el: sourceRow, top: Infinity, bottom: Infinity, mid: Infinity, x: 0, right: 0, childIndent: INDENT, zone: false };
       rows = [...rows.filter((r) => r.id !== id), active];
     } else active = rows.find((r) => r.id === id) ?? active;
   };
@@ -173,8 +177,13 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
   const start = () => {
     scroller = currentScroller();
     if (!scroller) return false;
+    // 先进入拖拽状态再量行：悬停时才出现的按钮、「添加子任务」会收起，行的位置以收起后的为准
+    document.body.classList.add('dragging');
     refresh();
-    if (!active) return false;
+    if (!active) {
+      document.body.classList.remove('dragging');
+      return false;
+    }
     started = true;
     baseDepth = active.depth;
     // 被拖的那一项连同子孙变淡，原位置留着
@@ -219,13 +228,26 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
     if (stem) stem.style.opacity = '0';
     setParentHighlight(null);
   };
-  const setDropNow = (on: boolean) => {
-    if (useUi.getState().dropNow !== on) useUi.getState().set({ dropNow: on });
+  const setDropZone = (on: boolean) => {
+    if (useUi.getState().dropZone !== on) useUi.getState().set({ dropZone: on });
   };
+  /** 拖之前在不在聚焦区 */
+  const wasZone = origin.focused;
+  /** 这次落点进不进聚焦区（只对 FOCUS 顶层的未完成项有意义；其它情况 undefined） */
+  let focusDrop: boolean | undefined;
 
-  /** 拖到 NOW 卡标题区（第一个空隙、深度 0）= 设为现在 */
-  const isSetNow = (p: DropProjection | null) =>
-    !!p && !p.unchanged && p.list === 'focus' && p.parentId === null && p.index === 0 && nowOf(useData.getState().todos)?.id !== id;
+  /**
+   * FOCUS 顶层的落点进不进聚焦区：插入线落在聚焦区框里（含框的上方）就进，落在框下面就是「接下来」。
+   * 聚焦区空着时拖到虚线框上、FOCUS 整个空着时拖进来，也都进聚焦区。
+   */
+  const zoneDropOf = (p: DropProjection | null): boolean | undefined => {
+    if (!p || !scroller || todo.done || p.list !== 'focus' || p.parentId !== null) return undefined;
+    const box = scroller.querySelector<HTMLElement>('[data-zone]');
+    if (!box) return undefined;
+    return lastY <= box.getBoundingClientRect().bottom + 4;
+  };
+  /** 落点只是进 / 出聚焦区（位置没变） */
+  const zoneChanged = () => focusDrop !== undefined && focusDrop !== wasZone;
 
   const update = () => {
     if (!ghost || !line || !stem || !scroller) return;
@@ -244,8 +266,9 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
     }
     if (tab) {
       proj = null;
+      focusDrop = undefined;
       hideFeedback();
-      setDropNow(false);
+      setDropZone(false);
       return;
     }
 
@@ -266,18 +289,23 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
       hoverSince = performance.now();
     }
 
-    // 拖到 NOW 卡标题区：卡片描边提示「松手设为现在」，不画插入线
-    const setNowDrop = isSetNow(proj);
-    setDropNow(setNowDrop);
-    if (!proj || proj.unchanged || setNowDrop) {
+    // 从外面拖进聚焦区：整块描边，提示「松手 = 加入聚焦」
+    focusDrop = zoneDropOf(proj);
+    setDropZone(focusDrop === true && !wasZone);
+    if (!proj || (proj.unchanged && !zoneChanged() && !crossList)) {
       hideFeedback();
       return;
     }
 
-    // 插入线：深一级时紧贴上一行下面，否则贴着下一行上面
+    // 插入线：深一级时紧贴上一行下面，否则贴着下一行上面；聚焦区和「接下来」的分界上画在落点那一边
     const prev = rest[gap - 1];
     const next = rest[gap];
-    const yContent = prev && proj.depth > prev.depth ? prev.bottom + 1 : next ? next.top - 1 : (prev?.bottom ?? 0) + 1;
+    let yContent = prev && proj.depth > prev.depth ? prev.bottom + 1 : next ? next.top - 1 : (prev?.bottom ?? 0) + 1;
+    if (focusDrop === true && prev?.zone && !next?.zone) yContent = prev.bottom + 1;
+    if (focusDrop === false && prev?.zone && !next) {
+      const q = scroller.querySelector<HTMLElement>('[data-queue]');
+      if (q) yContent = q.getBoundingClientRect().top - sr.top + scroller.scrollTop + 1;
+    }
     const y = yContent - scroller.scrollTop + sr.top;
     const base = rest.find((r) => r.depth === 0)?.x ?? sr.left + 16;
     const x = lineX(rest, gap, proj.depth, base);
@@ -371,7 +399,7 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
     setParentHighlight(null);
     for (const el of srcEls) el.classList.remove('drag-src');
     document.body.classList.remove('dragging');
-    useUi.getState().set({ dragOverTab: null, dropNow: false });
+    useUi.getState().set({ dragOverTab: null, dropZone: false });
     if (wasStarted) {
       // 吞掉拖拽结束后紧跟的 click，避免误触勾选 / 编辑
       const swallow = (ev: MouseEvent) => {
@@ -426,20 +454,33 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
       offerUndo(id, origin, `已移到 ${dropTab.toUpperCase()}`);
       return;
     }
-    if (!p || (p.unchanged && !crossList)) {
+    const zoneMove = zoneChanged();
+    if (!p || (p.unchanged && !crossList && !zoneMove)) {
       flyBack();
       return;
     }
     ghost?.remove();
     ghost = null;
-    if (isSetNow(p)) {
-      setNow(t, ghostRect);
-      if (t.parentId !== null || t.list !== 'focus') offerUndo(id, origin, '已设为现在');
-      return;
+    const intoZone = focusDrop;
+    // 拖进聚焦区：新的聚焦项从松手的位置移过去，原来那一行直接消失
+    if (intoZone && !wasZone && ghostRect) {
+      prepareHandoff(id, ghostRect);
+      setExitMode(id, 'instant');
     }
-    useData.getState().place(id, { list: p.list, parentId: p.parentId, index: p.index });
+    useData.getState().place(id, { list: p.list, parentId: p.parentId, index: p.index, focused: intoZone });
     const structure = p.parentId !== origin.parentId || p.list !== origin.list;
-    if (structure) offerUndo(id, origin, p.parentId ? `已移到「${trunc(titleOf(p.parentId))}」下` : `已移到 ${p.list.toUpperCase()} 顶层`);
+    if (structure || zoneMove)
+      offerUndo(
+        id,
+        origin,
+        p.parentId
+          ? `已移到「${trunc(titleOf(p.parentId))}」下`
+          : intoZone
+            ? '已放进聚焦区'
+            : wasZone && p.list === 'focus'
+              ? '已移出聚焦区'
+              : `已移到 ${p.list.toUpperCase()} 顶层`,
+      );
   };
 
   const onCancel = () => {
@@ -474,13 +515,13 @@ export function startTreeDrag(e: ReactPointerEvent, todo: Todo, opts: { no?: str
   window.addEventListener('keyup', onKeyUp, true);
 }
 
-/** 悬停展开：FOCUS 队列里的行用本次运行的展开状态，其它按各条的折叠状态 */
+/** 悬停展开：「接下来」里的行用本次运行的展开状态，其它按各条的折叠状态（聚焦项总是展开） */
 function expand(id: string) {
   const s = useData.getState();
   const t = s.todos.find((x) => x.id === id);
   if (!t) return;
   const ui = useUi.getState();
-  if (t.list === 'focus' && t.parentId === null && nowOf(s.todos)?.id !== id) ui.set({ queueOpen: { ...ui.queueOpen, [id]: true } });
+  if (t.list === 'focus' && t.parentId === null && !inZone(t)) ui.set({ queueOpen: { ...ui.queueOpen, [id]: true } });
   if (t.collapsed) s.setCollapsed(id, false);
 }
 

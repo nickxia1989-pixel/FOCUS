@@ -53,18 +53,21 @@ function seedTodos(now: number): Todo[] {
     s = M.createTodo(s, { id, title, list, parentId, now: now + offset });
     return id;
   };
-  // 同一列表里后加的排在前面：FOCUS 最后加的那件就是 NOW
-  add('拖动一行可以排序；拖到荧光绿的 NOW 卡上，就换成「现在」', 'focus', null, 1);
+  // 同一列表里后加的排在前面；FOCUS 里最后加的两件放进聚焦区
+  add('拖动一行可以排序；拖到上面的聚焦区里，就和它们一起盯着', 'focus', null, 1);
   add('把鼠标移到这一行：可以直接勾掉、设为现在 ↑，或送去验证', 'focus', null, 2);
-  const now1 = add('先做完这一件：点左下角的黑色圆钮，下一件会自动接上来', 'focus', null, 3);
+  const zone2 = add('聚焦区里可以同时放几件事，拖动排序，拖出去回到「接下来」', 'focus', null, 3);
+  const zone1 = add('先做完这一件：点标题左边的圆圈', 'focus', null, 4);
   // 子项按创建顺序排（先加的在上面）
-  add('子任务也可以单独勾掉；双击编辑，回车接着写下一条，Tab 缩进', 'focus', now1, 4);
-  add('做完但还要测一下？点右边的「送去验证」', 'focus', now1, 5);
-  add('右键或点 ⋯ 查看更多操作，双击文字可以编辑', 'inbox', null, 6);
-  add('拖到上面的页签（宽窗口是左侧栏）上，就移到那个列表', 'inbox', null, 7);
-  add('点右边的星芒，把这条送进 FOCUS，排在「现在」之后', 'inbox', null, 8);
-  add('测完了就勾掉；没过的话点星芒退回 FOCUS', 'verify', null, 9);
-  add('写下一个长期目标，做到了再自己勾掉', 'goal', null, 10);
+  add('子任务也可以单独勾掉；双击编辑，回车接着写下一条，Tab 缩进', 'focus', zone1, 5);
+  add('做完但还要测一下？点右边的眼睛「送去验证」', 'focus', zone1, 6);
+  s = M.focusTodo(s, zone1);
+  s = M.focusTodo(s, zone2);
+  add('右键或点 ⋯ 查看更多操作，双击文字可以编辑', 'inbox', null, 7);
+  add('拖到上面的页签（宽窗口是左侧栏）上，就移到那个列表', 'inbox', null, 8);
+  add('点右边的星芒，把这条送进 FOCUS，排在聚焦区后面', 'inbox', null, 9);
+  add('测完了就勾掉；没过的话点星芒退回 FOCUS', 'verify', null, 10);
+  add('写下一个长期目标，做到了再自己勾掉', 'goal', null, 11);
   return s;
 }
 
@@ -89,6 +92,8 @@ export interface LocalState {
   prompted: string[];
   /** 外观：跟随系统 / 浅色 / 深色（只存本机，不同步） */
   appearance: Appearance;
+  /** 已经把升级前的 NOW 放进了聚焦区（每台设备只做一次，见 model.migrateZone） */
+  zoneReady: boolean;
 }
 
 export type Appearance = 'system' | 'light' | 'dark';
@@ -121,6 +126,7 @@ function parseLocal(raw: unknown): LocalState | null {
     sync: { enabled: !!r.sync?.enabled, meta: normalizeMeta(r.sync?.meta), replacePending: !!r.sync?.replacePending },
     prompted: Array.isArray(r.prompted) ? r.prompted.filter((x) => typeof x === 'string').slice(-200) : [],
     appearance: APPEARANCES.includes(r.appearance as Appearance) ? (r.appearance as Appearance) : 'system',
+    zoneReady: !!r.zoneReady,
   };
 }
 
@@ -136,6 +142,7 @@ const freshLocal = (deviceId: string, nonce: string): LocalState => ({
   sync: { enabled: false, meta: emptyMeta() },
   prompted: [],
   appearance: 'system',
+  zoneReady: false,
 });
 
 /** v1（每个 profile 一个文件 + 回收站）→ 迁移用的中间形式 */
@@ -219,15 +226,19 @@ interface DataStore extends Derived {
   createProfile(name: string): Promise<string | null>;
   renameProfile(id: string, name: string): void;
   deleteProfile(id: string): Promise<void>;
-  /** placement 不传时 FOCUS 顶层排在 NOW 之后，其它排在最前；'top' = 新建并设为现在 */
+  /** placement 不传时 FOCUS 顶层排在聚焦区后面，其它排在最前；'top' = FOCUS 里新建并放进聚焦区最前 */
   add(title: string, list: ListId, parentId?: string | null, placement?: Placement): string | null;
   complete(id: string): ListId | null;
   uncomplete(id: string): void;
   move(id: string, list: ListId): void;
-  /** 送进 FOCUS，排在 NOW 之后 */
+  /** 送进 FOCUS，排在聚焦区后面 */
   sendToFocus(id: string): void;
-  /** 设为现在：移到 FOCUS 第 1 位 */
+  /** 设为现在：放进聚焦区最前 */
   setNow(id: string): void;
+  /** 放进聚焦区第 index 位（不给就排最后） */
+  focus(id: string, index?: number): void;
+  /** 移出聚焦区，回到「接下来」第 index 位（默认第一位） */
+  unfocus(id: string, index?: number): void;
   /** 缩进（Tab）：挂到上一个同级下面，成为它的最后一个子项 */
   indent(id: string): void;
   /** 反缩进（Shift+Tab）：升一级，排在原父项后面 */
@@ -236,7 +247,8 @@ interface DataStore extends Derived {
   place(id: string, target: PlaceTarget): void;
   markForTest(id: string): void;
   unmarkTest(id: string): void;
-  reorder(id: string, toIndex: number): void;
+  /** focused：FOCUS 顶层进不进聚焦区，不给就按落点推断（见 model.reorderTodo） */
+  reorder(id: string, toIndex: number, focused?: boolean): void;
   remove(id: string): string | null;
   restoreTrash(entryId: string): ListId | null;
   purgeTrashEntry(entryId: string): void;
@@ -359,6 +371,13 @@ export const useData = create<DataStore>((set, get) => {
           local = { ...local, pristine: true };
         }
       }
+      // 第一次用上聚焦区：每个 profile 里原来的 NOW 放进聚焦区
+      if (!local.zoneReady) {
+        const z = O.migrateZone({ doc, clock }, visibleProfiles(doc).map((p) => p.id), local.collapsed, Date.now());
+        doc = z.doc;
+        clock = z.clock;
+        local = { ...local, zoneReady: true };
+      }
       // 回收站里超过 30 天的清掉
       const exp = expireTrash(doc, clock, Date.now());
       local = { ...local, clock: exp.clock };
@@ -397,7 +416,7 @@ export const useData = create<DataStore>((set, get) => {
         toast: null,
         trashOpen: false,
         dragOverTab: null,
-        dropNow: false,
+        dropZone: false,
         composeFocus: false,
       });
       commit(s.doc, s.clock, { ...s.local, activeProfileId: id }, false);
@@ -435,12 +454,14 @@ export const useData = create<DataStore>((set, get) => {
     move: (id, list) => run((st, ctx) => O.moveTodo(st, ctx, id, list)),
     sendToFocus: (id) => run((st, ctx) => O.sendToFocus(st, ctx, id)),
     setNow: (id) => run((st, ctx) => O.setNow(st, ctx, id)),
+    focus: (id, index) => run((st, ctx) => O.focusTodo(st, ctx, id, index)),
+    unfocus: (id, index) => run((st, ctx) => O.unfocusTodo(st, ctx, id, index)),
     indent: (id) => run((st, ctx) => O.indentTodo(st, ctx, id)),
     outdent: (id) => run((st, ctx) => O.outdentTodo(st, ctx, id)),
     place: (id, target) => run((st, ctx) => O.placeTodo(st, ctx, id, target)),
     markForTest: (id) => run((st, ctx) => O.markForTest(st, ctx, id)),
     unmarkTest: (id) => run((st, ctx) => O.unmarkTest(st, ctx, id)),
-    reorder: (id, toIndex) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex)),
+    reorder: (id, toIndex, focused) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex, focused)),
     remove: (id) => run((st, ctx) => O.removeTodo(st, ctx, id))?.entryId ?? null,
     restoreTrash: (entryId) => run((st, ctx) => O.restoreFromTrash(st, ctx, entryId)),
     purgeTrashEntry: (entryId) => run((st, ctx) => O.purgeTrashEntry(st, ctx, entryId)),
@@ -559,7 +580,7 @@ export interface MenuState {
   x: number;
   y: number;
   todoId: string;
-  /** nowSub：NOW 卡上子任务的精简菜单 */
+  /** nowSub：聚焦项下子任务的精简菜单 */
   kind?: 'nowSub';
 }
 
@@ -602,8 +623,8 @@ interface UiStore {
   /** 第一次加入已有数据的云端：选合并还是以云端为准 */
   join: JoinPrompt | null;
   dragOverTab: ListId | null;
-  /** 拖拽中悬停在 NOW 卡上 */
-  dropNow: boolean;
+  /** 拖拽中落点在聚焦区里（顶层）：聚焦区描边 */
+  dropZone: boolean;
   /** 刚新建 / 刚换下来的行：荧光绿闪一下 */
   flash: Record<string, true>;
   /** FOCUS 空着时点了「写一件」：显示新建框 */
@@ -627,14 +648,14 @@ export const useUi = create<UiStore>((set) => ({
   keysOpen: false,
   join: null,
   dragOverTab: null,
-  dropNow: false,
+  dropZone: false,
   flash: {},
   composeFocus: false,
   queueOpen: {},
   set: (p) => set(p),
 }));
 
-/** 让一行荧光绿闪一下（新建、换下来的 NOW） */
+/** 让一行荧光绿闪一下（新建、移进 / 移出聚焦区的那件） */
 export function flashRow(id: string) {
   const ui = useUi.getState();
   ui.set({ flash: { ...ui.flash, [id]: true } });

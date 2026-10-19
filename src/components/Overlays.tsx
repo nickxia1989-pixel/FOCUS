@@ -1,14 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { deleteWithUndo, goView, moveTodoTo, sendToFocus, sendToVerify, setNow, toggleTodo, undoDelete } from '../actions';
+import { deleteWithUndo, goView, moveTodoTo, sendToFocus, sendToVerify, setNow, toggleTodo, undoDelete, unfocusTodo } from '../actions';
 import { startAddChild } from '../editing';
 import { countsByDay, streak } from '../history';
-import { completedSince, nowOf } from '../model';
+import { completedSince, inZone, nowOf } from '../model';
 import { isMac } from '../platform';
 import { useData, useUi } from '../store';
 import type { ListId, Todo } from '../types';
 import { VIEW_COPY } from './copy';
-import { CheckIcon, ChevronRightIcon, EditIcon, EyeCheckIcon, ListIcons, MoveIcon, OutdentIcon, SparkFilledIcon, SubtaskIcon, TrashIcon, UndoIcon, UpIcon } from './icons';
+import { CheckIcon, ChevronRightIcon, DownIcon, EditIcon, EyeCheckIcon, ListIcons, MoveIcon, OutdentIcon, SparkFilledIcon, SubtaskIcon, TrashIcon, UndoIcon, UpIcon } from './icons';
 import { startEdit } from './TodoNode';
 import { useTodayStart } from './useToday';
 
@@ -22,7 +22,7 @@ function moveTargets(todo: Todo): { list: ListId; label: string }[] {
     .map((l) => ({ list: l, label: l === todo.list ? '提升为顶层项' : VIEW_COPY[l].en }));
 }
 
-/** 条目的右键 / ⋯ 菜单：完成、编辑、添加子任务 | 设为现在、送去验证、移到 › | 删除 */
+/** 条目的右键 / ⋯ 菜单：完成、编辑、添加子任务 | 设为现在、移出聚焦区、送去验证、移到 › | 删除 */
 export function ContextMenu() {
   const menu = useUi((s) => s.menu);
   const todo = useData((s) => (menu ? s.todos.find((t) => t.id === menu.todoId) : undefined));
@@ -90,7 +90,7 @@ export function ContextMenu() {
     setSub({ x: left ? r.left - w + 4 : r.right - 4, y: Math.min(r.top - 6, window.innerHeight - 6 - (targets.length * 32 + 12)), left });
   };
 
-  // NOW 卡上的子任务：完成、编辑、待验证、升一级、删除
+  // 聚焦项下的子任务：完成、编辑、待验证、升一级、删除
   if (menu.kind === 'nowSub')
     return (
       <motion.div
@@ -160,6 +160,12 @@ export function ContextMenu() {
           <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => setNow(todo))}>
             <UpIcon />
             设为现在
+          </button>
+        )}
+        {inZone(todo) && (
+          <button className="mi" onMouseEnter={() => setSub(null)} onClick={run(() => unfocusTodo(todo))}>
+            <DownIcon />
+            移出聚焦区
           </button>
         )}
         {verifyRoot ? (
