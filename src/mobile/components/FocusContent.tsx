@@ -1,12 +1,14 @@
-// FOCUS：一次只做一件。最上面那件放大成荧光绿的 NOW 卡，其余排在「接下来」，序号 02、03…，越往后越淡。
+// FOCUS：聚焦区第一件放大成荧光绿的 NOW 卡；其余聚焦项排在「接下来」最前，标题划一道荧光笔；
+// 聚焦区空着（FOCUS 里还有事）时显示一张小卡，一键放进下一件。序号 02、03…，越往后越淡。
+// （桌面版的聚焦区是一整块，见 src/components/FocusView.tsx；iOS 版的聚焦区界面另做。）
 // 双页时左页 = NOW 卡 + 统计，右页 = 新建框 + 接下来 + 今天已完成。
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from 'react';
 import { buildIndex, childrenOf, rootsOf, startOfToday, type TreeIndex } from '../../model';
 import type { Todo } from '../../types';
-import { completeNow, openComposer, sendToVerify, startEdit, toggleTest, toggleTodo } from '../actions';
+import { completeNow, openComposer, sendToVerify, setNow, startEdit, toggleTest, toggleTodo } from '../actions';
 import { listHistoryDays } from '../data';
-import { CheckIcon, ChevronDownIcon, EyeCheckIcon, PlusIcon } from '../icons';
+import { CheckIcon, ChevronDownIcon, EyeCheckIcon, PlusIcon, SparkIcon, UpIcon } from '../icons';
 import { beginDrag, DRAG_SLOP, dragRowProps, type DragSession } from '../drag';
 import { draftAfter, draftFirstUnder } from '../edit';
 import { haptic } from '../native';
@@ -114,7 +116,9 @@ export function FocusContent() {
   const todos = useTodos();
   const index = useMemo(() => buildIndex(todos), [todos]);
   const open = rootsOf(index, 'focus').filter((t) => !t.done);
-  const [now, ...queue] = open;
+  // 聚焦区排在最前（见 model.compareTodos）：第一件是 NOW
+  const now = open[0]?.focused ? open[0] : undefined;
+  const queue = now ? open.slice(1) : open;
   const today = useMemo(() => Date.now(), [todos]);
   // 编辑 NOW 的标题时回车：空行排在 NOW 后面，也就是「接下来」的第一条
   const draftAfterNow = useUi((s) => !!now && draftAfter(s.draft, now));
@@ -124,7 +128,13 @@ export function FocusContent() {
       section="focus"
       left={
         <>
-          {now ? <NowCard key={now.id} todo={now} index={index} total={open.length} /> : <Empty section="focus" />}
+          {now ? (
+            <NowCard key={now.id} todo={now} index={index} total={open.length} />
+          ) : queue.length ? (
+            <EmptyZone next={queue[0]} />
+          ) : (
+            <Empty section="focus" />
+          )}
           <div className="only-spread" style={{ marginTop: now ? 14 : 24 }}>
             <Stats todos={todos} now={today} labels={['今天完成', '近 7 天', '连续天数']} />
           </div>
@@ -145,7 +155,7 @@ export function FocusContent() {
               {draftAfterNow && <DraftRow kind="q" />}
               <AnimatePresence initial={false}>
                 {queue.map((t, i) => (
-                  <QueueNode key={t.id} todo={t} no={i + 2} fade={FADE[i] ?? FADE[FADE.length - 1]} index={index} />
+                  <QueueNode key={t.id} todo={t} no={i + (now ? 2 : 1)} fade={FADE[i] ?? FADE[FADE.length - 1]} index={index} />
                 ))}
               </AnimatePresence>
             </>
@@ -154,6 +164,24 @@ export function FocusContent() {
         </>
       }
     />
+  );
+}
+
+// ---------- 聚焦区空着 ----------
+
+function EmptyZone({ next }: { next: Todo }) {
+  return (
+    <div className="zone-empty-m">
+      <span className="ze-icon">
+        <SparkIcon />
+      </span>
+      <b>聚焦区空着</b>
+      <p>长按「接下来」里的一件，选「设为现在」</p>
+      <button className="ze-next" onClick={() => setNow(next)}>
+        <UpIcon />
+        <span>放进下一件：{next.title}</span>
+      </button>
+    </div>
   );
 }
 
@@ -349,7 +377,7 @@ function QueueNode({ todo, no, fade, index }: { todo: Todo; no: number; fade: nu
       ref={nodeRef}
       layoutId={`todo-${todo.id}`}
       layout="position"
-      className={`q-node ${isNew ? 'is-new' : ''}`}
+      className={`q-node ${isNew ? 'is-new' : ''} ${todo.focused ? 'is-focus' : ''}`}
       data-node-id={todo.id}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}

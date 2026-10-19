@@ -2,7 +2,9 @@
 
 用 Capacitor 8 把一套专为手机重写的 React 界面包成 iOS App。数据逻辑直接复用桌面端的 `src/model.ts` 和 `src/trash.ts`，通过坚果云和桌面端同步（见 [sync.md](sync.md)）。iOS 26 起页签栏、新建输入条和导航栏按钮是系统原生的 Liquid Glass，iPhone Duo 上由系统竖排到侧边（见下文「原生外壳」「iPhone Duo」两节）。
 
-视觉按全平台重设计 F「一件事」（交接包 `design_handoff_focus/`：`screens/iPhone.jpg` P1–P17、`Duo.jpg` U1–U10、`Motion.jpg`、`tokens.css`）：一次只做一件，FOCUS 最上面那件放大成荧光绿的 NOW 卡。
+视觉按全平台重设计 F「一件事」（交接包 `design_handoff_focus/`：`screens/iPhone.jpg` P1–P17、`Duo.jpg` U1–U10、`Motion.jpg`、`tokens.css`）：FOCUS 最上面那件放大成荧光绿的 NOW 卡。
+
+> **聚焦区（2026-10，先跟上数据）**：桌面版的 NOW 卡已经改成能放几件事的聚焦区（见 README）。iOS 这一轮只跟上数据：NOW 卡 = 聚焦区第一件；其余聚焦项排在「接下来」最前，标题划一道荧光笔；聚焦区空着（FOCUS 里还有事）时 NOW 卡的位置换成一张虚线小卡，一键「放进下一件」；长按菜单里聚焦项多一个「移出聚焦区」。设为现在 = 放进聚焦区最前；新建、送进 FOCUS 排在聚焦区后面；拖到最上面那一段就进聚焦区（落点推断见 `docs/drag.md`）。iOS 版的聚焦区界面另做。
 
 ![iPhone 17 Pro：FOCUS、长按菜单、新建](ios/redesign-iphone.jpg)
 
@@ -268,7 +270,7 @@ npm run icon:ios     # 重新生成 iOS 图标
 
 ### 显示什么
 
-- **NOW** = 当前空间 FOCUS 里手动顺序排第一的未完成顶层项（和 App 的 `nowOf` 一样），子任务进度 = 已完成子项 / 子项数。**NEXT** = 其后的顶层项，按顺序编号 02、03…。
+- **NOW** = 当前空间 FOCUS 里排第一的未完成顶层项：聚焦区第一件，聚焦区空着时是「接下来」第一件；子任务进度 = 已完成子项 / 子项数。**NEXT** = 其后的顶层项（先是聚焦区其余几件，再是「接下来」），按顺序编号 02、03…。
 - **件数**：`1/5`、「还有 4 件」、锁屏圆形的数字都是 FOCUS 未完成的**顶层项**数（含 NOW）。
 - **今天 / 连续**：「今天 ✓4」「今天 4 件 · 连续 6 天」和 HISTORY 同一套算法（`src/history.ts` 的 `countsByDay` / `streak`，今天还没完成时从昨天往回数）。过了零点小组件自己清零、推算连续天数，不等 App 打开。
 - **空状态**：FOCUS 空了显示「Nothing now.」和「INBOX 里有 N 件可以挑」；中号右边、大号下面列 INBOX 最上面三件，点进落在 INBOX。装好后还没打开过 App 时显示「打开 FOCUS 开始」。

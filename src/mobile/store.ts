@@ -43,6 +43,8 @@ export interface MobileLocal {
   /** replacePending：选了「以云端为准」，第一次读到云端数据时用它整个替换本机文档 */
   sync: { enabled: boolean; meta: SyncMeta; replacePending?: boolean };
   prompted: string[];
+  /** 已经把升级前的 NOW 放进了聚焦区（每台设备只做一次，见 model.migrateZone） */
+  zoneReady?: boolean;
 }
 
 const randomId = (n: number) => {
@@ -65,6 +67,7 @@ function parseLocal(raw: unknown): MobileLocal | null {
     pristine: !!r.pristine,
     sync: { enabled: !!r.sync?.enabled, meta: normalizeMeta(r.sync?.meta), replacePending: !!r.sync?.replacePending },
     prompted: Array.isArray(r.prompted) ? r.prompted.slice(-200) : [],
+    zoneReady: !!r.zoneReady,
   };
 }
 
@@ -139,8 +142,10 @@ interface DataState extends Derived {
   sendToFocus(id: string): void;
   /** 设为现在：移到 FOCUS 第 1 位 */
   setNow(id: string): void;
+  /** 移出聚焦区，回到「接下来」第一位 */
+  unfocus(id: string): void;
   /** 拖动排序：在同组兄弟（未完成 / 已完成各一组）里挪到第 toIndex 位 */
-  reorder(id: string, toIndex: number): void;
+  reorder(id: string, toIndex: number, focused?: boolean): void;
   /** 缩进（Tab）：挂到上一个同级下面，成为它的最后一个子项 */
   indent(id: string): void;
   /** 反缩进（Shift+Tab）：升一级，排在原父项后面 */
@@ -265,6 +270,13 @@ export const useData = create<DataState>((set, get) => {
         clock = m.clock;
         local = { ...local, activeProfileId: snap.activeProfileId, prefs: snap.prefs, pristine: !legacy };
       }
+      // 第一次用上聚焦区：每个空间里原来的 NOW 放进聚焦区
+      if (!local.zoneReady) {
+        const z = O.migrateZone({ doc, clock }, visibleProfiles(doc).map((p) => p.id), local.collapsed, Date.now());
+        doc = z.doc;
+        clock = z.clock;
+        local = { ...local, zoneReady: true };
+      }
       const exp = expireTrash(doc, clock, Date.now());
       local = { ...local, clock: exp.clock };
       set({ loaded: true, doc: exp.doc, clock: exp.clock, local, ...derive(exp.doc, local) });
@@ -315,7 +327,8 @@ export const useData = create<DataState>((set, get) => {
     move: (id, list) => run((st, ctx) => O.moveTodo(st, ctx, id, list)),
     sendToFocus: (id) => run((st, ctx) => O.sendToFocus(st, ctx, id)),
     setNow: (id) => run((st, ctx) => O.setNow(st, ctx, id)),
-    reorder: (id, toIndex) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex)),
+    unfocus: (id) => run((st, ctx) => O.unfocusTodo(st, ctx, id)),
+    reorder: (id, toIndex, focused) => run((st, ctx) => O.reorderTodo(st, ctx, id, toIndex, focused)),
     indent: (id) => run((st, ctx) => O.indentTodo(st, ctx, id)),
     outdent: (id) => run((st, ctx) => O.outdentTodo(st, ctx, id)),
     place: (id, target) => run((st, ctx) => O.placeTodo(st, ctx, id, target)),

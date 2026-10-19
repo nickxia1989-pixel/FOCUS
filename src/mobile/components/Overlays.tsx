@@ -1,7 +1,7 @@
 // 浮层：长按菜单（玻璃，设计 P4）、⋯ 菜单（网页自己画导航时）、提示条（玻璃胶囊 + 荧光绿「撤销」）
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { buildIndex, nowOf, rootsOf } from '../../model';
+import { buildIndex, inZone, nowOf, rootsOf } from '../../model';
 import { LISTS, type ListId, type Todo } from '../../types';
 import {
   deleteWithUndo,
@@ -12,6 +12,7 @@ import {
   outdent,
   sendToFocus,
   setNow,
+  unfocusTodo,
   startEdit,
   switchSpace,
   toggleTest,
@@ -19,6 +20,7 @@ import {
   undoDelete,
 } from '../actions';
 import {
+  DownIcon,
   AppearanceIcon,
   BackIcon,
   CheckIcon,
@@ -124,7 +126,8 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
     const idx = buildIndex(todos);
     const open = rootsOf(idx, 'focus').filter((t) => !t.done);
     const i = open.findIndex((t) => t.id === todo.id);
-    return i > 0 ? String(i + 1).padStart(2, '0') : null;
+    // NOW 卡（聚焦区第一件）不带序号；其余和「接下来」的行一样，从上往下数
+    return i < 0 || (i === 0 && inZone(todo)) ? null : String(i + 1).padStart(2, '0');
   })();
 
   useLayoutEffect(() => {
@@ -173,6 +176,7 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
           ],
           [
             ...(isNow ? [] : [{ key: 'now', label: '设为现在', icon: <UpIcon />, run: () => setNow(todo) }]),
+            ...(inZone(todo) ? [{ key: 'unfocus', label: '移出聚焦区', icon: <DownIcon />, run: () => unfocusTodo(todo) }] : []),
             todo.parentId === null && todo.list === 'verify' && !checked
               ? { key: 'back', label: '退回 FOCUS', icon: <SectionIcons.focus />, run: () => sendToFocus(todo) }
               : testItem,

@@ -104,7 +104,7 @@ export function completeNow(todo: Todo, button?: Element | null) {
   }, reduceMotion() ? 150 : HANDOFF_MS);
 }
 
-/** 设为现在：移到 FOCUS 第 1 位（行和 NOW 卡交换位置由 motion 的 layoutId 动画接上） */
+/** 设为现在：放进聚焦区最前，成为 NOW 卡（行和 NOW 卡交换位置由 motion 的 layoutId 动画接上） */
 export function setNow(todo: Todo) {
   haptic.light();
   useUi.getState().set({ swipedId: null, menu: null });
@@ -116,7 +116,14 @@ export function setNow(todo: Todo) {
   }
 }
 
-/** 送进 FOCUS（INBOX、VERIFY 上的星芒钮）：排在 NOW 之后，星芒飞向 FOCUS 页签 */
+/** 移出聚焦区：回到「接下来」第一位 */
+export function unfocusTodo(todo: Todo) {
+  haptic.light();
+  useUi.getState().set({ swipedId: null, menu: null });
+  useData.getState().unfocus(todo.id);
+}
+
+/** 送进 FOCUS（INBOX、VERIFY 上的星芒钮）：排在聚焦区后面，星芒飞向 FOCUS 页签 */
 export function sendToFocus(todo: Todo, fromEl?: Element | null) {
   const from = centerOf(fromEl) ?? rowAnchor(todo.id);
   haptic.light();
