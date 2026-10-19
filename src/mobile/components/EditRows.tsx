@@ -42,9 +42,9 @@ export function useBlurOnOutside(ref: React.RefObject<HTMLTextAreaElement | null
 
 /**
  * 空行：还没建的条目。有内容 Enter 新建并接着开下一行；空着 Enter 结束；删除键回到上一条；Tab 调层级。
- * kind 决定长得像哪种行：列表行、「接下来」的行、NOW 卡上的子任务
+ * kind 决定长得像哪种行：列表行、「接下来」的行、聚焦区里的一件、聚焦项下的子任务
  */
-export function DraftRow({ kind, depth = 0 }: { kind: 'row' | 'q' | 'sub'; depth?: number }) {
+export function DraftRow({ kind, depth = 0 }: { kind: 'row' | 'q' | 'zone' | 'sub'; depth?: number }) {
   const draft = useUi((s) => s.draft);
   const ref = useRef<HTMLTextAreaElement>(null);
   const fit = useCallback(() => {
@@ -65,7 +65,7 @@ export function DraftRow({ kind, depth = 0 }: { kind: 'row' | 'q' | 'sub'; depth
       data-draft-input
       rows={1}
       defaultValue={getDraftText()}
-      placeholder={kind === 'sub' ? '子任务…' : '接着写…'}
+      placeholder={kind === 'sub' ? '子任务…' : kind === 'zone' ? '接着写下一件要盯着的事…' : '接着写…'}
       enterKeyHint="next"
       onInput={(e) => {
         fit();
@@ -104,11 +104,18 @@ export function DraftRow({ kind, depth = 0 }: { kind: 'row' | 'q' | 'sub'; depth
         <span className="q-title">{input}</span>
       </div>
     );
+  if (kind === 'zone')
+    return (
+      <div className="zhead is-draft" data-draft-row style={style}>
+        <span className="zring" />
+        <span className="ztitle">{input}</span>
+      </div>
+    );
   if (kind === 'sub')
     return (
-      <div className="now-sub is-draft" data-draft-row style={style}>
-        <span className="sc" />
-        <span className="now-sub-text">{input}</span>
+      <div className="zsub is-draft" data-draft-row style={style}>
+        <span className="zcb" />
+        <span className="zsub-text">{input}</span>
       </div>
     );
   return (

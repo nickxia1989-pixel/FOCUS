@@ -15,7 +15,7 @@ export interface TodoMenu {
   todoId: string;
   /** 长按时那一行的位置，菜单和"抬起"的预览卡片据此定位 */
   rect: Rect;
-  /** 从 HISTORY 打开时只给少量操作；NOW 卡上的子任务是另一组（完成、编辑、待验证、升一级、删除） */
+  /** 从 HISTORY 打开时只给少量操作；聚焦项下的子任务是另一组（完成、编辑、待验证、升一级、删除） */
   from: 'list' | 'history' | 'sub';
   /** 直接展开「移到…」子菜单（左滑点「移动」时） */
   moveFirst?: boolean;
@@ -51,10 +51,12 @@ interface UiState {
   completing: Record<string, true>;
   editingId: string | null;
   draft: Draft | null;
-  /** NOW 卡上子任务收起了的那件（太多时可以收起） */
+  /** 子任务收起了的聚焦项（太多时可以收起） */
   subsFolded: Record<string, true>;
   /** 正在拖动排序的那一项 */
   draggingId: string | null;
+  /** 从外面拖到了聚焦区上：整块描边，提示「松手 = 加入聚焦」 */
+  dropZone: boolean;
   /** 当前滑开着操作按钮的行，同时只开一行 */
   swipedId: string | null;
   menu: TodoMenu | null;
@@ -73,8 +75,6 @@ interface UiState {
   expanded: Record<string, true>;
   /** 刚新建的行：撑开 + 荧光绿闪一下 */
   added: Record<string, true>;
-  /** 正在播「完成 NOW · 换场」的那一件 */
-  handoff: string | null;
   set(p: Partial<Omit<UiState, 'set'>>): void;
 }
 
@@ -84,6 +84,7 @@ export const useUi = create<UiState>((set) => ({
   draft: null,
   subsFolded: {},
   draggingId: null,
+  dropZone: false,
   swipedId: null,
   menu: null,
   composer: { open: false, list: 'focus', parentId: null },
@@ -95,7 +96,6 @@ export const useUi = create<UiState>((set) => ({
   scrolled: false,
   expanded: {},
   added: {},
-  handoff: null,
   set: (p) => set(p),
 }));
 

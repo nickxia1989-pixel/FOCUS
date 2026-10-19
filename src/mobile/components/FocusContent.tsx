@@ -1,14 +1,15 @@
-// FOCUS：聚焦区第一件放大成荧光绿的 NOW 卡；其余聚焦项排在「接下来」最前，标题划一道荧光笔；
-// 聚焦区空着（FOCUS 里还有事）时显示一张小卡，一键放进下一件。序号 02、03…，越往后越淡。
-// （桌面版的聚焦区是一整块，见 src/components/FocusView.tsx；iOS 版的聚焦区界面另做。）
-// 双页时左页 = NOW 卡 + 统计，右页 = 新建框 + 接下来 + 今天已完成。
+// FOCUS：聚焦区 →「接下来」（定稿 P4；桌面版见 src/components/FocusView.tsx）。
+// 聚焦区是一整块面板：顶上荧光绿「✦ NOW」+「同时盯着 N 件」，每件一行：完成圈、压着荧光笔的标题、
+// 「+」添加子任务、眼睛送去验证；有 2 个以上子任务时显示分段进度，子任务缩进排在下面。
+// 聚焦区空着（FOCUS 里还有事）时是虚线框，一键放进下一件；FOCUS 整个空着时是原来的空状态。
+// 「接下来」的序号接着聚焦区往下数，越往后越淡。双页时左页 = 聚焦区 + 统计，右页 = 新建框 + 接下来 + 今天已完成。
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from 'react';
 import { buildIndex, childrenOf, rootsOf, startOfToday, type TreeIndex } from '../../model';
 import type { Todo } from '../../types';
-import { completeNow, openComposer, sendToVerify, setNow, startEdit, toggleTest, toggleTodo } from '../actions';
+import { deleteWithUndo, openComposer, sendToVerify, setNow, startEdit, toggleTest, toggleTodo, unfocusTodo } from '../actions';
 import { listHistoryDays } from '../data';
-import { CheckIcon, ChevronDownIcon, EyeCheckIcon, PlusIcon, SparkIcon, UpIcon } from '../icons';
+import { CheckIcon, ChevronDownIcon, DownIcon, EyeCheckIcon, PlusIcon, SparkFilledIcon, TrashIcon, UpIcon } from '../icons';
 import { beginDrag, DRAG_SLOP, dragRowProps, type DragSession } from '../drag';
 import { draftAfter, draftFirstUnder } from '../edit';
 import { haptic } from '../native';
@@ -18,14 +19,14 @@ import { Panes } from './Chrome';
 import { Empty } from './Empty';
 import { DayGroups, Stats } from './HistoryContent';
 import { DraftRow } from './EditRows';
-import { SwipeRow } from './SwipeRow';
+import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { rowSwipes, TitleEditor, TodoNode } from './TodoNode';
 
 /** 接下来的行逐行变淡 */
 const FADE = [1, 0.84, 0.68, 0.52];
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** 打开长按菜单（以元素当前的位置为准）；NOW 卡上的子任务是另一组菜单 */
+/** 打开长按菜单（以元素当前的位置为准）；聚焦项下的子任务是另一组菜单 */
 function openMenu(todo: Todo, el: Element | null, moveFirst = false, from: 'list' | 'sub' = 'list') {
   if (!el) return;
   useUi.getState().set({
@@ -116,26 +117,24 @@ export function FocusContent() {
   const todos = useTodos();
   const index = useMemo(() => buildIndex(todos), [todos]);
   const open = rootsOf(index, 'focus').filter((t) => !t.done);
-  // 聚焦区排在最前（见 model.compareTodos）：第一件是 NOW
-  const now = open[0]?.focused ? open[0] : undefined;
-  const queue = now ? open.slice(1) : open;
+  // 聚焦区排在最前（见 model.compareTodos）
+  const zone = open.filter((t) => t.focused);
+  const queue = open.filter((t) => !t.focused);
   const today = useMemo(() => Date.now(), [todos]);
-  // 编辑 NOW 的标题时回车：空行排在 NOW 后面，也就是「接下来」的第一条
-  const draftAfterNow = useUi((s) => !!now && draftAfter(s.draft, now));
 
   return (
     <Panes
       section="focus"
       left={
         <>
-          {now ? (
-            <NowCard key={now.id} todo={now} index={index} total={open.length} />
+          {zone.length ? (
+            <FocusZone zone={zone} index={index} />
           ) : queue.length ? (
             <EmptyZone next={queue[0]} />
           ) : (
             <Empty section="focus" />
           )}
-          <div className="only-spread" style={{ marginTop: now ? 14 : 24 }}>
+          <div className="only-spread" style={{ marginTop: open.length ? 14 : 24 }}>
             <Stats todos={todos} now={today} labels={['今天完成', '近 7 天', '连续天数']} />
           </div>
         </>
@@ -146,16 +145,15 @@ export function FocusContent() {
             <PlusIcon />
             接下来要做…
           </button>
-          {(queue.length > 0 || draftAfterNow) && (
+          {queue.length > 0 && (
             <>
               <div className="q-head">
                 <b>接下来</b>
                 <span>{queue.length}</span>
               </div>
-              {draftAfterNow && <DraftRow kind="q" />}
               <AnimatePresence initial={false}>
                 {queue.map((t, i) => (
-                  <QueueNode key={t.id} todo={t} no={i + (now ? 2 : 1)} fade={FADE[i] ?? FADE[FADE.length - 1]} index={index} />
+                  <QueueNode key={t.id} todo={t} no={zone.length + i + 1} fade={FADE[i] ?? FADE[FADE.length - 1]} index={index} />
                 ))}
               </AnimatePresence>
             </>
@@ -167,45 +165,68 @@ export function FocusContent() {
   );
 }
 
-// ---------- 聚焦区空着 ----------
+// ---------- 聚焦区 ----------
 
-function EmptyZone({ next }: { next: Todo }) {
+/** 子任务多于这么多条时可以收起（和桌面一样），收起后留几条 */
+const FOLD_OVER = 8;
+const FOLDED_SHOW = 4;
+
+/** 聚焦区：同时盯着的几件事。拖进来、拖出去、在里面排序都走自由拖拽（drag.ts 看 data-zone） */
+function FocusZone({ zone, index }: { zone: Todo[]; index: TreeIndex }) {
+  const drop = useUi((s) => s.dropZone);
   return (
-    <div className="zone-empty-m">
-      <span className="ze-icon">
-        <SparkIcon />
-      </span>
-      <b>聚焦区空着</b>
-      <p>长按「接下来」里的一件，选「设为现在」</p>
-      <button className="ze-next" onClick={() => setNow(next)}>
-        <UpIcon />
-        <span>放进下一件：{next.title}</span>
-      </button>
-    </div>
+    <section className={`zone ${drop ? 'is-drop' : ''}`} data-zone aria-label="聚焦区">
+      <div className="zone-head">
+        <span className="zone-label">
+          <b className="now-tag">
+            <SparkFilledIcon />
+            NOW
+          </b>
+          <span>同时盯着 {zone.length} 件</span>
+        </span>
+        <span className={`zone-hint ${drop ? 'on' : ''}`}>{drop ? '松手 = 加入聚焦' : '长按拖动排序'}</span>
+      </div>
+      <div className="zitems">
+        <AnimatePresence initial={false}>
+          {zone.map((t) => (
+            <ZoneItem key={t.id} todo={t} index={index} />
+          ))}
+        </AnimatePresence>
+      </div>
+    </section>
   );
 }
 
-// ---------- NOW 卡 ----------
+/** 聚焦项的左右滑：右滑完成；左滑 移出聚焦区 / 送去验证 / 删除（滑到底删除） */
+function zoneSwipes(todo: Todo) {
+  const leading: SwipeAction = { key: 'done', label: '完成', icon: <CheckIcon />, color: 'var(--sw-now)', run: () => toggleTodo(todo) };
+  const trailing: SwipeAction[] = [
+    { key: 'unfocus', label: '移出聚焦', icon: <DownIcon />, color: 'var(--sw-move)', run: () => unfocusTodo(todo) },
+    { key: 'verify', label: '送去验证', icon: <EyeCheckIcon />, color: 'var(--sw-verify)', run: (el) => sendToVerify(todo, el) },
+    { key: 'delete', label: '删除', icon: <TrashIcon />, color: 'var(--sw-delete)', fg: '#fff', run: () => deleteWithUndo(todo) },
+  ];
+  return { leading, trailing };
+}
 
-/** 子任务多于这个数时可以收起（收起后只露前 3 条） */
-const FOLD_AT = 5;
-
-function NowCard({ todo, index, total }: { todo: Todo; index: TreeIndex; total: number }) {
+/**
+ * 聚焦区里的一件：完成圈 + 标题（荧光笔）+「+」添加子任务 + 眼睛送去验证；进度和子任务在下面。
+ * 触屏没有悬停：「+」常驻在标题行右侧（点按区域 44pt），其余操作在长按菜单和左滑里。
+ */
+function ZoneItem({ todo, index }: { todo: Todo; index: TreeIndex }) {
   const kids = childrenOf(index, todo.id);
+  const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
-  const handoff = useUi((s) => s.handoff === todo.id);
   const menuOpen = useUi((s) => s.menu?.todoId === todo.id);
-  const folded = useUi((s) => !!s.subsFolded[todo.id]) && kids.length > FOLD_AT;
+  // 刚放进聚焦区（设为现在、拖进来、新建）：荧光绿闪一下
+  const flash = useUi((s) => !!s.added[todo.id]);
+  const folded = useUi((s) => !!s.subsFolded[todo.id]) && kids.length > FOLD_OVER;
+  const draftNext = useUi((s) => draftAfter(s.draft, todo));
   const draftChild = useUi((s) => draftFirstUnder(s.draft, todo.id));
-  const ref = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const press = useLongPress(
-    ref,
-    () => openMenu(todo, ref.current),
-    (x, y) => (ref.current && titleRef.current ? beginDrag(todo, ref.current, titleRef.current, x, y) : null),
-  );
-  const shown = folded ? kids.slice(0, 3) : kids;
-  const more = kids.length - shown.length;
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  const { leading, trailing } = zoneSwipes(todo);
+  const shown = folded ? kids.slice(0, FOLDED_SHOW) : kids;
+  const doneKids = kids.filter((k) => k.done).length;
   const setFolded = (v: boolean) => {
     const cur = { ...useUi.getState().subsFolded };
     if (v) cur[todo.id] = true;
@@ -215,79 +236,84 @@ function NowCard({ todo, index, total }: { todo: Todo; index: TreeIndex; total: 
 
   return (
     <motion.div
-      ref={ref}
+      ref={nodeRef}
+      // 和「接下来」的行同一个 layoutId：设为现在 / 移出聚焦区时从原位置弹簧移过去
       layoutId={`todo-${todo.id}`}
       layout="position"
-      className={`now ${handoff ? 'is-handoff' : ''} ${menuOpen ? 'lifted' : ''}`}
+      className={['znode', completing && 'is-completing', flash && 'flash'].filter(Boolean).join(' ')}
       data-node-id={todo.id}
-      data-anchor={todo.id}
-      data-drop-now
-      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-      {...press}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      // 完成：向上淡出、高度收起，下面的补位
+      exit={{ opacity: 0, height: 0, y: -8 }}
+      transition={{ duration: 0.26, ease: [0.2, 0.8, 0.2, 1], layout: { type: 'spring', stiffness: 380, damping: 30 } }}
     >
-      <div className="now-top">
-        <span>
-          NOW<span className="now-top-more"> · 现在就做这件</span>
-        </span>
-        <span>
-          {pad2(1)} / {pad2(total)}
-        </span>
-      </div>
-      <h2
-        ref={titleRef}
-        className="now-title"
-        {...dragRowProps(todo, 0, false)}
-        onClick={() => !editing && !handoff && startEdit(todo.id)}
+      <SwipeRow
+        id={todo.id}
+        leading={leading}
+        trailing={trailing}
+        onLongPress={() => openMenu(todo, headRef.current)}
+        onDragStart={(x, y) => (nodeRef.current && headRef.current ? beginDrag(todo, nodeRef.current, headRef.current, x, y) : null)}
+        disabled={editing || completing}
       >
-        {editing ? <TitleEditor todo={todo} /> : <span className="strike">{todo.title}</span>}
-      </h2>
-      {kids.length > 0 && (
-        <div className="now-bar" aria-hidden>
-          {kids.map((k) => (
-            <i key={k.id} className={k.done ? 'on' : ''} />
+        <div
+          ref={headRef}
+          className={`zhead ${menuOpen ? 'lifted' : ''}`}
+          data-anchor={todo.id}
+          data-zone-item={todo.id}
+          {...dragRowProps(todo, 0, false)}
+        >
+          <button className="zring" role="checkbox" aria-checked={completing} aria-label="完成这一件" onClick={() => toggleTodo(todo)}>
+            <CheckIcon />
+          </button>
+          <h3 className="ztitle" onClick={() => !editing && !completing && startEdit(todo.id)}>
+            {editing ? <TitleEditor todo={todo} /> : <span className="mark">{todo.title}</span>}
+          </h3>
+          {!editing && (
+            <>
+              <button className="zbtn" aria-label="添加子任务" onClick={() => openComposer('focus', todo.id)}>
+                <PlusIcon />
+              </button>
+              <button className="zbtn zeye" aria-label="做完了，送去验证" onClick={(e) => sendToVerify(todo, e.currentTarget)}>
+                <EyeCheckIcon />
+              </button>
+            </>
+          )}
+        </div>
+      </SwipeRow>
+      {kids.length >= 2 && (
+        <div className="zprog" aria-label={`子任务 ${doneKids}/${kids.length}`}>
+          <span className="zbars" aria-hidden>
+            {[...kids.filter((k) => k.done), ...kids.filter((k) => !k.done)].map((k) => (
+              <i key={k.id} className={k.done ? 'd' : ''} />
+            ))}
+          </span>
+          <span className="cnt">
+            {doneKids}/{kids.length}
+          </span>
+        </div>
+      )}
+      {(shown.length > 0 || draftChild) && (
+        <div className="zsubs">
+          {draftChild && <DraftRow kind="sub" />}
+          {shown.map((k) => (
+            <ZoneSub key={k.id} todo={k} index={index} depth={0} />
           ))}
         </div>
       )}
-      <div className="now-subs">
-        {draftChild && <DraftRow kind="sub" />}
-        {shown.map((k) => (
-          <NowSub key={k.id} todo={k} index={index} depth={0} />
-        ))}
-        <div className="now-sub-actions">
-          {/* 常驻的「+ 子任务」：父项就是 NOW，可以连续输入，新加的排在最后 */}
-          <button className="now-add" onClick={() => openComposer('focus', todo.id)}>
-            <PlusIcon />
-            子任务
-          </button>
-          {more > 0 ? (
-            <button className="now-more" onClick={() => setFolded(false)}>
-              还有 {more} 条
-            </button>
-          ) : (
-            kids.length > FOLD_AT && (
-              <button className="now-more" onClick={() => setFolded(true)}>
-                收起
-              </button>
-            )
-          )}
-        </div>
-      </div>
-      <div className="now-act">
-        <button className="now-done" aria-label="完成" onClick={(e) => completeNow(todo, e.currentTarget)}>
-          <CheckIcon />
+      {kids.length > FOLD_OVER && (
+        <button className="zmore" onClick={() => setFolded(!folded)}>
+          {folded ? `还有 ${kids.length - shown.length} 条` : '收起'}
         </button>
-        <b>完成</b>
-        <button className="now-vb" onClick={(e) => sendToVerify(todo, e.currentTarget)}>
-          <EyeCheckIcon />
-          送去验证
-        </button>
-      </div>
+      )}
+      {/* 编辑聚焦项的标题时回车：新的一件也在聚焦区，接在它后面 */}
+      {draftNext && <DraftRow kind="zone" />}
     </motion.div>
   );
 }
 
-/** NOW 卡上的子任务：点圆圈完成，点标题编辑（回车开下一行、可调层级），右边小眼睛切换待验证，长按出菜单 */
-function NowSub({ todo, index, depth }: { todo: Todo; index: TreeIndex; depth: number }) {
+/** 聚焦项下的子任务：点圆圈完成（和普通行同一套动画），点标题编辑，右边小眼睛切换待验证，长按出菜单、拖动 */
+function ZoneSub({ todo, index, depth }: { todo: Todo; index: TreeIndex; depth: number }) {
   const kids = childrenOf(index, todo.id);
   const completing = useUi((s) => !!s.completing[todo.id]);
   const editing = useUi((s) => s.editingId === todo.id);
@@ -304,31 +330,30 @@ function NowSub({ todo, index, depth }: { todo: Todo; index: TreeIndex; depth: n
     () => openMenu(todo, ref.current, false, 'sub'),
     (x, y) => (nodeRef.current && ref.current ? beginDrag(todo, nodeRef.current, ref.current, x, y) : null),
   );
+  const cls = ['zsub', todo.done && !completing && 'd', completing && 'completing', menuOpen && 'lifted', isNew && 'is-new'];
   return (
     <>
       {/* 一个子任务连同它的子项是一块：拖动时一起挪 */}
-      <div
-        ref={nodeRef}
-        className="now-sub-node"
-        data-node-id={todo.id}
-      >
+      <div ref={nodeRef} className="zsub-node" data-node-id={todo.id}>
         <div
           ref={ref}
-          className={`now-sub ${checked ? 'done' : ''} ${menuOpen ? 'lifted' : ''} ${isNew ? 'is-new' : ''}`}
+          className={cls.filter(Boolean).join(' ')}
           {...dragRowProps(todo, depth + 1, false)}
           data-anchor={todo.id}
           style={{ '--depth': depth } as CSSProperties}
           {...press}
         >
           <button
-            className={`sc ${checked ? 'd' : testing ? 'v' : ''}`}
+            className={`zcb ${testing ? 'v' : ''}`}
             role="checkbox"
             aria-checked={checked}
             aria-label={checked ? '标记为未完成' : '完成这个子任务'}
             onClick={() => toggleTodo(todo)}
-          />
-          <span className="now-sub-text" onClick={() => !editing && startEdit(todo.id)}>
-            {editing ? <TitleEditor todo={todo} /> : todo.title}
+          >
+            <CheckIcon />
+          </button>
+          <span className="zsub-text" onClick={() => !editing && startEdit(todo.id)}>
+            {editing ? <TitleEditor todo={todo} /> : <span className="tt-text">{todo.title}</span>}
             {testing && !editing && <span className="chip-v">待验证</span>}
           </span>
           {!checked && !editing && (
@@ -347,11 +372,29 @@ function NowSub({ todo, index, depth }: { todo: Todo; index: TreeIndex; depth: n
         </div>
         {draftChild && <DraftRow kind="sub" depth={depth + 1} />}
         {kids.map((k) => (
-          <NowSub key={k.id} todo={k} index={index} depth={depth + 1} />
+          <ZoneSub key={k.id} todo={k} index={index} depth={depth + 1} />
         ))}
       </div>
       {draftNext && <DraftRow kind="sub" depth={depth} />}
     </>
+  );
+}
+
+/** 聚焦区空着（FOCUS 里还有事）：虚线框，长按「接下来」里的一件拖上来就进聚焦区，或一键放进下一件 */
+function EmptyZone({ next }: { next: Todo }) {
+  const drop = useUi((s) => s.dropZone);
+  return (
+    <section className={`zone-empty ${drop ? 'is-drop' : ''}`} data-zone aria-label="聚焦区（空）">
+      <span className="ze-icon">
+        <SparkFilledIcon />
+      </span>
+      <b>{drop ? '松手 = 加入聚焦' : '聚焦区空着'}</b>
+      <p>长按「接下来」里的一件拖上来，或左滑选「设为现在」</p>
+      <button className="ze-next" onClick={() => setNow(next)}>
+        <UpIcon />
+        <span>放进下一件：{next.title}</span>
+      </button>
+    </section>
   );
 }
 
@@ -377,7 +420,7 @@ function QueueNode({ todo, no, fade, index }: { todo: Todo; no: number; fade: nu
       ref={nodeRef}
       layoutId={`todo-${todo.id}`}
       layout="position"
-      className={`q-node ${isNew ? 'is-new' : ''} ${todo.focused ? 'is-focus' : ''}`}
+      className={`q-node ${isNew ? 'is-new' : ''}`}
       data-node-id={todo.id}
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}

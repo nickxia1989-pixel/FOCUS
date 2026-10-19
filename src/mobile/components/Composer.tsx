@@ -1,5 +1,5 @@
 // 新建：贴着键盘的玻璃输入卡（设计 P3）。回车添加后保持打开，可以连续输入；
-// 列表芯片选放进哪个列表，FOCUS 顶层项有「排在现在之后」开关（关掉 = 新建并设为现在）
+// 列表芯片选放进哪个列表，FOCUS 顶层项有「排在聚焦区后面」开关（关掉 = 新建并放进聚焦区最前）
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LISTS, type ListId } from '../../types';
 import { addTodo, closeComposer, registerComposerInput } from '../actions';
@@ -110,7 +110,7 @@ export function Composer() {
             ref={ref}
             value={text}
             rows={1}
-            // 接着输入条上的提示语；FOCUS 关掉「排在现在之后」时新建的就是 NOW
+            // 接着输入条上的提示语；FOCUS 关掉「排在聚焦区后面」时新建的放进聚焦区最前
             placeholder={parent ? '子任务…' : list === 'focus' && !afterNow ? meta.placeholder : NEW_HINT[list]}
             enterKeyHint="send"
             onChange={(e) => {
@@ -192,7 +192,7 @@ export function Composer() {
                 }}
               >
                 <i aria-hidden />
-                排在现在之后
+                排在聚焦区后面
               </button>
             )}
           </div>

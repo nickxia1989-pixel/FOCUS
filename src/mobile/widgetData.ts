@@ -1,6 +1,6 @@
 // 主屏小组件要显示的数据：从各空间的 todos 派生出一份精简快照。
 // 由 widget.ts 写进和小组件共享的钥匙串组，小组件（ios/App/FocusWidget/）只读这份 JSON，不碰同步文档的结构。
-// NOW = FOCUS 里手动顺序排第一的未完成顶层项（../model 的 nowOf），其余按顺序是 NEXT。
+// NOW = 聚焦区第一件（聚焦区空着时是「接下来」第一件，即 FOCUS 里排第一的未完成顶层项），其余按顺序是 NEXT。
 import { countSince, countsByDay, dayStart, streak } from '../history';
 import { buildIndex, childrenOf, rootsOf, type TreeIndex } from '../model';
 import type { Todo } from '../types';
