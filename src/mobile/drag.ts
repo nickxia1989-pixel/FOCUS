@@ -5,17 +5,19 @@
 // - 纵坐标选空隙，横坐标按每级约 24pt 换算深度（带约 1/4 级的迟滞），夹到空隙允许的范围里
 // - 反馈：缩进到落点深度的插入线、新父项高亮（和连到插入线的竖线）、浮起副本带子孙数角标
 // - 悬停 600ms 自动展开折叠的行；拖到上下边缘自动滚动；拖回原处、拖出列表区松手就取消（副本飞回去）
-// - 放下调 store.place；换了父项或层级时弹「已移到「X」下 · 撤销」，撤销就是放回开始时记下的位置
+// - FOCUS 顶层的落点在聚焦区的框里（data-zone，含框的上方）就进聚焦区，框外就回「接下来」；从外面拖进来时
+//   聚焦区整块描边、提示「松手 = 加入聚焦」（ui.dropZone）。双页时左页整页都算聚焦区那一边
+// - 放下调 store.place；换了父项、层级或进出聚焦区时弹「已移到「X」下 · 撤销」，撤销就是放回开始时记下的位置
 // - 触感：浮起 medium（长按时已给），换空隙 / 换深度 selection，放下 light，取消不给
 import { flushSync } from 'react-dom';
 import { projectDrop, restRows, type DragRow, type DropProjection } from '../dragTree';
-import { descendantIds, siblingsOf, type PlaceTarget } from '../model';
+import { descendantIds, inZone, siblingsOf, type PlaceTarget } from '../model';
 import type { ListId, Todo } from '../types';
 import { listLabel } from './actions';
 import { reduceMotion } from './fx';
 import { haptic } from './native';
 import { activeOf, useData } from './store';
-import { scrollParent, showUndoToast, toggleExpanded, useUi } from './ui';
+import { markAdded, scrollParent, showUndoToast, toggleExpanded, useUi } from './ui';
 
 /** 浮起后手指移动超过这个距离才算开始拖（再小就是想点菜单） */
 export const DRAG_SLOP = 8;
@@ -53,6 +55,8 @@ export function dragRowProps(todo: Todo, depth: number, collapsed: boolean) {
 interface Row extends DragRow {
   el: HTMLElement;
   pane: 'l' | 'r';
+  /** 在聚焦区面板里（聚焦项和它的子任务） */
+  zone: boolean;
 }
 
 /** 当前看得见的行，按显示顺序（双页时左页在前，正好是树的顺序） */
@@ -72,6 +76,7 @@ function flatten(): Row[] {
       done: el.dataset.done === '1',
       collapsed: el.dataset.collapsed === '1',
       pane: el.closest('.pane-r') ? 'r' : 'l',
+      zone: !!el.closest('[data-zone]'),
     });
   }
   return out;
@@ -104,13 +109,14 @@ function insets(): [number, number] {
 }
 
 /** 这一行的圆圈 / 序号（插入线、竖线从这里对齐） */
-const markerOf = (el: HTMLElement) => el.querySelector<HTMLElement>(':scope .check, :scope .q-no, :scope > .sc') ?? el;
+const markerOf = (el: HTMLElement) =>
+  el.querySelector<HTMLElement>(':scope .check, :scope .q-no, :scope > .zring, :scope > .zcb') ?? el;
 
-/** 子项相对这一行的圆圈往右缩进多少（画插入线用）：NOW 卡的子任务和标题对齐 */
+/** 子项相对这一行的圆圈往右缩进多少（画插入线用）：聚焦项的子任务和标题对齐 */
 function childIndent(el: HTMLElement) {
-  if (el.classList.contains('now-title')) return 0;
+  if (el.classList.contains('zhead')) return 36;
   if (el.classList.contains('q-row')) return 44;
-  if (el.classList.contains('now-sub')) return 26;
+  if (el.classList.contains('zsub')) return 24;
   return 30;
 }
 
@@ -129,23 +135,26 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
   const startRow = flatten().find((r) => r.id === todo.id);
   if (!startRow) return null;
   const todos0 = activeOf(useData.getState()).todos;
-  // 撤销用：开始拖时在原父项下、同完成状态的兄弟里排第几
+  /** 拖之前在不在聚焦区 */
+  const wasZone = inZone(todo);
+  // 撤销用：开始拖时在原父项下、同完成状态的兄弟里排第几（FOCUS 顶层按「聚焦区 + 接下来」连起来数），在不在聚焦区
   const origin: PlaceTarget = {
     list: todo.list,
     parentId: todo.parentId,
     index: siblingsOf(todos0, todo)
       .filter((t) => t.done === todo.done)
       .findIndex((t) => t.id === todo.id),
+    focused: wasZone,
   };
   const kids = descendantIds(todos0, todo.id).size;
 
   // 浮起的副本（带子孙数角标）
   const rr = row.getBoundingClientRect();
   const ghost = document.createElement('div');
-  const kind = row.classList.contains('now-title')
-    ? 'is-now'
-    : row.classList.contains('now-sub')
-      ? 'is-sub'
+  const kind = row.classList.contains('zhead')
+    ? 'is-zone'
+    : row.classList.contains('zsub')
+      ? 'is-zsub'
       : row.classList.contains('q-row')
         ? 'is-q'
         : 'is-row';
@@ -192,9 +201,10 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
   let expandTimer: ReturnType<typeof setTimeout> | undefined;
   let raf = 0;
   let done = false;
+  /** 这次落点进不进聚焦区（只对 FOCUS 顶层的未完成项有意义；其它情况 undefined） */
+  let focusDrop: boolean | undefined;
 
   const pg = pages();
-  const nowCard = document.querySelector<HTMLElement>('[data-drop-now]');
   const paneOf = (cx: number): 'l' | 'r' => (pg && cx >= (pg.leftEnd + pg.rightStart) / 2 ? 'r' : 'l');
   const paneLeft = (p: 'l' | 'r') => (pg ? (p === 'l' ? pg.mainLeft : pg.rightStart) : 0);
 
@@ -219,6 +229,26 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
       const b = el.getBoundingClientRect();
       return px >= b.left && px <= b.right && py >= Math.max(b.top, top) && py <= Math.min(b.bottom, window.innerHeight - bottom);
     });
+  };
+
+  /** 聚焦区的框（空着时是虚线框）：只在 FOCUS 页有 */
+  const zoneBox = () => document.querySelector<HTMLElement>('.app [data-zone]');
+
+  /**
+   * FOCUS 顶层的落点进不进聚焦区：手指在聚焦区的框里（含框的上方）就进，在框下面就回「接下来」。
+   * 双页时聚焦区那一页（左页）整页都算进，另一页是「接下来」。
+   */
+  const zoneDropOf = (p: DropProjection | null): boolean | undefined => {
+    if (!p || todo.done || p.list !== 'focus' || p.parentId !== null) return undefined;
+    const box = zoneBox();
+    if (!box) return undefined;
+    if (pg) return paneOf(px) === (box.closest('.pane-r') ? 'r' : 'l');
+    return py <= box.getBoundingClientRect().bottom + 4;
+  };
+  /** 落点进 / 出了聚焦区（位置可能没变） */
+  const zoneChanged = () => focusDrop !== undefined && focusDrop !== wasZone;
+  const setDropZone = (on: boolean) => {
+    if (useUi.getState().dropZone !== on) useUi.getState().set({ dropZone: on });
   };
 
   const setParent = (el: HTMLElement | null) => {
@@ -247,28 +277,19 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
     const raw = startRow.depth + dx / INDENT;
     if (Math.abs(raw - want) >= 0.5 + HYSTERESIS) want = Math.round(raw);
 
-    let g = pickGap(rest, pane);
-    let w = want;
-    // FOCUS：拖到 NOW 卡的标题区 = 设为现在（第一个空隙、深度 0），卡亮一圈
-    let zone = false;
-    if (nowCard && nowCard.dataset.nodeId !== todo.id) {
-      const head = nowCard.querySelector('.now-top')?.getBoundingClientRect();
-      const title = nowCard.querySelector('.now-title')?.getBoundingClientRect();
-      zone = !!head && !!title && px >= title.left && px <= title.right && py >= head.top && py <= title.bottom;
-      if (zone) {
-        g = 0;
-        w = 0;
-      }
-    }
-    nowCard?.classList.toggle('drop-target', zone && inside);
-    const next = projectDrop(rows, todo.id, g, w);
+    const g = pickGap(rest, pane);
+    const next = projectDrop(rows, todo.id, g, want);
     if (!next) return;
-    if (proj && (g !== gap || next.depth !== proj.depth)) haptic.selection();
+    const nextZone = zoneDropOf(next);
+    if (proj && (g !== gap || next.depth !== proj.depth || nextZone !== focusDrop)) haptic.selection();
     gap = g;
     proj = next;
+    focusDrop = nextZone;
+    // 从外面拖进聚焦区：整块描边，提示「松手 = 加入聚焦」
+    setDropZone(inside && focusDrop === true && !wasZone);
 
     ghost.classList.toggle('is-out', !inside);
-    if (!inside || proj.unchanged) hideFeedback();
+    if (!inside || (proj.unchanged && !zoneChanged())) hideFeedback();
     else drawLine(rest, g, proj, pane);
     hoverExpand(rest, pane);
   };
@@ -286,6 +307,19 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
     else if (nextB) y = nextB.top - 1;
     else if (prevB) y = prevB.bottom + 1;
     else y = py;
+    // 聚焦区和「接下来」的分界：插入线画在落点那一边（框里的最后一件下面，或「接下来」第一行上面）
+    if (!p.parentId && prevB && prev.zone && !next?.zone) {
+      if (focusDrop === true) y = prevB.bottom + 1;
+      else if (focusDrop === false && nextB) y = nextB.top - 1;
+      else if (focusDrop === false) y = (zoneBox()?.getBoundingClientRect().bottom ?? prevB.bottom) + 14;
+    }
+    // 聚焦区空着：框本身描边就是反馈，不画插入线
+    if (focusDrop === true && !wasZone && !rest.some((r) => r.zone)) {
+      line.classList.remove('on');
+      guide.classList.remove('on');
+      setParent(null);
+      return;
+    }
 
     // 左端：同父、同深度的上一个兄弟的圆圈；没有就是父项往右缩一级；顶层用这一页里第一行
     let ref: Row | undefined;
@@ -385,7 +419,7 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
     clearTimeout(expandTimer);
     haptic.selectionEnd();
     setParent(null);
-    nowCard?.classList.remove('drop-target');
+    setDropZone(false);
     node.classList.remove('drag-source');
     document.documentElement.classList.remove('is-dragging');
     ghost.remove();
@@ -410,9 +444,11 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
     const p = proj;
     const latest = activeOf(useData.getState()).todos;
     const me = latest.find((t) => t.id === todo.id);
-    // 拖回原处、拖出列表区、被拖的项已被别处删掉：取消
-    if (!p || p.unchanged || !inside || !me) return flyBack();
-    const target: PlaceTarget = { list: p.list, parentId: p.parentId, index: p.index };
+    const zoneMove = zoneChanged();
+    // 拖回原处（也没进出聚焦区）、拖出列表区、被拖的项已被别处删掉：取消
+    if (!p || (p.unchanged && !zoneMove) || !inside || !me) return flyBack();
+    const intoZone = focusDrop;
+    const target: PlaceTarget = { list: p.list, parentId: p.parentId, index: p.index, focused: intoZone };
     const moved = target.parentId !== me.parentId || target.list !== me.list;
     const parentTitle = target.parentId ? latest.find((t) => t.id === target.parentId)?.title : null;
     const land = () => {
@@ -421,9 +457,17 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
         useData.getState().place(todo.id, target);
       });
       haptic.light();
-      if (moved)
+      // 拖进聚焦区：新的聚焦项荧光绿闪一下
+      if (intoZone && !wasZone) markAdded(todo.id);
+      if (moved || zoneMove)
         showUndoToast(
-          parentTitle ? `已移到「${truncate(parentTitle, 12)}」下` : `已移到 ${listLabel(target.list)} 顶层`,
+          parentTitle
+            ? `已移到「${truncate(parentTitle, 12)}」下`
+            : intoZone && !wasZone
+              ? '已放进聚焦区'
+              : wasZone && intoZone === false
+                ? '已移出聚焦区'
+                : `已移到 ${listLabel(target.list)} 顶层`,
           () => {
             useData.getState().place(todo.id, origin);
             haptic.light();
@@ -431,12 +475,15 @@ export function beginDrag(todo: Todo, node: HTMLElement, row: HTMLElement, x: nu
         );
     };
     if (reduce) return land();
-    // 副本落到插入线上再写入
+    // 副本落到插入线上（聚焦区空着时落进虚线框）再写入
     done = true;
     cancelAnimationFrame(raf);
-    const lb = line.getBoundingClientRect();
+    const box = !line.classList.contains('on') && intoZone ? zoneBox()?.getBoundingClientRect() : null;
+    const lb = box ?? line.getBoundingClientRect();
     ghost.classList.add('is-landing');
-    ghost.style.transform = `translate(${lb.left - rr.left - 8}px, ${lb.top - rr.top - 6}px) scale(0.98)`;
+    ghost.style.transform = box
+      ? `translate(${box.left + 12 - rr.left}px, ${box.top + box.height / 2 - rr.height / 2 - rr.top}px) scale(0.98)`
+      : `translate(${lb.left - rr.left - 8}px, ${lb.top - rr.top - 6}px) scale(0.98)`;
     setTimeout(land, 150);
   };
 

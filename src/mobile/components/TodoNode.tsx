@@ -74,7 +74,7 @@ export function TodoNode({ todo, depth, index, goal, below, base = 0 }: Props) {
   const checked = todo.done || completing;
   const testing = !!todo.testing && !checked;
   const doneKids = children.filter((c) => c.done).length;
-  // 星芒圆钮：INBOX 顶层未完成项 = 送进 FOCUS；VERIFY 顶层项 = 退回 FOCUS（都排在 NOW 之后）
+  // 星芒圆钮：INBOX 顶层未完成项 = 送进 FOCUS；VERIFY 顶层项 = 退回 FOCUS（都排在聚焦区后面）
   const spark = depth === 0 && !checked && (todo.list === 'inbox' || todo.list === 'verify');
 
   const rowRef = useRef<HTMLDivElement>(null);

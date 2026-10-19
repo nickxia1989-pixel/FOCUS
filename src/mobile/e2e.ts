@@ -14,6 +14,8 @@ interface SeedItem {
   list?: ListId;
   done?: boolean;
   test?: boolean;
+  /** FOCUS 顶层项：false = 放在「接下来」（默认进聚焦区） */
+  zone?: boolean;
   kids?: SeedItem[];
 }
 
@@ -37,6 +39,8 @@ const commands: Record<string, (a: Record<string, unknown>) => unknown> = {
   remove: (a) => useData.getState().remove(find(String(a.title)).id),
   complete: (a) => useData.getState().complete(find(String(a.title)).id),
   move: (a) => useData.getState().move(find(String(a.title)).id, a.list as ListId),
+  setNow: (a) => useData.getState().setNow(find(String(a.title)).id),
+  unfocus: (a) => useData.getState().unfocus(find(String(a.title)).id),
   switchProfile: (a) => {
     const p = useData.getState().profiles.find((x) => x.name === a.name);
     if (!p) throw new Error(`找不到空间「${a.name}」`);
@@ -52,7 +56,10 @@ const commands: Record<string, (a: Record<string, unknown>) => unknown> = {
     if (!c || c.kind !== 'delete') throw new Error('没有这个删除冲突');
     useData.getState().resolveDelete(c.id, a.choice as 'restore' | 'delete');
   },
-  /** 新建一个演示空间并填上条目（文档截图用）。每个列表里排在最前的条目放在数组最前面，FOCUS 的第一条就是 NOW */
+  /**
+   * 新建一个演示空间并填上条目（文档截图用）。每个列表里排在最前的条目放在数组最前面；
+   * FOCUS 顶层项默认进聚焦区（第一条是 NOW），zone: false 的放在「接下来」
+   */
   seed: (a) => {
     const s = useData.getState();
     s.addProfile(String(a.profile));
@@ -65,6 +72,8 @@ const commands: Record<string, (a: Record<string, unknown>) => unknown> = {
       if (it.done) useData.getState().complete(id);
     };
     for (const it of [...items].reverse()) add(it, it.list ?? 'inbox', null);
+    // 都是先放进聚焦区的：「接下来」那几件倒着移出来，顺序不变
+    for (const it of [...items].reverse()) if ((it.list ?? 'inbox') === 'focus' && it.zone === false) commands.unfocus({ title: it.title });
   },
   sheet: (a) => useUi.getState().set({ sheet: (a.name as 'sync' | 'conflicts' | null) ?? null }),
   // 只动界面、不改数据的联调命令（Duo 合上时模拟器点不了，靠它们截各种状态）

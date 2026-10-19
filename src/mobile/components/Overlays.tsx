@@ -120,14 +120,14 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
   const todos = useTodos();
   const checked = todo.done || completing;
   const isNow = nowOf(todos)?.id === todo.id;
-  // 接下来里的行带序号
+  const zoned = inZone(todo);
+  // 「接下来」的行带序号（接着聚焦区往下数）；聚焦项不带
   const no = (() => {
-    if (todo.list !== 'focus' || todo.parentId !== null || todo.done) return null;
+    if (todo.list !== 'focus' || todo.parentId !== null || todo.done || zoned) return null;
     const idx = buildIndex(todos);
     const open = rootsOf(idx, 'focus').filter((t) => !t.done);
     const i = open.findIndex((t) => t.id === todo.id);
-    // NOW 卡（聚焦区第一件）不带序号；其余和「接下来」的行一样，从上往下数
-    return i < 0 || (i === 0 && inZone(todo)) ? null : String(i + 1).padStart(2, '0');
+    return i < 0 ? null : String(i + 1).padStart(2, '0');
   })();
 
   useLayoutEffect(() => {
@@ -139,7 +139,7 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
     label: todo.testing && !checked ? '取消待验证' : '送去验证',
     icon: <EyeCheckIcon />,
     disabled: checked,
-    run: () => toggleTest(todo, document.querySelector(`[data-node-id="${CSS.escape(todo.id)}"] .now-vb`)),
+    run: () => toggleTest(todo, document.querySelector(`[data-zone-item="${CSS.escape(todo.id)}"] .zeye`)),
   };
   const outdentItem: Item = { key: 'outdent', label: '升一级', icon: <OutdentIcon />, run: () => outdent(todo) };
   const doneItem: Item = checked
@@ -147,11 +147,20 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
     : { key: 'done', label: '完成', icon: <CheckIcon />, run: () => toggleTodo(todo) };
   const editItem: Item = { key: 'edit', label: '编辑', icon: <EditIcon />, run: () => startEdit(todo.id) };
   const deleteItem: Item = { key: 'delete', label: '删除', icon: <TrashIcon />, danger: true, run: () => deleteWithUndo(todo) };
+  const subItem: Item = { key: 'sub', label: '添加子任务', icon: <SubtaskIcon />, run: () => openComposer(todo.list, todo.id) };
+  const moveItem: Item = { key: 'move', label: '移到…', icon: <MoveIcon />, submenu: true, run: () => setPage('move') };
 
   const groups: Item[][] =
     from === 'sub'
-      ? // NOW 卡上的子任务：完成、编辑、待验证、升一级、删除
+      ? // 聚焦项下的子任务：完成、编辑、待验证、升一级、删除
         [[doneItem, editItem], [{ ...testItem, label: todo.testing && !checked ? '取消待验证' : '待验证' }, outdentItem], [deleteItem]]
+      : zoned
+      ? // 聚焦项：移到最前、添加子任务、送去验证、移出聚焦区、编辑、删除（另有完成、移到…）
+        [
+          [...(isNow ? [] : [{ key: 'now', label: '移到最前', icon: <UpIcon />, run: () => setNow(todo) }]), subItem, testItem],
+          [{ key: 'unfocus', label: '移出聚焦区', icon: <DownIcon />, run: () => unfocusTodo(todo) }, doneItem, editItem, moveItem],
+          [deleteItem],
+        ]
       : from === 'history'
       ? [
           [
@@ -169,19 +178,14 @@ function MenuBody({ todo, rect, from, moveFirst }: { todo: Todo; rect: Rect; fro
           [{ key: 'delete', label: '删除', icon: <TrashIcon />, danger: true, run: () => deleteWithUndo(todo) }],
         ]
       : [
+          [doneItem, editItem, subItem],
           [
-            doneItem,
-            editItem,
-            { key: 'sub', label: '添加子任务', icon: <SubtaskIcon />, run: () => openComposer(todo.list, todo.id) },
-          ],
-          [
-            ...(isNow ? [] : [{ key: 'now', label: '设为现在', icon: <UpIcon />, run: () => setNow(todo) }]),
-            ...(inZone(todo) ? [{ key: 'unfocus', label: '移出聚焦区', icon: <DownIcon />, run: () => unfocusTodo(todo) }] : []),
+            { key: 'now', label: '设为现在', icon: <UpIcon />, run: () => setNow(todo) },
             todo.parentId === null && todo.list === 'verify' && !checked
               ? { key: 'back', label: '退回 FOCUS', icon: <SectionIcons.focus />, run: () => sendToFocus(todo) }
               : testItem,
             ...(todo.parentId !== null ? [outdentItem] : []),
-            { key: 'move', label: '移到…', icon: <MoveIcon />, submenu: true, run: () => setPage('move') },
+            moveItem,
           ],
           [deleteItem],
         ];

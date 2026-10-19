@@ -133,14 +133,14 @@ interface DataState extends Derived {
   /** 至少保留一个 profile */
   deleteProfile(id: string): void;
 
-  /** placement 不传时 FOCUS 顶层排在 NOW 之后，其它排在最前；'top' = 新建并设为现在 */
+  /** placement 不传时 FOCUS 顶层排在聚焦区后面，其它排在最前；'top' = 新建并放进聚焦区最前 */
   add(title: string, list: ListId, parentId?: string | null, placement?: Placement): string | null;
   complete(id: string): ListId | null;
   uncomplete(id: string): void;
   move(id: string, list: ListId): void;
-  /** 送进 FOCUS，排在 NOW 之后 */
+  /** 送进 FOCUS，排在聚焦区后面 */
   sendToFocus(id: string): void;
-  /** 设为现在：移到 FOCUS 第 1 位 */
+  /** 设为现在：放进聚焦区最前 */
   setNow(id: string): void;
   /** 移出聚焦区，回到「接下来」第一位 */
   unfocus(id: string): void;

@@ -25,7 +25,7 @@ export interface MobilePrefs {
   haptics: boolean;
   /** 各列表"已完成"分组是否折叠 */
   doneCollapsed: Partial<Record<ListId, boolean>>;
-  /** 新建 FOCUS 顶层项时排在 NOW 之后（关掉 = 新建并设为现在）；只存本机，默认开 */
+  /** 新建 FOCUS 顶层项时排在聚焦区后面（关掉 = 新建并放进聚焦区最前）；只存本机，默认开 */
   insertAfterNow: boolean;
   /** 外观：跟随系统 / 浅色 / 深色；只存本机，默认跟随系统 */
   appearance: Appearance;

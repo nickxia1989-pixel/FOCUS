@@ -35,12 +35,29 @@
   --scrim: rgba(11, 11, 12, 0.22);
   --pop: rgba(250, 250, 247, 0.92);
 
-  /* NOW 卡与"高亮"（荧光绿底近黑字；子项待验证的虚线圈） */
-  --now: var(--lime);
-  --now-ink: var(--lime-ink);
-  --now-sub: rgba(11, 11, 12, 0.1);
-  --now-line: rgba(11, 11, 12, 0.16);
-  --now-verify: #4a3bb0;
+  /* 聚焦区（和桌面 src/styles.css 的 --z-* 同值）：纸白面板 + 近黑字，荧光笔压在标题字的下半截 */
+  --z-bg: #ffffff;
+  --z-ln: rgba(11, 11, 12, 0.07);
+  --z-sh: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 26px rgba(0, 0, 0, 0.07);
+  --z-sep: rgba(11, 11, 12, 0.07);
+  --z-tx: #0b0b0c;
+  --z-sub: #2a2a27;
+  --z-mu: rgba(11, 11, 12, 0.56);
+  --z-ring: #0b0b0c;
+  --z-sring: rgba(11, 11, 12, 0.42);
+  --z-fill: #0b0b0c;
+  --z-chk: #d6ff3d;
+  --z-prog: rgba(11, 11, 12, 0.1);
+  --z-prog-on: #b8e600;
+  --z-hov: #f5f5f1;
+  --z-chip: #eeeaff;
+  --z-drop: #0b0b0c;
+  --z-empty-ln: rgba(11, 11, 12, 0.2);
+  --z-mark-img: linear-gradient(rgba(214, 255, 61, 0.95), rgba(214, 255, 61, 0.95));
+  --z-mark-pos: 0 90%;
+  --z-mark-size: 100% 38%;
+  --z-mark-pad: 0 3px;
+  --z-mark-m: 0 -3px;
   --hi: var(--lime);
   --hi-ink: var(--lime-ink);
   --spark: var(--lime-deep);
@@ -105,6 +122,30 @@
   --scrim: rgba(0, 0, 0, 0.45);
   --pop: rgba(40, 40, 44, 0.88);
   --spark: var(--lime);
+
+  /* 聚焦区：浮起的炭灰面板，完成圈和进度荧光绿，荧光笔换成字下 2.5px 的荧光绿线 */
+  --z-bg: #1c1c1f;
+  --z-ln: rgba(255, 255, 255, 0.08);
+  --z-sh: 0 12px 30px rgba(0, 0, 0, 0.38);
+  --z-sep: rgba(255, 255, 255, 0.07);
+  --z-tx: #f4f4ef;
+  --z-sub: #d6d6d0;
+  --z-mu: rgba(244, 244, 239, 0.55);
+  --z-ring: #d6ff3d;
+  --z-sring: rgba(244, 244, 239, 0.42);
+  --z-fill: #d6ff3d;
+  --z-chk: #0b0b0c;
+  --z-prog: rgba(255, 255, 255, 0.12);
+  --z-prog-on: #d6ff3d;
+  --z-hov: rgba(255, 255, 255, 0.06);
+  --z-chip: rgba(184, 166, 255, 0.16);
+  --z-drop: #d6ff3d;
+  --z-empty-ln: rgba(255, 255, 255, 0.2);
+  --z-mark-img: linear-gradient(#d6ff3d, #d6ff3d);
+  --z-mark-pos: 0 100%;
+  --z-mark-size: 100% 2.5px;
+  --z-mark-pad: 0 0 2px;
+  --z-mark-m: 0;
 
   --glass: rgba(38, 38, 42, 0.52);
   --glass-stroke: rgba(255, 255, 255, 0.13);
@@ -798,159 +839,412 @@ textarea {
   display: none !important;
 }
 
-/* ============ FOCUS：NOW 卡 ============ */
+/* ============ FOCUS：聚焦区（定稿 P4，颜色和桌面 src/styles.css 的 --z-* 一致） ============ */
+/* 一整块圆角 20 的面板：浅色纸白、深色浮起的炭灰。荧光绿只给 NOW 标签、荧光笔、进度和完成的勾。
+   字号用 rem：根字号是 -apple-system-body，跟着「动态字体」走（默认 17pt） */
 
-.now {
+.zone {
   position: relative;
-  /* 从队列行变形成 NOW 卡的途中盖在队列上面 */
-  z-index: 1;
-  border-radius: 30px;
-  background: var(--now);
-  color: var(--now-ink);
-  padding: 20px 20px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  /* 子任务圆圈、虚线圈都按卡上的字色画 */
-  --c: var(--now-ink);
+  border-radius: 20px;
+  background: var(--z-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--z-ln),
+    var(--z-sh);
+  padding: 2px 0 4px;
+  color: var(--z-tx);
+  transition: box-shadow 0.18s var(--ease);
 }
 
-.now {
-  transform-origin: 30% 20%;
+/* 从外面拖到聚焦区上：整块描边 */
+.zone.is-drop {
+  box-shadow:
+    inset 0 0 0 1px var(--z-ln),
+    0 0 0 3px var(--bg),
+    0 0 0 5px var(--z-drop);
 }
 
-:root[data-bar] .is-compact:not(.is-spread) .now {
-  border-radius: 26px;
-  padding: 16px 16px 14px;
-  gap: 11px;
-}
-
-.now-top {
+.zone-head {
   display: flex;
   justify-content: space-between;
-  font: 800 13px/1 var(--font-display);
-  letter-spacing: 0.08em;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 6px;
 }
 
-.now-title {
-  margin: 0;
-  font: 600 28px/1.28 var(--font);
-  letter-spacing: -0.015em;
-  overflow-wrap: anywhere;
+.zone-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font: 700 0.76rem/1 var(--font);
+  color: var(--z-mu);
+  white-space: nowrap;
 }
 
-:root[data-bar] .is-compact:not(.is-spread) .now-title {
-  font-size: 23px;
+/* 荧光绿的 NOW 标签：荧光绿上永远是近黑的字 */
+.now-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px 0 9px;
+  margin-left: -4px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: var(--lime-ink);
+  font: 800 12px/1 var(--font-display);
+  letter-spacing: 0.1em;
+  flex: none;
 }
 
-.is-spread .now-title {
-  font-size: 32px;
+.now-tag svg {
+  width: 12px;
+  height: 12px;
 }
 
-/* 手机横屏的双页只有 400 来高：标题收小，NOW 卡别占满一屏 */
-@media (max-height: 520px) {
-  .is-spread .now-title {
-    font-size: 24px;
+.zone-hint {
+  font: 500 0.76rem/1 var(--font);
+  color: var(--z-mu);
+  white-space: nowrap;
+}
+
+.zone-hint.on {
+  font-weight: 700;
+  color: var(--z-tx);
+}
+
+.zitems {
+  padding: 0 6px;
+}
+
+.znode {
+  position: relative;
+  border-radius: 14px;
+  /* 进来 / 收起时高度在变：里面的子任务别漏到外面 */
+  overflow: hidden;
+}
+
+.znode + .znode::before {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: var(--z-sep);
+}
+
+/* 标题行是左右滑的那一块：底色和面板一样，滑开时露出后面的按钮。
+   WebKit 里带圆角的 overflow: hidden 裁不住滑动中的合成层，用 clip-path */
+.znode > .swipe {
+  border-radius: 14px;
+  clip-path: inset(0 round 14px);
+}
+
+.zhead {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 4px 10px 10px;
+  background: var(--z-bg);
+  color: var(--z-tx);
+}
+
+/* 完成圈：浅色是黑圈、完成后黑底荧光绿勾；深色是荧光绿圈 */
+.zring {
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -1px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--z-ring);
+  display: grid;
+  place-items: center;
+  color: var(--z-chk);
+  transition:
+    transform 0.12s var(--ease),
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.zring::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
+
+.zring svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+
+.zring:active {
+  transform: scale(0.88);
+}
+
+.znode.is-completing .zring {
+  background: var(--z-fill);
+  box-shadow: none;
+}
+
+.znode.is-completing .zring svg {
+  opacity: 1;
+  animation: zone-draw 0.24s 0.08s var(--ease) forwards;
+}
+
+@keyframes zone-draw {
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
-.now-title .row-edit {
-  font: inherit;
-  letter-spacing: inherit;
-  background: rgba(11, 11, 12, 0.08);
-  color: inherit;
-  caret-color: var(--now-ink);
+.ztitle {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+  font: 600 1rem/1.38 var(--font);
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
 }
 
-/* 划线（完成时） */
-.now-title .strike,
-.q-title .strike {
-  background: linear-gradient(currentColor, currentColor) no-repeat 0 60% / 0 2.5px;
+:root[data-bar] .is-compact:not(.is-spread) .ztitle {
+  font-size: 0.94rem;
+}
+
+.is-spread .ztitle {
+  font-size: 1.06rem;
+}
+
+/* 荧光笔：浅色压在字的下半截，深色是字下面一道荧光绿线；完成时划线压在上面 */
+.ztitle .mark {
+  background-image: linear-gradient(var(--z-tx), var(--z-tx)), var(--z-mark-img);
+  background-repeat: no-repeat;
+  background-position:
+    0 58%,
+    var(--z-mark-pos);
+  background-size:
+    0% 2px,
+    var(--z-mark-size);
+  padding: var(--z-mark-pad);
+  margin: var(--z-mark-m);
+  border-radius: 2px;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
 
-.now.is-handoff .now-title .strike {
-  animation: strike 0.26s 0.12s var(--ease) forwards;
+.znode.is-completing .ztitle .mark {
+  background-size:
+    100% 2px,
+    var(--z-mark-size);
+  transition: background-size 0.26s 0.12s var(--ease);
 }
 
-@keyframes strike {
-  to {
-    background-size: 100% 2.5px;
-  }
+.ztitle .row-edit {
+  font: inherit;
+  letter-spacing: inherit;
 }
 
-.now-bar {
+/* 标题行右侧：「+」添加子任务、眼睛送去验证。看得见的部分小，点按区域 44pt */
+.zbtn {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 28px;
+  margin: -2px 0;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--z-mu);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.zbtn::after {
+  content: '';
+  position: absolute;
+  inset: -8px -5px;
+}
+
+.zbtn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.zbtn:active {
+  background: var(--z-hov);
+  color: var(--z-tx);
+}
+
+/* 分段进度：完成段荧光绿 */
+.zprog {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 14px 6px 46px;
 }
 
-.now-bar i {
+.zbars {
   flex: 1;
-  height: 4px;
+  display: flex;
+  gap: 3px;
+}
+
+.zbars i {
+  flex: 1;
+  height: 3px;
   border-radius: 2px;
-  background: var(--now-line);
+  background: var(--z-prog);
   transition: background 0.3s;
 }
 
-.now-bar i.on {
-  background: currentColor;
+.zbars i.d {
+  background: var(--z-prog-on);
 }
 
-.now-subs,
-.now-sub-node {
+.zprog .cnt {
+  font: 700 12px/1 var(--font-display);
+  color: var(--z-mu);
+}
+
+/* 子任务：和标题文字对齐，每深一级缩 24 */
+.zsubs {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 1px;
+  padding: 2px 8px 10px 46px;
 }
 
-.now-sub {
+.zsub-node {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.zsub {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-size: 14.5px;
-  line-height: 1.35;
+  min-width: 0;
+  padding: 6px 0 6px calc(var(--depth, 0) * 24px);
+  border-radius: 8px;
+  font-size: 0.91rem;
+  line-height: 1.42;
+  color: var(--z-sub);
 }
 
-.now-sub .sc {
+:root[data-bar] .is-compact:not(.is-spread) .zsub {
+  font-size: 0.85rem;
+}
+
+.is-spread .zsub {
+  font-size: 0.94rem;
+}
+
+.zcb {
   position: relative;
   flex: none;
   width: 18px;
   height: 18px;
-  margin-top: 0.5px;
+  margin-top: 2px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1.6px currentColor;
+  box-shadow: inset 0 0 0 1.6px var(--z-sring);
+  display: grid;
+  place-items: center;
+  color: var(--z-chk);
+  transition:
+    transform 0.12s,
+    background 0.15s,
+    box-shadow 0.15s;
 }
 
-.now-sub .sc::after {
+.zcb::after {
   content: '';
   position: absolute;
-  inset: -12px;
+  inset: -13px;
 }
 
-.now-sub .sc.d {
-  background: currentColor;
+.zcb svg {
+  width: 11px;
+  height: 11px;
+  opacity: 0;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
 }
 
-.now-sub .sc.v {
+.zsub.d .zcb {
+  background: var(--z-fill);
   box-shadow: none;
-  border: 1.6px dashed var(--now-verify);
 }
 
-.now-sub-text {
+.zsub.d .zcb svg {
+  opacity: 1;
+  stroke-dashoffset: 0;
+}
+
+.zcb.v {
+  box-shadow: none;
+  border: 1.6px dashed var(--c-verify);
+}
+
+.zsub-text {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.now-sub.done .now-sub-text {
-  opacity: 0.45;
-  text-decoration: line-through;
+.zsub .tt-text {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 60% / 0% 1.5px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
-.now-sub .row-edit {
-  background: rgba(11, 11, 12, 0.08);
-  color: inherit;
+.zsub.d .zsub-text {
+  opacity: 0.5;
+}
+
+.zsub.d .tt-text {
+  background-size: 100% 1.5px;
+}
+
+/* 子任务完成：和普通行同一套——按下缩到 .85 → 填色画勾 → 划线变淡（星芒由 actions.toggleTodo 放） */
+.zsub.completing .zcb {
+  animation: zone-press 0.36s var(--ease) both;
+  background: var(--z-fill);
+  box-shadow: none;
+}
+
+.zsub.completing .zcb svg {
+  opacity: 1;
+  animation: zone-draw 0.24s 0.12s var(--ease) forwards;
+}
+
+.zsub.completing .zsub-text {
+  opacity: 0.5;
+  transition: opacity 0.22s 0.2s;
+}
+
+.zsub.completing .tt-text {
+  background-size: 100% 1.5px;
+  transition: background-size 0.22s 0.2s var(--ease);
+}
+
+@keyframes zone-press {
+  30% {
+    transform: scale(0.85);
+  }
+}
+
+.zsub .row-edit {
+  font: inherit;
 }
 
 .chip-v {
@@ -959,34 +1253,23 @@ textarea {
   font: 700 10.5px/1 var(--font);
   padding: 4px 7px;
   border-radius: 999px;
-  background: var(--now-sub);
+  background: var(--z-chip);
+  color: var(--c-verify);
   vertical-align: 1px;
 }
 
-.now-more {
-  align-self: flex-start;
-  font: 600 13px/1 var(--font);
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--now-sub);
-}
-
-/* 子任务按层级缩进；右边的小眼睛切换待验证 */
-.now-sub {
-  padding-left: calc(var(--depth, 0) * 26px);
-}
-
+/* 子任务右边的小眼睛：切换待验证 */
 .sub-eye {
   position: relative;
   flex: none;
   display: grid;
   place-items: center;
-  width: 26px;
+  width: 28px;
   height: 22px;
-  margin: -2px -4px -2px 0;
+  margin: 0 -2px 0 0;
   border-radius: 11px;
-  color: inherit;
-  opacity: 0.38;
+  color: var(--z-mu);
+  opacity: 0.7;
   transition:
     opacity 0.2s,
     background 0.2s,
@@ -996,7 +1279,7 @@ textarea {
 .sub-eye::after {
   content: '';
   position: absolute;
-  inset: -10px -8px;
+  inset: -11px -8px;
 }
 
 .sub-eye svg {
@@ -1006,99 +1289,117 @@ textarea {
 
 .sub-eye.on {
   opacity: 1;
-  background: var(--now-verify);
-  color: var(--now);
+  background: var(--z-chip);
+  color: var(--c-verify);
 }
 
-/* 子任务下面常驻的「+ 子任务」 */
-.now-sub-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 1px;
-}
-
-.now-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font: 600 13px/1 var(--font);
-  padding: 6px 11px 6px 8px;
+.zmore {
+  margin: -4px 0 10px 46px;
+  padding: 6px 10px;
   border-radius: 999px;
-  border: 1.4px dashed color-mix(in srgb, var(--now-ink) 35%, transparent);
+  background: var(--z-hov);
+  font: 600 13px/1 var(--font);
+  color: var(--z-mu);
 }
 
-.now-add svg {
-  width: 15px;
-  height: 15px;
+/* 回车开出来的空行：圆圈是虚线；聚焦区里新的一件接在上一件后面 */
+.zhead.is-draft .zring,
+.zsub.is-draft .zcb {
+  box-shadow: none;
+  border: 1.6px dashed var(--z-sring);
 }
 
-.now-act {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.znode > .zhead.is-draft {
+  box-shadow: inset 0 1px 0 var(--z-sep);
+  border-radius: 0;
 }
 
-.now-done {
-  position: relative;
-  flex: none;
-  width: 60px;
-  height: 60px;
+/* 刚放进聚焦区（设为现在、拖进来、新建）：荧光绿闪一下 */
+.znode.flash,
+.znode.flash .zhead {
+  animation: zone-flash 0.7s var(--ease) both;
+}
+
+@keyframes zone-flash {
+  from {
+    background-color: color-mix(in srgb, var(--lime) 45%, var(--z-bg));
+  }
+  to {
+    background-color: var(--z-bg);
+  }
+}
+
+/* 聚焦区空着（FOCUS 里还有事）：虚线框，能直接拖进来 */
+.zone-empty {
+  border-radius: 20px;
+  border: 1.5px dashed var(--z-empty-ln);
+  padding: 22px 18px 20px;
+  text-align: center;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.zone-empty.is-drop {
+  border-style: solid;
+  border-color: var(--z-drop);
+  background: var(--z-bg);
+}
+
+.zone-empty .ze-icon {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 10px;
   border-radius: 50%;
-  background: var(--now-ink);
-  color: var(--now);
+  background: var(--lime);
+  color: var(--lime-ink);
   display: grid;
   place-items: center;
-  transition: transform 0.08s var(--ease);
 }
 
-.now-done svg {
-  width: 28px;
-  height: 28px;
+.zone-empty .ze-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
-.now-done:active,
-.now.is-handoff .now-done {
-  transform: scale(0.82);
+.zone-empty b {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
-:root[data-bar] .is-compact:not(.is-spread) .now-done {
-  width: 52px;
-  height: 52px;
+.zone-empty p {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: balance;
 }
 
-.now-act b {
-  font: 700 15px/1 var(--font);
-}
-
-.now-vb {
-  margin-left: auto;
+.zone-empty .ze-next {
+  margin-top: 14px;
+  max-width: 100%;
   height: 40px;
   border-radius: 20px;
-  padding: 0 15px 0 12px;
-  background: var(--now-sub);
-  display: flex;
+  padding: 0 16px 0 14px;
+  background: var(--text);
+  color: var(--bg);
+  font: 600 14px/1 var(--font);
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  font: 600 14px/1 var(--font);
-  box-shadow: inset 0 0 0 1.5px var(--now-line);
 }
 
-.now-vb svg {
-  width: 19px;
-  height: 19px;
+.zone-empty .ze-next svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 
-/* 完成 NOW：卡片向上抽走（380–560ms） */
-.now.is-handoff {
-  animation: now-out 0.18s 0.38s var(--ease-exit) forwards;
-}
-
-@keyframes now-out {
-  to {
-    transform: translateY(-30px) rotate(-3deg) scale(0.95);
-    opacity: 0;
-  }
+.zone-empty .ze-next span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 送去验证：眼睛眨一下 */
@@ -1166,101 +1467,16 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.q-title .strike {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 60% / 0 2.5px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 .q-row.done .q-title .strike {
   background-size: 100% 1.5px;
   color: var(--text-faint);
   transition: background-size 0.22s 0.2s var(--ease);
-}
-
-/* 聚焦区里的其余几件：标题划一道荧光笔（浅色压在字的下半截，深色是字下面一道线） */
-.q-node.is-focus .q-title .strike {
-  background-image: linear-gradient(currentColor, currentColor), linear-gradient(rgba(214, 255, 61, 0.95), rgba(214, 255, 61, 0.95));
-  background-repeat: no-repeat;
-  background-position: 0 60%, 0 90%;
-  background-size: 0 2.5px, 100% 38%;
-  padding: 0 3px;
-  margin: 0 -3px;
-  border-radius: 2px;
-  font-weight: 600;
-}
-
-:root[data-theme='dark'] .q-node.is-focus .q-title .strike {
-  background-position: 0 60%, 0 100%;
-  background-size: 0 2.5px, 100% 2.5px;
-  padding: 0 0 2px;
-  margin: 0;
-}
-
-.q-node.is-focus .q-row.done .q-title .strike {
-  background-size: 100% 1.5px, 100% 38%;
-}
-
-:root[data-theme='dark'] .q-node.is-focus .q-row.done .q-title .strike {
-  background-size: 100% 1.5px, 100% 2.5px;
-}
-
-/* 聚焦区空着（FOCUS 里还有事） */
-.zone-empty-m {
-  border-radius: 26px;
-  border: 1.5px dashed var(--line-strong, rgba(127, 127, 127, 0.35));
-  padding: 22px 18px 20px;
-  text-align: center;
-}
-
-.zone-empty-m .ze-icon {
-  width: 38px;
-  height: 38px;
-  margin: 0 auto 10px;
-  border-radius: 50%;
-  background: var(--lime);
-  color: var(--lime-ink);
-  display: grid;
-  place-items: center;
-}
-
-.zone-empty-m .ze-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.zone-empty-m b {
-  display: block;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.zone-empty-m p {
-  margin: 6px 0 0;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
-.zone-empty-m .ze-next {
-  margin-top: 14px;
-  max-width: 100%;
-  height: 40px;
-  border-radius: 20px;
-  padding: 0 16px 0 14px;
-  border: 0;
-  background: var(--text);
-  color: var(--bg);
-  font: 600 14px/1 var(--font-body, inherit);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.zone-empty-m .ze-next svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
-}
-
-.zone-empty-m .ze-next span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .pg {
@@ -1361,10 +1577,6 @@ textarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-}
-
-.pane-l > .now + .stats {
-  margin-top: 14px;
 }
 
 .st {
@@ -3072,14 +3284,6 @@ textarea {
   }
 }
 
-.now-top-more {
-  display: none;
-}
-
-.is-spread .now-top-more {
-  display: inline;
-}
-
 .q-kids .row {
   background: var(--bg);
 }
@@ -3124,14 +3328,9 @@ textarea {
 /* ============ 编辑：空行、工具条、抖一下 ============ */
 
 /* 回车开出来的空行（还没建）：圆圈是虚线 */
-.is-draft .check,
-.is-draft .sc {
+.is-draft .check {
   box-shadow: none;
   border: 1.6px dashed var(--text-faint);
-}
-
-.now-sub.is-draft .sc {
-  border-color: color-mix(in srgb, var(--now-ink) 45%, transparent);
 }
 
 .q-row.is-draft {
@@ -3140,10 +3339,6 @@ textarea {
 
 .row-edit::placeholder {
   color: var(--text-faint);
-}
-
-.now .row-edit::placeholder {
-  color: color-mix(in srgb, var(--now-ink) 45%, transparent);
 }
 
 /* 键盘上方的工具条：反缩进 / 缩进 / 上移 / 下移 / 完成 */
@@ -3279,17 +3474,15 @@ textarea {
   opacity: 1 !important;
 }
 
-/* NOW 卡上的子任务、NOW 自己：副本带着卡的荧光绿 */
-.drag-ghost.is-sub > .now-sub,
-.drag-ghost.is-now > .now-title {
-  background: var(--now);
-  color: var(--now-ink);
-  padding: 9px 12px;
-  --c: var(--now-ink);
+/* 聚焦项、聚焦项下的子任务：副本带着面板的底色 */
+.drag-ghost.is-zone > .zhead {
+  background: var(--z-bg);
+  padding-right: 10px;
 }
 
-.drag-ghost.is-now > .now-title {
-  font-size: 18px;
+.drag-ghost.is-zsub > .zsub {
+  background: var(--z-bg);
+  padding: 7px 12px;
 }
 
 /* 子孙数角标 */
@@ -3370,22 +3563,13 @@ textarea {
   border-radius: 12px;
 }
 
-.now-sub.drop-parent {
-  border-radius: 8px;
-  background: rgba(11, 11, 12, 0.09);
-  box-shadow: 0 0 0 4px rgba(11, 11, 12, 0.09);
+.zhead.drop-parent,
+.zsub.drop-parent {
+  background: color-mix(in srgb, var(--lime) 24%, var(--z-bg));
 }
 
-.now:has(.now-title.drop-parent) {
-  box-shadow: inset 0 0 0 2px rgba(11, 11, 12, 0.35);
-}
-
-/* 拖到 NOW 卡的标题区：卡亮一圈，松手就设为现在 */
-.now.drop-target {
-  box-shadow:
-    0 0 0 3px var(--bg),
-    0 0 0 6px var(--lime-ink);
-  transition: box-shadow 0.15s;
+.zsub.drop-parent {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--lime) 24%, var(--z-bg));
 }
 
 @media (prefers-reduced-motion: reduce) {

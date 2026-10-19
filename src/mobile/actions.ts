@@ -1,6 +1,7 @@
 // 带动画 / 触感反馈的高层操作，供各组件调用（动效时序见 design_handoff_focus/screens/Motion.jpg）
 import { flushSync } from 'react-dom';
 import { chime } from '../effects';
+import { inZone } from '../model';
 import { LISTS, type ListId, type Todo } from '../types';
 import type { Section } from './data';
 import { useChrome } from './chrome';
@@ -11,8 +12,8 @@ import { markAdded, pulse, showToast, useUi } from './ui';
 
 /** 普通行：勾选后先播动画（填色、画勾、星芒、划线），稍后再真正写入（期间保持原位置） */
 const CELEBRATE_MS = 460;
-/** 完成 NOW：卡片 380–560ms 抽走，560ms 写入，下一件接替成为 NOW */
-const HANDOFF_MS = 560;
+/** 聚焦项：按下、填黑画勾、爆开、划线之后 440ms 写入，这一件在聚焦区里收起（共 820ms） */
+const ZONE_DONE_MS = 440;
 
 export const accentOf = (s: Section) =>
   getComputedStyle(document.documentElement).getPropertyValue(`--c-${s}`).trim() || '#0b0b0c';
@@ -40,7 +41,7 @@ function sectionTarget(s: Section) {
 
 function rowAnchor(id: string) {
   const node = document.querySelector(`[data-node-id="${CSS.escape(id)}"]`);
-  return centerOf(node?.querySelector('.check, .sc, .q-no') ?? node);
+  return centerOf(node?.querySelector('.check, .zring, .zcb, .q-no') ?? node);
 }
 
 export function goSection(section: Section) {
@@ -51,13 +52,17 @@ export function goSection(section: Section) {
   useData.getState().setSection(section);
 }
 
-/** 完成普通行（列表行、接下来的行、NOW 卡上的子任务）：填色画勾 → 6 颗星芒 → 划线 → 一颗星芒飞向 HISTORY */
+/** 完成普通行（列表行、接下来的行、聚焦项下的子任务）：填色画勾 → 6 颗星芒 → 划线 → 一颗星芒飞向 HISTORY */
 export function toggleTodo(todo: Todo) {
   const ui = useUi.getState();
   if (ui.completing[todo.id]) return;
   if (todo.done) {
     haptic.light();
     useData.getState().uncomplete(todo.id);
+    return;
+  }
+  if (inZone(todo)) {
+    completeZoneItem(todo);
     return;
   }
 
@@ -81,46 +86,67 @@ export function toggleTodo(todo: Todo) {
   }, reduceMotion() ? 120 : CELEBRATE_MS);
 }
 
-/** 完成 NOW · 换场：按下 → 圆钮外圈爆开 + 星芒 → 标题划线 → 卡片抽走 → 下一件升上来变成 NOW */
-export function completeNow(todo: Todo, button?: Element | null) {
+/**
+ * 完成聚焦项（820ms）：圈按下缩到 .82 → 填黑画荧光绿勾、外圈爆开 + 6 颗星芒、标题划线 →
+ * 440ms 写入，这一件在聚焦区里向上淡出收起、下面的补位 → 一颗星芒飞向 HISTORY。聚焦区空了也不自动补下一件。
+ */
+export function completeZoneItem(todo: Todo) {
   const ui = useUi.getState();
-  if (ui.handoff || ui.completing[todo.id]) return;
+  if (ui.completing[todo.id]) return;
+  const quick = reduceMotion();
+  ui.set({ completing: { ...ui.completing, [todo.id]: true }, swipedId: null, editingId: null });
   haptic.medium();
-  ui.set({ handoff: todo.id, swipedId: null, editingId: null });
-  const at = centerOf(button) ?? rowAnchor(todo.id);
-  if (at)
+  const ring = document.querySelector<HTMLElement>(`[data-zone-item="${CSS.escape(todo.id)}"] .zring`);
+  const at = centerOf(ring);
+  if (ring && at && !quick) {
+    ring.animate([{ transform: 'scale(1)' }, { transform: 'scale(.82)', offset: 0.35 }, { transform: 'scale(1)' }], {
+      duration: 230,
+      easing: 'cubic-bezier(.2,.8,.2,1)',
+    });
     setTimeout(() => {
-      ringBurst(at.x, at.y, 60);
-      sparkBurst(at.x, at.y, 6, [40, 60]);
+      ringBurst(at.x, at.y, 46);
+      sparkBurst(at.x, at.y, 6, [30, 50]);
     }, 80);
+  }
   if (useData.getState().prefs.sound) chime();
-  setTimeout(() => haptic.success(), reduceMotion() ? 0 : 380);
-  setTimeout(() => {
-    useData.getState().complete(todo.id);
-    useUi.getState().set({ handoff: null });
-    const to = sectionTarget('history');
-    if (at && to) flyStar(at, to, () => pulse('history'));
-    else pulse('history');
-  }, reduceMotion() ? 150 : HANDOFF_MS);
+  setTimeout(
+    () => {
+      const from = centerOf(document.querySelector(`[data-zone-item="${CSS.escape(todo.id)}"] .zring`)) ?? at;
+      useData.getState().complete(todo.id);
+      haptic.success();
+      const to = sectionTarget('history');
+      if (from && to) flyStar(from, to, () => pulse('history'));
+      else pulse('history');
+      // 收起的那一下还保持打勾、划线的样子，离场播完再清
+      setTimeout(() => {
+        const rest = { ...useUi.getState().completing };
+        delete rest[todo.id];
+        useUi.getState().set({ completing: rest });
+      }, quick ? 0 : 420);
+    },
+    quick ? 150 : ZONE_DONE_MS,
+  );
 }
 
-/** 设为现在：放进聚焦区最前，成为 NOW 卡（行和 NOW 卡交换位置由 motion 的 layoutId 动画接上） */
+/** 设为现在：放进聚焦区最前（从「接下来」那一行弹簧移上去，由 motion 的 layoutId 接上），荧光绿闪一下 */
 export function setNow(todo: Todo) {
   haptic.light();
   useUi.getState().set({ swipedId: null, menu: null });
   const wasElsewhere = todo.list !== 'focus';
   useData.getState().setNow(todo.id);
+  markAdded(todo.id);
   if (wasElsewhere) {
     pulse('focus');
     showToast(`「${truncate(todo.title, 12)}」已设为现在`);
   }
 }
 
-/** 移出聚焦区：回到「接下来」第一位 */
+/** 移出聚焦区：回到「接下来」第一位，那一行闪一下 */
 export function unfocusTodo(todo: Todo) {
   haptic.light();
   useUi.getState().set({ swipedId: null, menu: null });
   useData.getState().unfocus(todo.id);
+  markAdded(todo.id);
 }
 
 /** 送进 FOCUS（INBOX、VERIFY 上的星芒钮）：排在聚焦区后面，星芒飞向 FOCUS 页签 */
@@ -171,7 +197,7 @@ export function sendToVerify(todo: Todo, fromEl?: Element | null) {
   };
   if (node && to && !reduceMotion()) {
     setTimeout(() => {
-      flyGhost(node.querySelector('.q-row, .row, .now-title') ?? node, to, accentOf('verify'));
+      flyGhost(node.querySelector('.q-row, .row, .zhead') ?? node, to, accentOf('verify'));
       go();
     }, 160);
   } else go();
@@ -240,7 +266,7 @@ export function switchSpace(id: string) {
 // ---------- 新建输入卡片 ----------
 
 /**
- * 新建：FOCUS 顶层项默认排在 NOW 之后（「排在现在之后」关掉时新建并设为现在），其它列表排在最前。
+ * 新建：FOCUS 顶层项默认排在聚焦区后面（「排在聚焦区后面」关掉时新建并放进聚焦区最前），其它列表排在最前。
  * 新的那一行撑开并闪一下荧光绿
  */
 export function addTodo(title: string, list: ListId, parentId: string | null, afterNow: boolean) {
