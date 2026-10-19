@@ -74,6 +74,8 @@ export interface Todo {
   collapsed?: boolean;
   /** 原地标为待测（子项用：留在父项下，不换页签；顶层项标待测则直接进 VERIFY） */
   testing?: boolean;
+  /** 在 FOCUS 的聚焦区里（只对 FOCUS 的顶层项有意义；移走、变成子项后自动去掉） */
+  focused?: boolean;
 }
 
 /** 回收站里的一次删除：根条目连同它的子孙 */

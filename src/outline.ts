@@ -1,7 +1,7 @@
 // 大纲式编辑的数据规则：编辑时回车开空行、Tab / Shift+Tab 调层级、⌥⇧↑↓ 同级移动、空行上退格。
 // 纯函数，不碰界面；桌面的接线在 src/editing.ts。真正改数据的仍是 model 的 createTodo / indentTodo /
 // outdentTodo / reorderTodo，这里只算「空行在哪、新建时用什么 parentId 和 placement」。
-import { compareTodos, type Placement } from './model';
+import { compareTodos, isFocusRoot, type Placement } from './model';
 import type { ListId, Todo } from './types';
 
 /**
@@ -100,6 +100,25 @@ export function moveIndex(todos: Todo[], id: string, dir: -1 | 1): number | null
   const to = i + dir;
   if (i < 0 || to < 0 || to >= group.length) return null;
   return to;
+}
+
+/**
+ * ⌥⇧↑ / ⌥⇧↓ 的落点（给 reorderTodo 的 toIndex 和进不进聚焦区）。
+ * FOCUS 顶层把聚焦区和「接下来」的分界也当一格：「接下来」第一件上移先进聚焦区末尾，
+ * 聚焦区最后一件下移先出到「接下来」第一位。其它情况同 moveIndex；到头返回 null。
+ */
+export function moveStep(todos: Todo[], id: string, dir: -1 | 1): { to: number; focused?: boolean } | null {
+  const t = todos.find((x) => x.id === id);
+  if (!t) return null;
+  if (isFocusRoot(t) && !t.done) {
+    const group = levelOf(todos, t.list, null).filter((x) => !x.done);
+    const zoneLen = group.filter((x) => x.focused).length;
+    const i = group.findIndex((x) => x.id === id);
+    if (t.focused && dir === 1 && i === zoneLen - 1) return { to: i, focused: false };
+    if (!t.focused && dir === -1 && i === zoneLen) return { to: zoneLen, focused: true };
+  }
+  const to = moveIndex(todos, id, dir);
+  return to === null ? null : { to };
 }
 
 /** Tab 能不能缩进：同级第一个不行 */

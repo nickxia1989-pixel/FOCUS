@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_DEPTH, depthRange, originGap, projectDrop, restRows, type DragRow } from './dragTree';
-import { buildIndex, childrenOf, completeTodo, createTodo, nowOf, placeTodo, rootsOf } from './model';
+import { buildIndex, childrenOf, completeTodo, createTodo, focusTodo, nowOf, placeTodo, rootsOf, zoneOf } from './model';
 import type { ListId, Todo } from './types';
 
 let seq = 0;
@@ -140,17 +140,27 @@ describe('自由拖拽：落点算法', () => {
     expect(childrenOf(buildIndex(todos), 'P').map((t) => t.id)).toEqual(['o2', 'o1', 'd1']);
   });
 
-  it('FOCUS：拖到最上面就是新的 NOW', () => {
+  it('FOCUS：不指定时落在聚焦区那一段就进聚焦区，分界上保持原样（手机端拖动走这里）', () => {
     let s: Todo[] = [];
     s = add(s, 'q2', 'focus');
     s = add(s, 'q1', 'focus');
     s = add(s, 'now', 'focus');
     s = add(s, 'sub', 'focus', 'now');
+    s = focusTodo(s, 'now'); // [now] q1 q2
     let { todos } = drop(s, 'focus', 'q2', 0, 0);
     expect(nowOf(todos)?.id).toBe('q2');
-    // NOW 的子任务拖出来成队列里的一项
+    expect(zoneOf(todos).map((t) => t.id)).toEqual(['q2', 'now']);
+    // 聚焦项的子任务拖出来成「接下来」的第一项
     ({ todos } = drop(s, 'focus', 'sub', 1, 0)); // rest：now | q1 q2
     expect(rootsOf(buildIndex(todos), 'focus').map((t) => t.id)).toEqual(['now', 'sub', 'q1', 'q2']);
+    expect(zoneOf(todos).map((t) => t.id)).toEqual(['now']);
+    // 桌面明确指定：同一个分界位置放进聚焦区末尾
+    todos = placeTodo(s, 'sub', { list: 'focus', parentId: null, index: 1, focused: true });
+    expect(zoneOf(todos).map((t) => t.id)).toEqual(['now', 'sub']);
+    // 聚焦项拖进「接下来」的项下面当子任务：离开聚焦区
+    todos = placeTodo(s, 'now', { list: 'focus', parentId: 'q1', index: 0 });
+    expect(zoneOf(todos)).toEqual([]);
+    expect(todos.find((t) => t.id === 'now')?.focused).toBeUndefined();
   });
 
   it('VERIFY：顶层项拖成子项时保住待验证，子项拖成顶层时去掉', () => {

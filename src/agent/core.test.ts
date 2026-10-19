@@ -165,6 +165,46 @@ describe('批量写入', () => {
     expect(bad.ok).toBe(false);
   });
 
+  it('聚焦区：focus 放进去（可指定位置）、unfocus 移出；reorder 只在聚焦区内或「接下来」内排', () => {
+    let st = sample(); // FOCUS：[写周报]
+    st = apply(st, [
+      { op: 'add', title: 'q1', list: 'focus' },
+      { op: 'add', title: 'q2', list: 'focus' },
+    ]).state;
+    const zone = (s: AgentState) =>
+      D.viewProfile(s.doc, 'default')
+        .todos.filter((t) => t.focused)
+        .sort((a, b) => b.order - a.order)
+        .map((t) => t.title)
+        .join(',');
+    expect(zone(st)).toBe('写周报');
+    // 新建排在聚焦区后面，同一批按给出的顺序
+    expect(text(st, { sections: ['focus'] })).toMatch(/## FOCUS · 3（聚焦 1）\n- \[ \] \w+ 写周报 #聚焦[\s\S]*- \[ \] \w+ q1\n- \[ \] \w+ q2/);
+    let r = apply(st, [{ op: 'focus', id: idOf(st, 'q2') }]);
+    expect(zone(r.state)).toBe('写周报,q2');
+    expect(r.lines[0]).toContain('聚焦区第 2 位');
+    r = apply(r.state, [{ op: 'focus', id: idOf(st, '买菜'), to: 'top' }]);
+    expect(zone(r.state)).toBe('买菜,写周报,q2');
+    expect(r.lines[0]).toContain('从 INBOX 移过来');
+    expect(apply(r.state, [{ op: 'focus', id: idOf(st, '买菜'), to: 'top' }]).lines[0]).toContain('已经在聚焦区');
+    // 聚焦区内排序；跨到「接下来」的 before / after 被拒绝
+    r = apply(r.state, [{ op: 'reorder', id: idOf(st, 'q2'), to: 'top' }]);
+    expect(zone(r.state)).toBe('q2,买菜,写周报');
+    const bad = applyOps(r.state, { ops: [{ op: 'reorder', id: idOf(st, 'q2'), before: idOf(st, 'q1') }] }, env());
+    expect(bad.ok).toBe(false);
+    if (!bad.ok) expect(bad.error).toContain('focus / unfocus');
+    r = apply(r.state, [{ op: 'unfocus', id: idOf(st, '写周报') }]);
+    expect(zone(r.state)).toBe('q2,买菜');
+    expect(apply(r.state, [{ op: 'unfocus', id: idOf(st, '写周报') }]).lines[0]).toContain('不在聚焦区');
+    // 「接下来」里排到最前也不会进聚焦区
+    r = apply(r.state, [{ op: 'reorder', id: idOf(st, 'q1'), to: 'top' }]);
+    expect(zone(r.state)).toBe('q2,买菜');
+    expect(summarize({ focus: 2, unfocus: 1 })).toBe('AI：放进聚焦区 2 · 移出聚焦区 1');
+    // json 里聚焦项带 focus: 1
+    const j = JSON.parse(text(r.state, { sections: ['focus'], format: 'json' }));
+    expect(j.profiles[0].lists.focus.items.filter((x: { focus?: number }) => x.focus).map((x: { t: string }) => x.t)).toEqual(['q2', '买菜']);
+  });
+
   it('删除进回收站、恢复；彻底删除只能走 focus_purge', () => {
     const st = sample();
     const ski = idOf(st, '学滑雪');
@@ -295,7 +335,8 @@ describe('读取', () => {
     expect(t.split('\n')[0]).toMatch(/^FOCUS · 离线.* · 10-17 15:20 · cursor c1\.dev1:\w+$/);
     expect(t).toContain('profile：工作 [default]（当前）');
     expect(t).toContain(
-      ['## FOCUS · 1', `- [ ] ${sid('写周报')} 写周报`, `  - [ ] ${sid('画图')} 画图 #待测`, `  - [x] ${sid('收集数据')} 收集数据`].join('\n'),
+      // FOCUS 原本是空的：第一件直接进聚焦区
+      ['## FOCUS · 1（聚焦 1）', `- [ ] ${sid('写周报')} 写周报 #聚焦`, `  - [ ] ${sid('画图')} 画图 #待测`, `  - [x] ${sid('收集数据')} 收集数据`].join('\n'),
     );
     expect(t).toContain('## VERIFY · 空');
     expect(t).toContain(`## INBOX · 1 · 另有 1 条已完成（见 HISTORY）\n- [ ] ${sid('买菜')} 买菜`);
@@ -350,7 +391,7 @@ describe('读取', () => {
     const t = text({ ...merged, collapsed: {} }, { since: cursor });
     expect(t).toContain('4 处变化');
     expect(t).toMatch(/\+ 工作\/INBOX \[ \] \w+ 新想法/);
-    expect(t).toMatch(/~ 工作\/FOCUS \[ \] \w+ 写周报（周五前）（标题）/);
+    expect(t).toMatch(/~ 工作\/FOCUS \[ \] \w+ 写周报（周五前） #聚焦（标题）/);
     expect(t).toMatch(/~ 工作\/INBOX \[x\] \w+ 买菜（状态）/);
     expect(t).toMatch(/- 工作 \w+ 学滑雪 → 进了回收站/);
     r = apply({ ...merged, collapsed: {} }, [{ op: 'add', title: 'x' }]);

@@ -168,7 +168,8 @@ FOCUS · 实时（桌面开着，改动立刻显示） · … · 自 c1.cld8qeyy
 | `complete` / `uncomplete` | `id` | `ops.completeTodo` / `uncompleteTodo` |
 | `move` | `id`，`list` 或 `parent`（二选一） | `ops.moveTodo` / `ops.reparentTodo`（新增：改挂父项，不能成环） |
 | `test` / `untest` | `id` | `ops.markForTest` / `unmarkTest`；VERIFY 的顶层项 `untest` 是退回 FOCUS（`ops.moveTodo`） |
-| `reorder` | `id`，`before` / `after` 另一条，或 `to: top\|bottom`，或 `index` | `ops.reorderTodo` |
+| `reorder` | `id`，`before` / `after` 另一条，或 `to: top\|bottom`，或 `index` | `ops.reorderTodo`；FOCUS 顶层只在聚焦区内或「接下来」内排（跨过去的 `before` / `after` 报错） |
+| `focus` / `unfocus` | `id`；`focus` 可选 `to: top\|bottom` 或 `index`（聚焦区里从 0 起，默认排最后） | `ops.focusTodo` / `unfocusTodo`：放进 / 移出 FOCUS 的聚焦区；别的列表、子项会先整棵移进 FOCUS，已完成的恢复；移出后排在「接下来」第一位 |
 | `delete` / `restore` | `id` | `ops.removeTodo` / `restoreFromTrash` |
 | `profile_create` / `profile_rename` | `name`（可选 `ref`）/ `profile`, `name` | `doc.createProfile` / `updateProfile`；重名报错 |
 | `profile_delete` / `profile_restore` | `profile` | `doc.setProfileDeleted`；至少保留一个 |
@@ -210,6 +211,7 @@ ok · 实时：桌面已刷新，约 2 秒后同步 · 10 项 · cursor c1.cld8q
 | INBOX 的 ◎ 送进 FOCUS；VERIFY 的 ◎ 退回 FOCUS；拖到侧栏列表图标；菜单「移到 …」 | `move`（list），VERIFY 退回也可以用 `untest` |
 | 烧瓶标为待测、取消待测 | `test` / `untest` |
 | 拖拽排序 | `reorder` |
+| 拖进 / 拖出聚焦区；`↑` 设为现在；右键「移出聚焦区」 | `focus`（`to: "top"` 等于设为现在）/ `unfocus` |
 | 删除；提示条上撤销 | `delete` / `restore` |
 | 回收站：恢复 / 彻底删除 / 清空 | `restore` / `focus_purge` |
 | profile 新建、改名、删除 | `profile_create` / `profile_rename` / `profile_delete` |

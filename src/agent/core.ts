@@ -483,6 +483,16 @@ class Batch {
       }
       case 'reorder':
         return this.reorder(o);
+      case 'focus':
+        return this.focus(o);
+      case 'unfocus': {
+        const id = this.todoId(o.id);
+        const { todo, profileId } = this.visible(id);
+        if (!M.inZone(todo)) return this.noop(`unfocus ${this.f0.sid(id)}：不在聚焦区`);
+        this.run(O.unfocusTodo(this.st, this.ctx(profileId), id));
+        this.count(op);
+        return this.out.push((f) => `unfocus ${f.sid(id)}「${oneLine(todo.title)}」→ 移出聚焦区，排在「接下来」第 1 位`);
+      }
       case 'delete': {
         const id = this.todoId(o.id);
         const w = this.where(id);
@@ -708,11 +718,39 @@ class Batch {
     return this.out.push((f) => `move ${f.sid(id)}「${oneLine(todo.title)}」→ ↳${f.sid(parentId)}「${oneLine(p.todo.title)}」（${LABEL[p.todo.list]}）`);
   }
 
+  /** 放进 FOCUS 的聚焦区，默认排最后；to: top / bottom 或 index（聚焦区里从 0 起） */
+  private focus(o: Record<string, unknown>) {
+    const id = this.todoId(o.id);
+    const { todo, profileId } = this.visible(id);
+    const todos = viewOf(this.st.doc, profileId).todos;
+    const zone = M.zoneOf(todos).filter((t) => t.id !== id);
+    const has = (k: string) => o[k] !== undefined && o[k] !== null && o[k] !== '';
+    if (has('to') && has('index')) throw new OpError('focus 的 to 和 index 只给一个');
+    let at = zone.length;
+    if (has('to')) {
+      const v = this.str(o, 'to');
+      if (v !== 'top' && v !== 'bottom') throw new OpError('to 只能是 top 或 bottom');
+      at = v === 'top' ? 0 : zone.length;
+    } else if (has('index')) {
+      const v = o.index;
+      if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) throw new OpError('index 要是从 0 起的整数');
+      at = Math.min(v, zone.length);
+    }
+    if (M.inZone(todo) && M.zoneOf(todos).findIndex((t) => t.id === id) === at) return this.noop(`focus ${this.f0.sid(id)}：已经在聚焦区第 ${at + 1} 位`);
+    this.run(O.focusTodo(this.st, this.ctx(profileId), id, at));
+    this.count('focus');
+    const from = todo.list !== 'focus' ? `（从 ${LABEL[todo.list]} 移过来）` : todo.parentId !== null ? '（脱离原父项）' : '';
+    return this.out.push((f) => `focus ${f.sid(id)}「${oneLine(todo.title)}」→ 聚焦区第 ${at + 1} 位${from}${todo.done ? '，恢复为未完成' : ''}`);
+  }
+
   private reorder(o: Record<string, unknown>) {
     const id = this.todoId(o.id);
     const { todo, profileId } = this.visible(id);
     const todos = viewOf(this.st.doc, profileId).todos;
-    const group = M.siblingsOf(todos, todo).filter((t) => t.done === todo.done);
+    // FOCUS 顶层：聚焦区和「接下来」各排各的，进出聚焦区用 focus / unfocus
+    const zoned = M.isFocusRoot(todo) && !todo.done;
+    const group = M.siblingsOf(todos, todo).filter((t) => t.done === todo.done && (!zoned || !!t.focused === !!todo.focused));
+    const offset = zoned && !todo.focused ? M.zoneOf(todos).length : 0;
     const rest = group.filter((t) => t.id !== id);
     const given = ['before', 'after', 'to', 'index'].filter((k) => o[k] !== undefined && o[k] !== null && o[k] !== '');
     if (given.length !== 1) throw new OpError('reorder 要给 before / after（另一条的 id）、to（top / bottom）或 index（从 0 起）其中一个');
@@ -721,7 +759,10 @@ class Batch {
       const other = this.todoId(o[given[0]], given[0], false);
       if (other === id) throw new OpError('不能排在自己前后');
       const at = rest.findIndex((t) => t.id === other);
-      if (at < 0) throw new OpError(`${given[0]} 的那一条不在同一组里（排序只在同一个父项 / 列表、同为未完成或已完成的条目之间）`);
+      if (at < 0)
+        throw new OpError(
+          `${given[0]} 的那一条不在同一组里（排序只在同一个父项 / 列表、同为未完成或已完成的条目之间；FOCUS 顶层的聚焦区和「接下来」分开排，进出聚焦区用 focus / unfocus）`,
+        );
       to = given[0] === 'before' ? at : at + 1;
     } else if (given[0] === 'to') {
       const v = this.str(o, 'to');
@@ -734,9 +775,9 @@ class Batch {
     }
     const from = group.findIndex((t) => t.id === id);
     if (from === to) return this.noop(`reorder ${this.f0.sid(id)}：位置没变`);
-    this.run(O.reorderTodo(this.st, this.ctx(profileId), id, to));
+    this.run(O.reorderTodo(this.st, this.ctx(profileId), id, offset + to, zoned ? !!todo.focused : undefined));
     this.count('reorder');
-    const where = todo.parentId ? '同级' : `${LABEL[todo.list]} `;
+    const where = todo.parentId ? '同级' : zoned ? (todo.focused ? '聚焦区' : '接下来') : `${LABEL[todo.list]} `;
     return this.out.push((f) => `reorder ${f.sid(id)}「${oneLine(todo.title)}」→ ${where}第 ${to + 1} 位（共 ${group.length}）`);
   }
 }
@@ -794,6 +835,8 @@ const COUNT_LABEL: Record<string, string> = {
   test: '标待测',
   untest: '取消待测',
   reorder: '排序',
+  focus: '放进聚焦区',
+  unfocus: '移出聚焦区',
   delete: '删除',
   restore: '恢复',
   purge: '彻底删除',
@@ -899,6 +942,8 @@ interface Node {
   title: string;
   done: boolean;
   testing: boolean;
+  /** FOCUS 的聚焦区 */
+  focused: boolean;
   kids: Node[];
 }
 
@@ -951,6 +996,7 @@ function buildProfile(doc: D.SyncDoc, p: D.VisibleProfile, o: ReadOpts, meta: Me
     title: oneLine(t.title),
     done: t.done,
     testing: !!t.testing,
+    focused: M.inZone(t),
     kids: M.childrenOf(idx, t.id)
       .filter((k) => !keep || keep.has(k.id))
       .map(node),
@@ -997,7 +1043,7 @@ function buildProfile(doc: D.SyncDoc, p: D.VisibleProfile, o: ReadOpts, meta: Me
       .map((entry) => {
         if (!o.trashFull) return { entry, kids: [] };
         const ti = M.buildIndex(entry.items);
-        const tnode = (t: Todo): Node => ({ id: t.id, title: oneLine(t.title), done: t.done, testing: !!t.testing, kids: M.childrenOf(ti, t.id).map(tnode) });
+        const tnode = (t: Todo): Node => ({ id: t.id, title: oneLine(t.title), done: t.done, testing: !!t.testing, focused: false, kids: M.childrenOf(ti, t.id).map(tnode) });
         return { entry, kids: M.childrenOf(ti, entry.id).map(tnode) };
       });
   }
@@ -1053,7 +1099,7 @@ function renderText(doc: D.SyncDoc, blocks: ProfileBlock[], o: ReadOpts, meta: M
   out.push(`profile：${ps.map((p) => `${p.name} [${f.pid(p.id)}]${p.id === cur ? '（当前）' : ''}`).join(' · ') || '无'}`);
   const tree = (ns: Node[], depth: number) => {
     for (const n of ns) {
-      out.push(`${'  '.repeat(depth)}- [${n.done ? 'x' : ' '}] ${f.sid(n.id)} ${n.title}${n.testing ? ' #待测' : ''}`);
+      out.push(`${'  '.repeat(depth)}- [${n.done ? 'x' : ' '}] ${f.sid(n.id)} ${n.title}${n.testing ? ' #待测' : ''}${n.focused ? ' #聚焦' : ''}`);
       tree(n.kids, depth + 1);
     }
   };
@@ -1064,7 +1110,8 @@ function renderText(doc: D.SyncDoc, blocks: ProfileBlock[], o: ReadOpts, meta: M
     for (const l of b.lists) {
       if (o.query && !l.items.length) continue;
       const done = l.done && !o.query ? ` · 另有 ${l.done} 条已完成（见 HISTORY）` : '';
-      out.push(`## ${LABEL[l.list]} · ${l.items.length || (l.done ? 0 : '空')}${done}`);
+      const zone = l.list === 'focus' ? l.items.filter((n) => n.focused).length : 0;
+      out.push(`## ${LABEL[l.list]} · ${l.items.length || (l.done ? 0 : '空')}${zone ? `（聚焦 ${zone}）` : ''}${done}`);
       tree(l.items, 0);
     }
     if (b.history && !(o.query && !b.history.shown)) {
@@ -1114,6 +1161,7 @@ function renderJson(doc: D.SyncDoc, blocks: ProfileBlock[], o: ReadOpts, meta: M
     const x: Record<string, unknown> = { id: f.sid(n.id), t: n.title };
     if (n.done) x.done = 1;
     if (n.testing) x.test = 1;
+    if (n.focused) x.focus = 1;
     if (n.kids.length) x.kids = n.kids.map(node);
     return x;
   };
@@ -1193,7 +1241,7 @@ function renderChanges(doc: D.SyncDoc, o: ReadOpts, meta: Meta): string {
       op = regs.length === present ? '+' : '~';
       const parent = t.parentId ? ` ↳${f.sid(t.parentId)}` : '';
       const fields = op === '~' ? `（${regs.map((n) => (n === 'del' ? '恢复' : REG_NAME[n])).join('、')}）` : '';
-      text = `${op} ${where}${LABEL[t.list]} [${t.done ? 'x' : ' '}] ${f.sid(r.id)} ${title}${t.testing ? ' #待测' : ''}${parent}${fields}`;
+      text = `${op} ${where}${LABEL[t.list]} [${t.done ? 'x' : ' '}] ${f.sid(r.id)} ${title}${t.testing ? ' #待测' : ''}${M.inZone(t) ? ' #聚焦' : ''}${parent}${fields}`;
     } else {
       op = '-';
       const state =

@@ -83,6 +83,7 @@ const statusVal = (v: unknown): StatusVal | null => {
 const posVal = (v: unknown): PosVal | null => {
   if (!isObj(v) || !isList(v.list)) return null;
   const parentId = typeof v.parentId === 'string' && ID_RE.test(v.parentId) ? v.parentId : null;
+  if (v.focused === true && parentId === null && v.list === 'focus') return { parentId, list: v.list, focused: true };
   return { parentId, list: v.list };
 };
 

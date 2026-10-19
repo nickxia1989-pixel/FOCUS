@@ -36,6 +36,8 @@ export interface StatusVal {
 export interface PosVal {
   parentId: string | null;
   list: ListId;
+  /** 在 FOCUS 的聚焦区里（只出现在 FOCUS 顶层项上）。和列表、父项放在同一个寄存器：移走就自动离开聚焦区 */
+  focused?: true;
 }
 export interface DelVal {
   deletedAt: number | null;
@@ -82,7 +84,7 @@ type Eq<T> = (a: T, b: T) => boolean;
 
 const sameStatus: Eq<StatusVal> = (a, b) =>
   a.done === b.done && a.completedAt === b.completedAt && a.completedFrom === b.completedFrom && !!a.testing === !!b.testing;
-const samePos: Eq<PosVal> = (a, b) => a.parentId === b.parentId && a.list === b.list;
+const samePos: Eq<PosVal> = (a, b) => a.parentId === b.parentId && a.list === b.list && !!a.focused === !!b.focused;
 const sameDel: Eq<DelVal> = (a, b) => a.deletedAt === b.deletedAt && !!a.purged === !!b.purged;
 const sameMeta: Eq<ProfileMeta> = (a, b) => a.name === b.name && a.tint === b.tint && a.createdAt === b.createdAt;
 const sameNum: Eq<number> = (a, b) => a === b;
@@ -147,12 +149,22 @@ function mergeTitle(a: Reg<TitleVal> | undefined, b: Reg<TitleVal> | undefined) 
   return mergeReg(a, b, sameTitle, (x, y) => normalizeTitle([...altsOf(x), ...altsOf(y)]));
 }
 
+/**
+ * 位置寄存器。同一个戳、只差聚焦标记：是还没升级的版本读进来时丢掉了这个字段（它不认识），
+ * 取带标记的那份，免得合并结果跟读文件的先后有关。
+ */
+function mergePos(a: Reg<PosVal> | undefined, b: Reg<PosVal> | undefined) {
+  if (a && b && !!a.v.focused !== !!b.v.focused && compareStamps(a.s, b.s) === 'equal' && a.v.parentId === b.v.parentId && a.v.list === b.v.list)
+    return a.v.focused ? a : b;
+  return mergeReg(a, b, samePos);
+}
+
 function mergeTodoRec(a: TodoRec | undefined, b: TodoRec | undefined): TodoRec {
   if (!a) return b!;
   if (!b) return a;
   const title = mergeTitle(a.title, b.title);
   const status = mergeReg(a.status, b.status, sameStatus);
-  const pos = mergeReg(a.pos, b.pos, samePos);
+  const pos = mergePos(a.pos, b.pos);
   const order = mergeReg(a.order, b.order, sameNum);
   const del = mergeReg(a.del, b.del, sameDel);
   const createdAt = Math.min(a.createdAt, b.createdAt);
@@ -215,6 +227,7 @@ export function recToTodo(r: TodoRec, collapsed: boolean): Todo {
     order: r.order?.v ?? r.createdAt,
     collapsed,
     testing: !!st.testing && !st.done,
+    ...(pos.focused && pos.parentId === null && pos.list === 'focus' ? { focused: true } : {}),
   };
 }
 
@@ -351,13 +364,15 @@ function status(t: Todo): StatusVal {
   return s;
 }
 
+/** 聚焦标记只对 FOCUS 顶层项有效 */
+const focusedOf = (t: Todo) => !!t.focused && t.parentId === null && t.list === 'focus';
+const posOf = (t: Todo): PosVal => (focusedOf(t) ? { parentId: t.parentId, list: t.list, focused: true } : { parentId: t.parentId, list: t.list });
 /** 子项的 list 是派生值，不参与比较 */
-const posOf = (t: Todo): PosVal => ({ parentId: t.parentId, list: t.list });
 const posChanged = (r: TodoRec, t: Todo) => {
   const p = r.pos?.v;
   if (!p) return true;
   if (p.parentId !== t.parentId) return true;
-  return t.parentId === null && p.list !== t.list;
+  return t.parentId === null && (p.list !== t.list || !!p.focused !== focusedOf(t));
 };
 
 /**

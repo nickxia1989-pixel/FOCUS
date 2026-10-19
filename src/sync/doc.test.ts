@@ -194,6 +194,80 @@ describe('自动合并', () => {
   });
 });
 
+describe('聚焦区', () => {
+  const zoneIds = (d: Dev) => d.view().todos.filter((t) => t.focused).map((t) => t.id);
+
+  it('放进聚焦区写在位置寄存器里，能同步到另一台；移到别的列表就离开聚焦区', () => {
+    const [a, b] = pair();
+    a.add('x', '写周报', 'focus'); // FOCUS 原本是空的：直接进聚焦区
+    a.add('y', '回邮件', 'focus');
+    expect(zoneIds(a)).toEqual(['x']);
+    a.apply(O.focusTodo(a.st, a.ctx(), 'y'));
+    expect(a.st.doc.todos.y.pos?.v.focused).toBe(true);
+    b.pull(a);
+    expect(zoneIds(b).sort()).toEqual(['x', 'y']);
+    // B 把 y 移到 INBOX：位置寄存器整个换掉，聚焦标记跟着没了
+    b.move('y', 'inbox');
+    expect(b.st.doc.todos.y.pos?.v).toEqual({ parentId: null, list: 'inbox' });
+    a.pull(b);
+    expect(zoneIds(a)).toEqual(['x']);
+  });
+
+  it('并发：A 放进聚焦区、B 同时移到别的列表——位置后改的赢，两边一致', () => {
+    const [a, b] = pair();
+    a.add('x', '写周报', 'focus');
+    a.add('y', '回邮件', 'focus');
+    b.pull(a);
+    a.apply(O.focusTodo(a.st, a.ctx(), 'y'));
+    b.move('y', 'goal');
+    sync(a, b);
+    expect(a.todo('y')).toEqual(b.todo('y'));
+    // 列表和聚焦标记在同一个寄存器里，不会出现「在 GOAL 里却带着聚焦标记」
+    const y = a.todo('y')!;
+    expect(y.list === 'focus' ? y.focused : y.focused === undefined).toBe(true);
+    // B 后改：B 赢
+    b.now = a.now + 60_000;
+    b.move('y', 'inbox');
+    sync(a, b);
+    expect(a.todo('y')?.list).toBe('inbox');
+    expect(a.todo('y')?.focused).toBeUndefined();
+  });
+
+  it('还没升级的版本读进来会丢掉聚焦标记（同一个戳）：合并时保留带标记的那份，和读的先后无关', () => {
+    const [a] = pair();
+    a.add('x', '写周报', 'focus');
+    const full = a.st.doc;
+    const rec = full.todos.x;
+    expect(rec.pos?.v.focused).toBe(true);
+    const stripped = { ...full, todos: { ...full.todos, x: { ...rec, pos: { ...rec.pos!, v: { parentId: null, list: 'focus' as ListId } } } } };
+    expect(mergeDocs(stripped, full).todos.x.pos?.v.focused).toBe(true);
+    expect(mergeDocs(full, stripped).todos.x.pos?.v.focused).toBe(true);
+  });
+
+  it('设备文件读写保留聚焦标记；不在 FOCUS 顶层的标记读入时丢掉', () => {
+    const [a] = pair();
+    a.add('x', '写周报', 'focus');
+    const text = buildDeviceFile({ deviceId: 'devA', deviceName: 'A', platform: 'test', writtenAt: 1, seq: 1, nonce: 'n', knowledge: docKnowledge(a.st.doc), doc: a.st.doc });
+    expect(parseDeviceFile(text)?.doc.todos.x.pos?.v.focused).toBe(true);
+    const bad = JSON.parse(text);
+    bad.doc.todos.x.pos.v.list = 'inbox';
+    expect(parseDeviceFile(JSON.stringify(bad))?.doc.todos.x.pos?.v).toEqual({ parentId: null, list: 'inbox' });
+  });
+
+  it('升级迁移：每个 profile 原来的 NOW 进聚焦区，已经有聚焦项的不动', () => {
+    const [a] = pair();
+    a.add('x', '写周报', 'focus');
+    // 模拟旧数据：去掉聚焦标记
+    a.st = O.editTodos(a.st, P, {}, (a.now += 1000), (ts) => ts.map(({ focused: _f, ...t }) => t));
+    a.add('y', '回邮件', 'goal');
+    expect(zoneIds(a)).toEqual([]);
+    a.st = O.migrateZone(a.st, [P], {}, (a.now += 1000));
+    expect(zoneIds(a)).toEqual(['x']);
+    const again = O.migrateZone(a.st, [P], {}, (a.now += 1000));
+    expect(again.doc).toBe(a.st.doc);
+  });
+});
+
 describe('需要旅行者决定的冲突', () => {
   it('标题被两边并发改成不同内容：两边都看到同一个冲突，任一边决定后全部消失', () => {
     const [a, b] = pair();

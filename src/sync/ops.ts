@@ -57,7 +57,7 @@ type Result<R = void> = DocState & { collapsed: Collapsed; result: R };
 const done = <R>(s: DocState & { collapsed: Collapsed }, result: R): Result<R> => ({ ...s, result });
 
 /**
- * 新建。placement 不传时：FOCUS 顶层排在 NOW 之后（不抢掉正在做的那件），其它列表的顶层排在最前，子项排在最后。
+ * 新建。placement 不传时：FOCUS 顶层排在聚焦区后面（不打乱正在盯着的事），其它列表的顶层排在最前，子项排在最后。
  */
 export function addTodo(
   st: DocState,
@@ -110,6 +110,18 @@ export const reorderTodo = simple(M.reorderTodo);
 export const setCollapsed = simple(M.setCollapsed);
 export const sendToFocus = simple(M.sendToFocus);
 export const setNow = simple(M.setNow);
+export const focusTodo = simple(M.focusTodo);
+export const unfocusTodo = simple(M.unfocusTodo);
+
+/** 本机第一次用上聚焦区：每个 profile 里原来的 NOW 放进聚焦区（见 model.migrateZone） */
+export function migrateZone(st: DocState, profileIds: string[], collapsed: Collapsed, now: number): DocState {
+  let cur = st;
+  for (const pid of profileIds) {
+    const r = editTodos(cur, pid, collapsed, now, M.migrateZone);
+    cur = { doc: r.doc, clock: r.clock };
+  }
+  return cur;
+}
 export const indentTodo = simple(M.indentTodo);
 export const outdentTodo = simple(M.outdentTodo);
 export const placeTodo = simple(M.placeTodo);

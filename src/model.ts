@@ -7,11 +7,18 @@ import { COMPLETE_TO_INBOX, LIST_IDS, type ListId, type Todo } from './types';
  */
 export const orderDir = (t: Pick<Todo, 'parentId'>): 1 | -1 => (t.parentId === null ? 1 : -1);
 
-/** 未完成在前；同状态按 order 排（方向见 orderDir） */
+/** FOCUS 的顶层项：聚焦区和「接下来」都在这一层 */
+export const isFocusRoot = (t: Pick<Todo, 'list' | 'parentId'>) => t.list === 'focus' && t.parentId === null;
+
+/** 在聚焦区里：FOCUS 里打了聚焦标记的未完成顶层项 */
+export const inZone = (t: Todo) => !!t.focused && !t.done && isFocusRoot(t);
+
+/** 未完成在前；FOCUS 顶层的聚焦区排在「接下来」前面；同组按 order 排（方向见 orderDir） */
 export function compareTodos(a: Todo, b: Todo): number {
   const dir = orderDir(a);
   return (
     Number(a.done) - Number(b.done) ||
+    Number(inZone(b)) - Number(inZone(a)) ||
     dir * (b.order - a.order) ||
     dir * (b.createdAt - a.createdAt) ||
     (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
@@ -69,13 +76,41 @@ export function descendantIds(todos: Todo[], id: string): Set<string> {
   return out;
 }
 
+/** FOCUS 里未完成的顶层项：聚焦区在前，「接下来」在后 */
+const openFocusRoots = (todos: Todo[]) => todos.filter((t) => isFocusRoot(t) && !t.done).sort(compareTodos);
+
+/** 聚焦区：同时盯着的几件事，按手动顺序 */
+export function zoneOf(todos: Todo[]): Todo[] {
+  return openFocusRoots(todos).filter((t) => t.focused);
+}
+
+/** 「接下来」：FOCUS 里没在聚焦区的未完成顶层项 */
+export function queueOf(todos: Todo[]): Todo[] {
+  return openFocusRoots(todos).filter((t) => !t.focused);
+}
+
+/** 去掉聚焦标记（移出 FOCUS 顶层时） */
+function dropFocus(t: Todo): Todo {
+  if (!t.focused) return t;
+  const n = { ...t };
+  delete n.focused;
+  return n;
+}
+
 /**
  * 新建时排在哪。不传时顶层项排最前、子项排最后（见 orderDir）。
- * - 'top'：排在同级最前
- * - 'afterNow'：顶层项排在 NOW（第一件未完成的顶层项）之后
- * - { after }：紧跟在某个未完成的同级后面（编辑时回车新建下一条）
+ * - 'top'：排在同级最前；FOCUS 顶层 = 放进聚焦区最前（新建并设为现在）
+ * - 'afterNow'：FOCUS 顶层排在聚焦区后面（「接下来」的第一位）；FOCUS 里还没有未完成的事时直接进聚焦区
+ * - { after }：紧跟在某个未完成的同级后面（编辑时回车新建下一条）；FOCUS 顶层跟着那一条在不在聚焦区
  */
 export type Placement = 'top' | 'afterNow' | { after: string };
+
+/** 排到聚焦区后面（「接下来」的第一位）；FOCUS 里只有它一件未完成的事时直接进聚焦区 */
+function afterZone(todos: Todo[], id: string): Todo[] {
+  const others = openFocusRoots(todos).filter((t) => t.id !== id);
+  if (!others.length) return reorderTodo(todos, id, 0, true);
+  return reorderTodo(todos, id, others.filter((t) => t.focused).length, false);
+}
 
 export function createTodo(
   todos: Todo[],
@@ -100,28 +135,31 @@ export function createTodo(
   // 给折叠着的父项加子项时自动展开，免得新项"消失"
   if (parent?.collapsed) next = next.map((t) => (t.id === parent.id ? { ...t, collapsed: false } : t));
   const placement = input.placement;
-  if (placement === 'afterNow' && !parent) next = reorderTodo(next, todo.id, 1);
+  const focusRoot = !parent && list === 'focus';
+  if (focusRoot && placement === 'top') next = reorderTodo(next, todo.id, 0, true);
+  else if (focusRoot && placement === 'afterNow') next = afterZone(next, todo.id);
+  else if (placement === 'afterNow' && !parent) next = reorderTodo(next, todo.id, 1);
   else if (placement === 'top' && parent) next = reorderTodo(next, todo.id, 0);
   else if (typeof placement === 'object') {
-    const at = siblingsOf(next, todo).filter((t) => !t.done && t.id !== todo.id).findIndex((t) => t.id === placement.after);
-    if (at >= 0) next = reorderTodo(next, todo.id, at + 1);
+    const sibs = siblingsOf(next, todo).filter((t) => !t.done && t.id !== todo.id);
+    const at = sibs.findIndex((t) => t.id === placement.after);
+    if (at >= 0) next = reorderTodo(next, todo.id, at + 1, focusRoot ? !!sibs[at].focused : undefined);
   }
   return next;
 }
 
 /**
- * 送进 FOCUS：整棵移到 FOCUS 顶层，排在 NOW 之后，不抢掉当前正在做的那件。
- * 已经是 FOCUS 顶层项时原样返回。
+ * 送进 FOCUS：整棵移到 FOCUS 顶层，排在聚焦区后面（「接下来」的第一位），不打乱正在盯着的事。
+ * FOCUS 里原本没有未完成的事时直接进聚焦区。已经是 FOCUS 顶层项时原样返回。
  */
 export function sendToFocus(todos: Todo[], id: string): Todo[] {
   const target = todos.find((t) => t.id === id);
-  if (!target || (target.list === 'focus' && target.parentId === null)) return todos;
-  const moved = moveTodo(todos, id, 'focus');
-  return target.done ? moved : reorderTodo(moved, id, 1);
+  if (!target || isFocusRoot(target)) return todos;
+  return moveTodo(todos, id, 'focus');
 }
 
 /**
- * 设为现在：移到 FOCUS 顶层第 1 位，成为新的 NOW。
+ * 设为现在：放进聚焦区最前面。
  * 从别的列表或父项下来的先整棵移进 FOCUS；已完成的先恢复为未完成。
  */
 export function setNow(todos: Todo[], id: string): Todo[] {
@@ -129,12 +167,43 @@ export function setNow(todos: Todo[], id: string): Todo[] {
   if (!target) return todos;
   let next = target.done ? uncompleteTodo(todos, id) : todos;
   next = moveTodo(next, id, 'focus');
-  return reorderTodo(next, id, 0);
+  return reorderTodo(next, id, 0, true);
 }
 
-/** FOCUS 里的 NOW：手动顺序排第一的未完成顶层项 */
+/**
+ * 放进聚焦区，排在聚焦区里第 index 位（不给就排最后）。
+ * 从别的列表或父项下来的先整棵移进 FOCUS；已完成的先恢复为未完成。
+ */
+export function focusTodo(todos: Todo[], id: string, index?: number): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target) return todos;
+  let next = target.done ? uncompleteTodo(todos, id) : todos;
+  next = moveTodo(next, id, 'focus');
+  const zoneLen = zoneOf(next).filter((t) => t.id !== id).length;
+  return reorderTodo(next, id, Math.max(0, Math.min(index ?? zoneLen, zoneLen)), true);
+}
+
+/** 移出聚焦区：回到「接下来」的第 index 位（默认第一位）。不在聚焦区的原样返回 */
+export function unfocusTodo(todos: Todo[], id: string, index = 0): Todo[] {
+  const target = todos.find((t) => t.id === id);
+  if (!target || !inZone(target)) return todos;
+  const zoneLen = zoneOf(todos).filter((t) => t.id !== id).length;
+  return reorderTodo(todos, id, zoneLen + Math.max(0, index), false);
+}
+
+/** 聚焦区里排第一的那件（「现在」）；聚焦区空着时为 null */
 export function nowOf(todos: Todo[]): Todo | null {
-  return todos.filter((t) => t.list === 'focus' && t.parentId === null && !t.done).sort(compareTodos)[0] ?? null;
+  return zoneOf(todos)[0] ?? null;
+}
+
+/**
+ * 升级到聚焦区：FOCUS 里有未完成的事、却一件都没在聚焦区时，把原来的 NOW（手动顺序排第一的那件）放进去。
+ * 只在本机第一次用上聚焦区时跑一次（之后聚焦区空着是旅行者自己清空的）。
+ */
+export function migrateZone(todos: Todo[]): Todo[] {
+  const open = openFocusRoots(todos);
+  if (!open.length || open.some((t) => t.focused)) return todos;
+  return todos.map((t) => (t.id === open[0].id ? { ...t, focused: true } : t));
 }
 
 export interface CompleteResult {
@@ -155,7 +224,7 @@ export function completeTodo(todos: Todo[], id: string, now: number): CompleteRe
   const next = todos.map((t) => {
     if (t.id !== id && !subtree.has(t.id)) return t;
     const done = t.done ? t : { ...t, done: true, completedAt: now, completedFrom: t.list, testing: false };
-    return moveToInbox ? { ...done, list: 'inbox' as ListId } : done;
+    return moveToInbox ? dropFocus({ ...done, list: 'inbox' as ListId }) : done;
   });
   return { todos: next, movedTo: moveToInbox ? 'inbox' : null };
 }
@@ -185,6 +254,7 @@ export function uncompleteTodo(todos: Todo[], id: string): Todo[] {
 /**
  * 移到另一个列表：子孙跟着走；子项会脱离原父项，成为目标列表的顶层项。
  * 移进 VERIFY 的顶层项本身就是待测：回到未完成，原地待测标记不再需要。
+ * 移出 FOCUS 顶层就离开聚焦区；移进 FOCUS 的未完成项排在聚焦区后面（FOCUS 原本是空的就直接进聚焦区）。
  */
 export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
   const target = todos.find((t) => t.id === id);
@@ -192,14 +262,15 @@ export function moveTodo(todos: Todo[], id: string, list: ListId): Todo[] {
   if (target.list === list && target.parentId === null) return todos;
   const subtree = descendantIds(todos, id);
   const intoVerify = list === 'verify';
-  return todos.map((t) => {
+  const next = todos.map((t) => {
     if (t.id === id) {
-      const moved = { ...t, list, parentId: null };
+      const moved = dropFocus({ ...t, list, parentId: null });
       return intoVerify ? { ...moved, done: false, completedAt: null, completedFrom: undefined, testing: false } : moved;
     }
     if (subtree.has(t.id)) return { ...t, list };
     return t;
   });
+  return list === 'focus' && !target.done ? afterZone(next, id) : next;
 }
 
 /**
@@ -215,7 +286,7 @@ export function reparentTodo(todos: Todo[], id: string, parentId: string): Todo[
   const maxOrder = todos.reduce((m, t) => (t.parentId === parentId ? Math.max(m, t.order) : m), -Infinity);
   const order = Math.max(target.order, maxOrder + 1);
   return todos.map((t) => {
-    if (t.id === id) return { ...t, parentId, list: parent.list, order };
+    if (t.id === id) return dropFocus({ ...t, parentId, list: parent.list, order });
     if (subtree.has(t.id)) return { ...t, list: parent.list };
     // 挂到折叠着的父项下时自动展开，免得它"消失"
     if (t.id === parentId && t.collapsed) return { ...t, collapsed: false };
@@ -228,29 +299,64 @@ export function reparentTodo(todos: Todo[], id: string, parentId: string): Todo[
  * toIndex 是把该项从组里拿掉之后的插入位置。
  * 只改被拖的那一项：取新位置上下两个邻居 order 的中点（多端同步时，两台设备拖不同的项互不影响）。
  * 邻居的 order 相同、插不进去时，才给整组重新分配。
+ *
+ * FOCUS 的未完成顶层项是「聚焦区 + 接下来」一组，聚焦区排在前面：
+ * - focused 指定进不进聚焦区，位置夹在那一段里；
+ * - 不指定时按落点推断：落在聚焦区那一段就进，落在后面就出，正好在分界上保持原样（手机端拖动、agent 排序走这里）。
+ * 聚焦区的 order 总比「接下来」的大，没升级的旧版本会把聚焦区第一件当 NOW；
+ * 多端并发把这个顺序弄乱时，这次排序顺手给整组重新编号。
  */
-export function reorderTodo(todos: Todo[], id: string, toIndex: number): Todo[] {
+export function reorderTodo(todos: Todo[], id: string, toIndex: number, focused?: boolean): Todo[] {
   const target = todos.find((t) => t.id === id);
   if (!target) return todos;
   const dir = orderDir(target);
   const group = siblingsOf(todos, target).filter((t) => t.done === target.done);
   const from = group.findIndex((t) => t.id === id);
   const rest = group.filter((t) => t.id !== id);
-  const to = Math.max(0, Math.min(toIndex, rest.length));
-  if (to === from) return todos;
+  let to = Math.max(0, Math.min(toIndex, rest.length));
+  const zoned = isFocusRoot(target) && !target.done;
+  const was = zoned && !!target.focused;
+  let want = was;
+  let broken = false;
+  let selfBad = false;
+  if (zoned) {
+    const zone = rest.filter((t) => t.focused);
+    const queue = rest.filter((t) => !t.focused);
+    want = focused ?? (to < zone.length ? true : to > zone.length ? false : was);
+    to = want ? Math.min(to, zone.length) : Math.max(to, zone.length);
+    const zoneMin = Math.min(...zone.map((t) => t.order));
+    const queueMax = Math.max(...queue.map((t) => t.order));
+    broken = zone.length > 0 && queue.length > 0 && zoneMin <= queueMax;
+    // 只有它自己的 order 和所在那一段对不上（例如刚从别的列表移进来）：只挪它
+    selfBad = want ? target.order <= queueMax : target.order >= zoneMin;
+  }
+  if (to === from && want === was && !broken && !selfBad) return todos;
+  const patch = (t: Todo, order: number): Todo => {
+    if (!zoned) return { ...t, order };
+    const n = { ...t, order, focused: true };
+    if (!want) delete (n as Partial<Todo>).focused;
+    return n;
+  };
   const above = rest[to - 1];
   const below = rest[to];
+  // 原来的 order 已经落在新邻居之间（只是进 / 出聚焦区）：不改 order
+  const fits = (!above || dir * (above.order - target.order) > 0) && (!below || dir * (target.order - below.order) > 0);
   let order: number | null;
-  if (!above && !below) order = null;
+  if (broken) order = null;
+  else if (fits) order = target.order;
+  else if (!above && !below) order = null;
   else if (!above) order = below.order + dir;
   else if (!below) order = above.order - dir;
   else order = Math.abs(above.order - below.order) > 1e-6 ? (above.order + below.order) / 2 : null;
-  if (order !== null) return todos.map((t) => (t.id === id ? { ...t, order } : t));
+  if (order !== null) return todos.map((t) => (t.id === id ? patch(t, order) : t));
   // 插不进去：按新顺序给整组重新编号（保持在原来的端点附近，新建项的位置规则不变）
   const arranged = [...rest.slice(0, to), target, ...rest.slice(to)];
   const top = dir === 1 ? Math.max(...group.map((t) => t.order)) : Math.min(...group.map((t) => t.order));
   const newOrder = new Map(arranged.map((t, i) => [t.id, top - dir * i]));
-  return todos.map((t) => (newOrder.has(t.id) && newOrder.get(t.id) !== t.order ? { ...t, order: newOrder.get(t.id)! } : t));
+  return todos.map((t) => {
+    if (t.id === id) return patch(t, newOrder.get(t.id)!);
+    return newOrder.has(t.id) && newOrder.get(t.id) !== t.order ? { ...t, order: newOrder.get(t.id)! } : t;
+  });
 }
 
 /**
@@ -292,14 +398,19 @@ export function outdentTodo(todos: Todo[], id: string): Todo[] {
   const at = siblingsOf(next, moved)
     .filter((t) => t.done === moved.done && t.id !== id)
     .findIndex((t) => t.id === parent.id);
-  return at >= 0 ? reorderTodo(next, id, at + 1) : next;
+  // FOCUS 里升成顶层：原父项在聚焦区，它也留在聚焦区
+  return at >= 0 ? reorderTodo(next, id, at + 1, isFocusRoot(moved) ? inZone(parent) : undefined) : next;
 }
 
-/** 自由拖拽的落点：挂到 parentId 下（顶层为 null），排在同级、同完成状态的第 index 位 */
+/**
+ * 自由拖拽的落点：挂到 parentId 下（顶层为 null），排在同级、同完成状态的第 index 位。
+ * FOCUS 顶层的 index 按「聚焦区 + 接下来」连起来数；focused 指定进不进聚焦区，不给就按落点推断（见 reorderTodo）。
+ */
 export interface PlaceTarget {
   list: ListId;
   parentId: string | null;
   index: number;
+  focused?: boolean;
 }
 
 /**
@@ -325,13 +436,13 @@ export function placeTodo(todos: Todo[], id: string, target: PlaceTarget): Todo[
       if (t.list !== 'verify') patch = { ...patch, done: false, completedAt: null, completedFrom: undefined };
     } else if (parent && t.parentId === null && t.list === 'verify' && list === 'verify' && !t.done) patch.testing = true;
     next = todos.map((x) => {
-      if (x.id === id) return { ...x, ...patch };
+      if (x.id === id) return dropFocus({ ...x, ...patch });
       if (subtree.has(x.id) && x.list !== list) return { ...x, list };
       if (x.id === parentId && x.collapsed) return { ...x, collapsed: false };
       return x;
     });
   }
-  return reorderTodo(next, id, target.index);
+  return reorderTodo(next, id, target.index, target.focused);
 }
 
 export function deleteTodo(todos: Todo[], id: string): Todo[] {
@@ -389,6 +500,7 @@ export function sanitize(raw: unknown): Todo[] {
       order: typeof t.order === 'number' ? t.order : createdAt,
       collapsed: !!t.collapsed,
       testing: !!t.testing && !t.done,
+      ...(t.focused === true ? { focused: true } : {}),
     });
   }
   const byId = new Map(todos.map((t) => [t.id, t]));
@@ -410,5 +522,7 @@ export function sanitize(raw: unknown): Todo[] {
     return cur.list;
   };
   for (const t of todos) t.list = rootList(t);
+  // 聚焦标记只留在 FOCUS 的顶层项上
+  for (const t of todos) if (t.focused && !isFocusRoot(t)) delete t.focused;
   return todos;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { completeTodo, createTodo, nowOf, setNow } from '../model';
+import { completeTodo, createTodo, focusTodo, nowOf, setNow } from '../model';
 import type { ListId, Todo } from '../types';
 import { DAY, type Profile } from './data';
 import { WIDGET_INBOX_LIMIT, WIDGET_NEXT_LIMIT, WIDGET_SUB_LIMIT, widgetSnapshot } from './widgetData';
@@ -26,7 +26,7 @@ const profile = (todos: Todo[], over: Partial<Profile> = {}): Profile => ({
 const snap = (todos: Todo[], now = NOON) => widgetSnapshot([profile(todos)], 'p1', now).profiles[0];
 
 describe('小组件快照', () => {
-  it('NOW 是 FOCUS 第一件未完成顶层项，其余按顺序是 NEXT', () => {
+  it('NOW 是聚焦区第一件（聚焦区空着时是「接下来」第一件），其余按顺序是 NEXT', () => {
     let s: Todo[] = [];
     s = add(s, 'a');
     s = add(s, 'b');
@@ -34,11 +34,16 @@ describe('小组件快照', () => {
     s = add(s, 'inbox 里的', 'inbox');
     s = add(s, 'b 的子项', 'focus', 'b');
     s = completeTodo(s, 'a', NOON).todos;
-    const w = snap(s);
-    expect(w.now?.id).toBe(nowOf(s)?.id);
+    let w = snap(s);
     expect(w.now?.title).toBe('c');
     expect(w.next.map((i) => i.title)).toEqual(['b']);
     expect(w.open).toBe(2);
+    // 聚焦区排在前面
+    s = focusTodo(s, 'b');
+    w = snap(s);
+    expect(w.now?.id).toBe(nowOf(s)?.id);
+    expect(w.now?.title).toBe('b');
+    expect(w.next.map((i) => i.title)).toEqual(['c']);
   });
 
   it('设为现在后 NOW 跟着变', () => {

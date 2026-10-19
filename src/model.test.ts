@@ -5,12 +5,15 @@ import {
   completeTodo,
   createTodo,
   deleteTodo,
+  focusTodo,
   markForTest,
   indentTodo,
+  migrateZone,
   moveTodo,
   nowOf,
   outdentTodo,
   openCount,
+  queueOf,
   reorderTodo,
   reparentTodo,
   rootsOf,
@@ -18,7 +21,9 @@ import {
   sendToFocus,
   setNow,
   uncompleteTodo,
+  unfocusTodo,
   unmarkTest,
+  zoneOf,
 } from './model';
 import type { ListId, Todo } from './types';
 
@@ -70,52 +75,78 @@ describe('排序', () => {
   });
 });
 
-describe('NOW：FOCUS 一次只做一件', () => {
+describe('聚焦区：FOCUS 里同时盯着的几件事', () => {
+  /** a b c，a 在聚焦区 */
   const focus3 = () => {
     let s: Todo[] = [];
     s = add(s, 'c', 'focus', null, 1);
     s = add(s, 'b', 'focus', null, 2);
-    s = add(s, 'a', 'focus', null, 3); // a b c，a 是 NOW
-    return s;
+    s = add(s, 'a', 'focus', null, 3);
+    return focusTodo(s, 'a');
+  };
+  const zone = (s: Todo[]) => zoneOf(s).map((t) => t.id);
+  const queue = (s: Todo[]) => queueOf(s).map((t) => t.id);
+  /** 聚焦区的 order 都比「接下来」的大：没升级的旧版本把聚焦区第一件当 NOW */
+  const ordered = (s: Todo[]) => {
+    const z = zoneOf(s).map((t) => t.order);
+    const q = queueOf(s).map((t) => t.order);
+    return !z.length || !q.length || Math.min(...z) > Math.max(...q);
   };
 
-  it('新建排在 NOW 之后，不抢掉正在做的那件', () => {
+  it('新建排在聚焦区后面，不打乱正在盯着的事；FOCUS 空着时直接进聚焦区', () => {
     let s = focus3();
     s = createTodo(s, { id: 'n', title: 'n', list: 'focus', now: 9, placement: 'afterNow' });
     expect(titles(s, 'focus')).toEqual(['a', 'n', 'b', 'c']);
+    expect(zone(s)).toEqual(['a']);
     expect(nowOf(s)?.id).toBe('a');
-    // FOCUS 是空的时候直接成为 NOW
+    // ⌘↵：新建并放进聚焦区最前
+    s = createTodo(s, { id: 't', title: 't', list: 'focus', now: 10, placement: 'top' });
+    expect(zone(s)).toEqual(['t', 'a']);
+    expect(ordered(s)).toBe(true);
+    // FOCUS 是空的时候直接进聚焦区
     let e: Todo[] = [];
     e = createTodo(e, { id: 'x', title: 'x', list: 'focus', now: 1, placement: 'afterNow' });
     expect(nowOf(e)?.id).toBe('x');
     // 子项不受影响
-    s = createTodo(s, { id: 'k', title: 'k', list: 'focus', parentId: 'b', now: 10, placement: 'afterNow' });
+    s = createTodo(s, { id: 'k', title: 'k', list: 'focus', parentId: 'b', now: 11, placement: 'afterNow' });
     expect(s.find((t) => t.id === 'k')?.parentId).toBe('b');
+    expect(s.find((t) => t.id === 'k')?.focused).toBeUndefined();
   });
 
-  it('完成的 NOW 不算：已完成的排在后面，下一件接替', () => {
+  it('聚焦区最后一件做完后空着，不自动补下一件', () => {
     let s = focus3();
-    s = completeTodo(s, 'a', 10).todos; // FOCUS 顶层完成后进 INBOX
-    expect(nowOf(s)?.id).toBe('b');
+    s = completeTodo(s, 'a', 10).todos; // FOCUS 顶层完成后进 INBOX，也离开聚焦区
+    expect(nowOf(s)).toBeNull();
+    expect(s.find((t) => t.id === 'a')?.focused).toBeUndefined();
+    expect(queue(s)).toEqual(['b', 'c']);
     s = createTodo(s, { id: 'n', title: 'n', list: 'focus', now: 11, placement: 'afterNow' });
-    expect(titles(s, 'focus')).toEqual(['b', 'n', 'c']);
+    expect(zone(s)).toEqual([]);
+    expect(titles(s, 'focus')).toEqual(['n', 'b', 'c']);
   });
 
-  it('送进 FOCUS：整棵移过来，排在 NOW 之后', () => {
+  it('送进 FOCUS：整棵移过来，排在聚焦区后面；FOCUS 空着时直接进聚焦区', () => {
     let s = focus3();
     s = add(s, 'i', 'inbox', null, 50);
     s = add(s, 'ic', 'inbox', 'i', 51);
     s = sendToFocus(s, 'i');
     expect(titles(s, 'focus')).toEqual(['a', 'i', 'b', 'c']);
+    expect(zone(s)).toEqual(['a']);
     expect(s.find((t) => t.id === 'ic')?.list).toBe('focus');
+    expect(ordered(s)).toBe(true);
     // 已经在 FOCUS 顶层的原样返回
     expect(sendToFocus(s, 'b')).toBe(s);
+    let e: Todo[] = [];
+    e = add(e, 'j', 'inbox');
+    e = sendToFocus(e, 'j');
+    expect(nowOf(e)?.id).toBe('j');
   });
 
-  it('设为现在：移到 FOCUS 第 1 位；别的列表、子项、已完成的都先归位', () => {
+  it('设为现在：放进聚焦区最前；别的列表、子项、已完成的都先归位', () => {
     let s = focus3();
     s = setNow(s, 'c');
     expect(titles(s, 'focus')).toEqual(['c', 'a', 'b']);
+    expect(zone(s)).toEqual(['c', 'a']);
+    expect(ordered(s)).toBe(true);
     s = add(s, 'g', 'goal', null, 60);
     s = setNow(s, 'g');
     expect(nowOf(s)?.id).toBe('g');
@@ -127,6 +158,107 @@ describe('NOW：FOCUS 一次只做一件', () => {
     s = setNow(s, 'b');
     expect(nowOf(s)?.id).toBe('b');
     expect(s.find((t) => t.id === 'b')?.done).toBe(false);
+  });
+
+  it('放进 / 移出聚焦区：可以指定排第几，顺序始终是聚焦区在前', () => {
+    let s = focus3(); // [a] b c
+    s = focusTodo(s, 'c'); // 不给位置就排最后
+    expect(zone(s)).toEqual(['a', 'c']);
+    s = focusTodo(s, 'b', 1);
+    expect(zone(s)).toEqual(['a', 'b', 'c']);
+    expect(queue(s)).toEqual([]);
+    s = unfocusTodo(s, 'b');
+    expect(zone(s)).toEqual(['a', 'c']);
+    expect(queue(s)).toEqual(['b']);
+    expect(ordered(s)).toBe(true);
+    // 不在聚焦区的移出时原样返回；别的列表的放进来时整棵移进 FOCUS
+    expect(unfocusTodo(s, 'b')).toBe(s);
+    s = add(s, 'g', 'goal', null, 60);
+    s = add(s, 'gc', 'goal', 'g', 61);
+    s = focusTodo(s, 'g', 0);
+    expect(zone(s)).toEqual(['g', 'a', 'c']);
+    expect(s.find((t) => t.id === 'gc')?.list).toBe('focus');
+    expect(ordered(s)).toBe(true);
+  });
+
+  it('排序：不指定时落在聚焦区那一段就进，落在后面就出，正好在分界上保持原样', () => {
+    let s = focus3(); // [a] b c
+    s = focusTodo(s, 'b'); // [a b] c
+    // c 拖到第 0 位：进聚焦区
+    let r = reorderTodo(s, 'c', 0);
+    expect(zone(r)).toEqual(['c', 'a', 'b']);
+    // a 拖到最后：出聚焦区
+    r = reorderTodo(s, 'a', 2);
+    expect(zone(r)).toEqual(['b']);
+    expect(queue(r)).toEqual(['c', 'a']);
+    // 分界上：c 还在「接下来」第一位，b 还在聚焦区最后
+    expect(reorderTodo(s, 'c', 2)).toBe(s);
+    expect(reorderTodo(s, 'b', 1)).toBe(s);
+    // 明确指定：同一个分界位置上进 / 出
+    r = reorderTodo(s, 'c', 2, true);
+    expect(zone(r)).toEqual(['a', 'b', 'c']);
+    r = reorderTodo(s, 'b', 1, false);
+    expect(zone(r)).toEqual(['a']);
+    expect(queue(r)).toEqual(['b', 'c']);
+    expect(ordered(r)).toBe(true);
+    // 指定的位置越界时夹在那一段里
+    r = reorderTodo(s, 'c', 0, false);
+    expect(queue(r)).toEqual(['c']);
+  });
+
+  it('离开 FOCUS 顶层就离开聚焦区；聚焦项的子项升成顶层时留在聚焦区', () => {
+    let s = focus3(); // [a] b c
+    s = add(s, 'a1', 'focus', 'a', 10);
+    s = add(s, 'b1', 'focus', 'b', 11);
+    // 子项升成顶层：跟着原父项
+    let r = outdentTodo(s, 'a1');
+    expect(zone(r)).toEqual(['a', 'a1']);
+    r = outdentTodo(s, 'b1');
+    expect(zone(r)).toEqual(['a']);
+    expect(queue(r)).toEqual(['b', 'b1', 'c']);
+    // 送去验证、移到别的列表、缩进成子项：都去掉标记
+    expect(markForTest(s, 'a').find((t) => t.id === 'a')?.focused).toBeUndefined();
+    expect(moveTodo(s, 'a', 'goal').find((t) => t.id === 'a')?.focused).toBeUndefined();
+    r = focusTodo(s, 'b'); // [a b] c
+    r = indentTodo(r, 'b');
+    expect(r.find((t) => t.id === 'b')?.parentId).toBe('a');
+    expect(r.find((t) => t.id === 'b')?.focused).toBeUndefined();
+    expect(zone(r)).toEqual(['a']);
+    // 编辑时在聚焦项后面回车：新的一条也在聚焦区
+    r = createTodo(s, { id: 'n', title: 'n', list: 'focus', now: 20, placement: { after: 'a' } });
+    expect(zone(r)).toEqual(['a', 'n']);
+    r = createTodo(s, { id: 'n', title: 'n', list: 'focus', now: 20, placement: { after: 'b' } });
+    expect(queue(r)).toEqual(['b', 'n', 'c']);
+  });
+
+  it('多端并发把顺序弄乱（「接下来」的 order 比聚焦区大）时，下一次排序重新编号', () => {
+    let s = focus3(); // [a] b c
+    // 旧版本「设为现在」只改 order：c 的 order 跑到最大，但不在聚焦区
+    s = s.map((t) => (t.id === 'c' ? { ...t, order: 100 } : t));
+    expect(zone(s)).toEqual(['a']);
+    expect(queue(s)).toEqual(['c', 'b']);
+    expect(ordered(s)).toBe(false);
+    s = reorderTodo(s, 'b', 0, false);
+    expect(queue(s)).toEqual(['b', 'c']);
+    expect(ordered(s)).toBe(true);
+  });
+
+  it('读入时只在 FOCUS 顶层留聚焦标记；升级时把原来的 NOW 放进聚焦区', () => {
+    const raw = [
+      { id: 'f', title: 'f', list: 'focus', parentId: null, order: 3, focused: true },
+      { id: 'k', title: 'k', list: 'focus', parentId: 'f', order: 1, focused: true },
+      { id: 'i', title: 'i', list: 'inbox', parentId: null, order: 2, focused: true },
+    ];
+    const t = sanitize(raw);
+    expect(t.filter((x) => x.focused).map((x) => x.id)).toEqual(['f']);
+    // 迁移：没有一件在聚焦区时，手动顺序排第一的那件进去
+    let s: Todo[] = [];
+    s = add(s, 'q', 'focus', null, 1);
+    s = add(s, 'p', 'focus', null, 2);
+    s = migrateZone(s);
+    expect(zone(s)).toEqual(['p']);
+    expect(migrateZone(s)).toBe(s);
+    expect(migrateZone([])).toEqual([]);
   });
 });
 

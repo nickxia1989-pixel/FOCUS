@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildIndex, childrenOf, completeTodo, createTodo, indentTodo, nowOf, outdentTodo, reorderTodo, rootsOf, setNow } from './model';
+import { buildIndex, childrenOf, completeTodo, createTodo, focusTodo, indentTodo, nowOf, outdentTodo, reorderTodo, rootsOf, setNow, zoneOf } from './model';
 import {
   canIndent,
   canOutdent,
@@ -12,6 +12,7 @@ import {
   draftShift,
   levelOf,
   moveIndex,
+  moveStep,
   withDraft,
   type Draft,
 } from './outline';
@@ -168,12 +169,24 @@ describe('大纲编辑：正在编辑的条目', () => {
     expect(kids(s, 'p')).toEqual(['a', 'c', 'b']);
     expect(moveIndex(s, 'b', 1)).toBeNull();
     expect(moveIndex(s, 'a', -1)).toBeNull();
-    // 顶层同样适用：FOCUS 里上移到第一个就成了 NOW
+    // FOCUS 顶层：聚焦区和「接下来」的分界也算一格
     let f: Todo[] = [];
     f = add(f, 'x', 'focus');
     f = add(f, 'y', 'focus'); // y x
-    f = reorderTodo(f, 'x', moveIndex(f, 'x', -1)!);
+    f = focusTodo(f, 'y'); // [y] x
+    const step = (id: string, dir: -1 | 1) => {
+      const m = moveStep(f, id, dir)!;
+      f = reorderTodo(f, id, m.to, m.focused);
+    };
+    step('x', -1); // 「接下来」第一件上移：先进聚焦区末尾
+    expect(zoneOf(f).map((t) => t.id)).toEqual(['y', 'x']);
+    step('x', -1);
     expect(nowOf(f)?.id).toBe('x');
+    step('y', 1); // 聚焦区最后一件下移：先出到「接下来」第一位
+    expect(zoneOf(f).map((t) => t.id)).toEqual(['x']);
+    expect(roots(f, 'focus')).toEqual(['x', 'y']);
+    expect(moveStep(f, 'y', 1)).toBeNull();
+    expect(moveStep(f, 'x', -1)).toBeNull();
   });
 });
 
