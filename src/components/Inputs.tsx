@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { addTodo } from '../actions';
 import { isMac } from '../platform';
-import { useData } from '../store';
 import { attachSession, blurDraft, DRAFT_ID, finishEdit, getDraftText, isDraftRelocating, onDraftKey, onEditKey, setDraftText } from '../editing';
 import type { ListId, Todo } from '../types';
 import { VIEW_COPY } from './copy';
@@ -166,37 +165,5 @@ export function DraftRow() {
         </span>
       </div>
     </div>
-  );
-}
-
-/**
- * 聚焦项子任务列表底部的「+ 添加子任务」（悬停这一件时出现）：回车添加后不关，可以连续加，新加的排在最后。
- */
-export function SubAdder({ parent }: { parent: Todo }) {
-  const [text, setText] = useState('');
-  return (
-    <li className={`zsub zadder ${text ? 'has-text' : ''}`}>
-      <PlusIcon className="plus" />
-      <input
-        value={text}
-        placeholder="添加子任务"
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (isComposing(e)) return;
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            const id = useData.getState().add(text, parent.list, parent.id);
-            if (id) setText('');
-          }
-          if (e.key === 'Escape') {
-            setText('');
-            e.currentTarget.blur();
-          }
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        autoComplete="off"
-        spellCheck={false}
-      />
-    </li>
   );
 }

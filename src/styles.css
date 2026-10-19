@@ -54,6 +54,7 @@
   --z-prog: rgba(11, 11, 12, 0.1);
   --z-prog-on: #b8e600;
   --z-hov: #f5f5f1;
+  --z-hov-solid: #f5f5f1;
   --z-chip: #eeeaff;
   --z-drop: #0b0b0c;
   --z-empty-ln: rgba(11, 11, 12, 0.2);
@@ -142,6 +143,7 @@
     --z-prog: rgba(255, 255, 255, 0.12);
     --z-prog-on: #d6ff3d;
     --z-hov: rgba(255, 255, 255, 0.045);
+    --z-hov-solid: #262629;
     --z-chip: rgba(184, 166, 255, 0.16);
     --z-drop: #d6ff3d;
     --z-empty-ln: rgba(255, 255, 255, 0.2);
@@ -205,6 +207,7 @@
   --z-prog: rgba(255, 255, 255, 0.12);
   --z-prog-on: #d6ff3d;
   --z-hov: rgba(255, 255, 255, 0.045);
+  --z-hov-solid: #262629;
   --z-chip: rgba(184, 166, 255, 0.16);
   --z-drop: #d6ff3d;
   --z-empty-ln: rgba(255, 255, 255, 0.2);
@@ -1017,11 +1020,29 @@ textarea {
 }
 
 .zacts {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 1px;
   margin: -2px -4px 0 0;
   flex: none;
+}
+
+/* 悬停才出现的按钮浮在行内右侧、盖在文字末尾上，不占位置：悬停前后布局完全不变 */
+.zhov {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  display: flex;
+  gap: 1px;
+  padding-left: 16px;
+  background: linear-gradient(to right, transparent, var(--z-hov-solid) 14px);
+  visibility: hidden;
+}
+
+.zitem:hover .zhov,
+.zitem.menu-open .zhov {
+  visibility: visible;
 }
 
 .zmini {
@@ -1046,15 +1067,6 @@ textarea {
 .zmini svg {
   width: 16px;
   height: 16px;
-}
-
-.zmini.hov {
-  display: none;
-}
-
-.zitem:hover .zmini.hov,
-.zitem.menu-open .zmini.hov {
-  display: grid;
 }
 
 .zprog {
@@ -1211,15 +1223,19 @@ textarea {
 }
 
 .zsub .sub-acts {
-  display: none;
+  position: absolute;
+  right: 0;
+  top: 1px;
+  display: flex;
   gap: 1px;
-  margin: -2px 0 0 auto;
-  flex: none;
+  padding-left: 16px;
+  background: linear-gradient(to right, transparent, var(--z-hov-solid) 14px);
+  visibility: hidden;
 }
 
 .zsub:hover .sub-acts,
 .zsub.menu-open .sub-acts {
-  display: flex;
+  visibility: visible;
 }
 
 .zsub .sub-acts .zmini {
@@ -1235,46 +1251,6 @@ textarea {
 .zsub.draft .zcb,
 .zitem.draft .zring {
   box-shadow: inset 0 0 0 1.5px var(--z-sring);
-}
-
-/* 添加子任务：悬停这一件时出现，正在输入时一直在 */
-.zadder {
-  display: none;
-  align-items: center;
-  color: var(--z-mu);
-}
-
-.zitem:hover .zadder,
-.zadder:focus-within,
-.zadder.has-text {
-  display: flex;
-}
-
-.zadder .plus {
-  width: 16px;
-  height: 16px;
-  flex: none;
-}
-
-.zadder input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  border-radius: 8px;
-  padding: 2px 6px;
-  margin-left: -6px;
-  font-size: 13px;
-  color: var(--z-tx);
-}
-
-.zadder input:focus {
-  background: color-mix(in srgb, var(--z-tx) 6%, transparent);
-}
-
-.zadder input::placeholder {
-  color: var(--z-mu);
 }
 
 .zmore {
@@ -1544,6 +1520,7 @@ textarea {
 
 .row.q .cb {
   display: none;
+  margin: 0.5px 1px 0.5px 0;
 }
 
 .row.q:hover .cb,
@@ -1708,6 +1685,7 @@ textarea {
 }
 
 .acts {
+  position: relative;
   display: flex;
   gap: 2px;
   align-items: center;
@@ -1715,15 +1693,22 @@ textarea {
   margin-top: -3px;
 }
 
+/* 悬停才出现的按钮浮在行内右侧、盖在文字末尾上，不占位置：悬停前后标题不会重新换行 */
 .hov {
-  display: none;
+  position: absolute;
+  right: 100%;
+  top: 0;
+  display: flex;
   gap: 2px;
   align-items: center;
+  padding-left: 18px;
+  background: linear-gradient(to right, transparent, var(--sf) 16px);
+  visibility: hidden;
 }
 
 .row:hover .hov,
 .row.menu-open .hov {
-  display: flex;
+  visibility: visible;
 }
 
 .mini {
@@ -1942,13 +1927,9 @@ textarea {
   margin-left: 18px;
 }
 
-.goal .hov {
-  display: none;
-}
-
 .goal:hover .hov,
 .goal.menu-open .hov {
-  display: flex;
+  visibility: visible;
 }
 
 .fold {
@@ -3447,11 +3428,13 @@ body.dragging .zitem:hover:not(.drop-parent) {
   padding-right: 12px;
 }
 
-body.dragging .zitem:hover .zmini.hov,
-body.dragging .zitem:hover > .grip,
-body.dragging .zitem:hover .zadder,
-body.dragging .zsub:hover .sub-acts {
+body.dragging .zitem:hover > .grip {
   display: none;
+}
+
+body.dragging .zitem:hover .zhov,
+body.dragging .zsub:hover .sub-acts {
+  visibility: hidden;
 }
 
 body.dragging .row:hover:not(.lift) {
@@ -3461,9 +3444,12 @@ body.dragging .row:hover:not(.lift) {
   border-top-color: var(--ln);
 }
 
-body.dragging .row:hover .hov,
 body.dragging .row:hover .grip {
   display: none;
+}
+
+body.dragging .row:hover .hov {
+  visibility: hidden;
 }
 
 body.dragging .row.q:hover .no {

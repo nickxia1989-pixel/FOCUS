@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import { deleteWithUndo, goView, sendToVerify, setNow, toggleTodo } from '../actions';
 import { dragAttrs, startTreeDrag } from '../dnd';
-import { DRAFT_ID } from '../editing';
+import { DRAFT_ID, startAddChild } from '../editing';
 import { withDraft } from '../outline';
 import { runZoneEnter } from '../fx';
 import { buildIndex, childrenOf, rootsOf, type TreeIndex } from '../model';
@@ -10,7 +10,7 @@ import { useData, useUi } from '../store';
 import type { Todo } from '../types';
 import { VIEW_COPY } from './copy';
 import { CheckIcon, EyeCheckIcon, GripIcon, InboxIcon, MoreIcon, PlusIcon, SparkFilledIcon, TrashIcon, UpIcon } from './icons';
-import { AddBar, DraftEditor, DraftRow, SubAdder, TitleEditor } from './Inputs';
+import { AddBar, DraftEditor, DraftRow, TitleEditor } from './Inputs';
 import { EmptyArt, DoneGroup } from './ListView';
 import { draftKey, nodeVariants, openMenuAt, presenceProps, startEdit, TodoNode } from './TodoNode';
 
@@ -113,7 +113,10 @@ function ZoneDraft() {
   );
 }
 
-/** 聚焦区里的一件事：完成圈 + 标题（荧光笔）+ 送去验证；子任务、进度、添加子任务都在下面 */
+/**
+ * 聚焦区里的一件事：完成圈 + 标题（荧光笔）+ 送去验证；子任务、进度在下面。
+ * 悬停时出现的 ↑ / + / ⋯ 浮在标题行右侧、不占位置，悬停前后布局完全不变；点 + 才在子任务最后开一个空行。
+ */
 function ZoneItem({ todo, index, first }: { todo: Todo; index: TreeIndex; first: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const kids = childrenOf(index, todo.id);
@@ -171,16 +174,21 @@ function ZoneItem({ todo, index, first }: { todo: Todo; index: TreeIndex; first:
           </h3>
           {!editing && (
             <span className="zacts">
-              {!first && (
-                <button className="zmini hov" title="设为现在（移到聚焦区最前）" onClick={() => setNow(todo)}>
-                  <UpIcon />
+              <span className="zhov">
+                {!first && (
+                  <button className="zmini" title="设为现在（移到聚焦区最前）" onClick={() => setNow(todo)}>
+                    <UpIcon />
+                  </button>
+                )}
+                <button className="zmini" title="添加子任务" onClick={() => startAddChild(todo.id)}>
+                  <PlusIcon />
                 </button>
-              )}
+                <button className="zmini" title="更多操作" onClick={(e) => openMenuAt(e, todo, true)}>
+                  <MoreIcon />
+                </button>
+              </span>
               <button className="zmini" title="做完了，送去验证" onClick={(e) => sendToVerify(todo, e.currentTarget)}>
                 <EyeCheckIcon />
-              </button>
-              <button className="zmini hov" title="更多操作" onClick={(e) => openMenuAt(e, todo, true)}>
-                <MoreIcon />
               </button>
             </span>
           )}
@@ -197,10 +205,7 @@ function ZoneItem({ todo, index, first }: { todo: Todo; index: TreeIndex; first:
             </span>
           </div>
         )}
-        <ul className="zsubs">
-          {shown}
-          {!(canFold && folded) && <SubAdder parent={todo} />}
-        </ul>
+        {shown.length > 0 && <ul className="zsubs">{shown}</ul>}
         {canFold && (
           <button className="zmore" onClick={() => setFolded((v) => !v)}>
             {folded ? `展开全部 ${rows.length} 条` : '收起'}
